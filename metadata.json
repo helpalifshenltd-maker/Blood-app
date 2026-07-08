@@ -1,0 +1,6 @@
+{
+  "name": "Alif Blood Bank",
+  "description": "Adaptive Blood Donation platform that displays localized Bengali if the user is in Bangladesh, English otherwise, and fully segregates donor query pipelines per country.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

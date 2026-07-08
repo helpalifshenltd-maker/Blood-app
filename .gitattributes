@@ -1,0 +1,17 @@
+# Set default behavior to automatic text line ending normalization.
+* text=auto
+
+# Declare files that will always have LF line endings on checkout.
+*.sh text eol=lf
+gradlew text eol=lf
+
+# Explicitly declare binary files to prevent corruption.
+*.jar binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.jks binary
+*.keystore binary

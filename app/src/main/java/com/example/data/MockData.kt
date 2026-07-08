@@ -1,0 +1,737 @@
+package com.example.data
+
+object MockData {
+    val districts = listOf(
+        "Dhaka",
+        "Chattogram",
+        "Sylhet",
+        "Rajshahi",
+        "Khulna",
+        "Barishal",
+        "Rangpur",
+        "Mymensingh",
+        "Cumilla",
+        "Bogura"
+    )
+
+    val upazilasMap = mapOf(
+        "Dhaka" to listOf("Mirpur", "Dhanmondi", "Uttara", "Gulshan", "Badda", "Mohammadpur", "Tejgaon", "Khilgaon"),
+        "Chattogram" to listOf("Panchlaish", "Double Mooring", "Halishahar", "Hathazari", "Anwara", "Patiya", "Sitakunda"),
+        "Sylhet" to listOf("Sylhet Sadar", "Beanibazar", "Golapganj", "Balaganj", "Fenchuganj", "Jaintiapur"),
+        "Rajshahi" to listOf("Boalia", "Rajpara", "Motihar", "Paba", "Godagari", "Bagha", "Tanore"),
+        "Khulna" to listOf("Sadar", "Sonadanga", "Daulatpur", "Khalishpur", "Rupsha", "Phultala", "Bagerhat"),
+        "Barishal" to listOf("Sadar", "Gournadi", "Babuganj", "Bakerganj", "Wazirpur", "Banaripara"),
+        "Rangpur" to listOf("Sadar", "Mithapukur", "Pirganj", "Kaunia", "Badarganj", "Gangachara"),
+        "Mymensingh" to listOf("Sadar", "Trishal", "Bhaluka", "Gafargaon", "Muktagachha", "Ishwarganj"),
+        "Cumilla" to listOf("Sadar South", "Adarsha Sadar", "Debidwar", "Burichang", "Laksam", "Daudkandi"),
+        "Bogura" to listOf("Sadar", "Sherpur", "Sariakandi", "Shajahanpur", "Kahaloo", "Gabtali")
+    )
+
+    fun getUpazilasForDistrict(district: String): List<String> {
+        return upazilasMap[district] ?: listOf("Sadar")
+    }
+
+    val initialDonors = listOf(
+        BloodDonor(
+            id = "d1",
+            name = "Anisur Rahman",
+            bloodGroup = "O+",
+            phone = "01711223344",
+            email = "anis@gmail.com",
+            district = "Dhaka",
+            upazila = "Mirpur",
+            lastDonationDate = "2026-03-05",
+            isAvailable = true,
+            isApproved = true,
+            donationCount = 4
+        ),
+        BloodDonor(
+            id = "d2",
+            name = "Tasnim Alam",
+            bloodGroup = "A+",
+            phone = "01811556677",
+            email = "tasnim@gmail.com",
+            district = "Dhaka",
+            upazila = "Uttara",
+            lastDonationDate = "2026-04-12",
+            isAvailable = true,
+            isApproved = true,
+            donationCount = 2
+        ),
+        BloodDonor(
+            id = "d3",
+            name = "Rakibul Islam",
+            bloodGroup = "B+",
+            phone = "01912998877",
+            email = "rakib@gmail.com",
+            district = "Sylhet",
+            upazila = "Sylhet Sadar",
+            lastDonationDate = "2026-01-20",
+            isAvailable = true,
+            isApproved = true,
+            donationCount = 6
+        ),
+        BloodDonor(
+            id = "d4",
+            name = "Nusrat Jahan",
+            bloodGroup = "AB-",
+            phone = "01511234567",
+            email = "nusrat@gmail.com",
+            district = "Chattogram",
+            upazila = "Panchlaish",
+            lastDonationDate = "Available",
+            isAvailable = true,
+            isApproved = true,
+            donationCount = 1
+        ),
+        BloodDonor(
+            id = "d5",
+            name = "Mehedi Hasan",
+            bloodGroup = "O-",
+            phone = "01311334455",
+            email = "mehedi@gmail.com",
+            district = "Rajshahi",
+            upazila = "Boalia",
+            lastDonationDate = "2025-12-15",
+            isAvailable = false,
+            isApproved = true,
+            donationCount = 3
+        ),
+        BloodDonor(
+            id = "d6",
+            name = "Israt Kabir",
+            bloodGroup = "A-",
+            phone = "01722883311",
+            email = "israt@gmail.com",
+            district = "Khulna",
+            upazila = "Sonadanga",
+            lastDonationDate = "Available",
+            isAvailable = true,
+            isApproved = false, // Pending Approval to demonstrate admin flows!
+            donationCount = 0
+        ),
+        BloodDonor(
+            id = "d7",
+            name = "Fahim Shahriar",
+            bloodGroup = "B-",
+            phone = "01622334455",
+            email = "fahim@gmail.com",
+            district = "Dhaka",
+            upazila = "Dhanmondi",
+            lastDonationDate = "2026-02-18",
+            isAvailable = true,
+            isApproved = true,
+            donationCount = 5
+        ),
+        BloodDonor(
+            id = "d21",
+            name = "Russell Ahmed",
+            bloodGroup = "O+",
+            phone = "01722009988",
+            email = "russell@gmail.com",
+            district = "Dhaka",
+            upazila = "Badda",
+            lastDonationDate = "2026-05-20",
+            isAvailable = true,
+            isApproved = true,
+            donationCount = 8,
+            country = "Bangladesh"
+        ),
+        BloodDonor(
+            id = "d8",
+            name = "Sania Mirza",
+            bloodGroup = "AB+",
+            phone = "01755123456",
+            email = "sania@gmail.com",
+            district = "Barishal",
+            upazila = "Gournadi",
+            lastDonationDate = "2026-05-01",
+            isAvailable = true,
+            isApproved = true,
+            donationCount = 2,
+            country = "Bangladesh"
+        ),
+        BloodDonor(
+            id = "d9",
+            name = "John Doe",
+            bloodGroup = "O+",
+            phone = "+12025550143",
+            email = "john@gmail.com",
+            district = "New York",
+            upazila = "Manhattan",
+            lastDonationDate = "Available",
+            isAvailable = true,
+            isApproved = true,
+            donationCount = 4,
+            country = "United States"
+        ),
+        BloodDonor(
+            id = "d11",
+            name = "Sarah Jenkins",
+            bloodGroup = "B+",
+            phone = "+14155552671",
+            email = "sarah@gmail.com",
+            district = "California",
+            upazila = "San Francisco",
+            lastDonationDate = "Available",
+            isAvailable = true,
+            isApproved = true,
+            donationCount = 3,
+            country = "United States"
+        ),
+        BloodDonor(
+            id = "d12",
+            name = "David Miller",
+            bloodGroup = "A-",
+            phone = "+17135559812",
+            email = "david@gmail.com",
+            district = "Texas",
+            upazila = "Houston",
+            lastDonationDate = "2026-04-10",
+            isAvailable = true,
+            isApproved = true,
+            donationCount = 5,
+            country = "United States"
+        ),
+        BloodDonor(
+            id = "d10",
+            name = "Rahul Sharma",
+            bloodGroup = "A+",
+            phone = "+919876543210",
+            email = "rahul@gmail.com",
+            district = "Delhi",
+            upazila = "Connaught Place",
+            lastDonationDate = "Available",
+            isAvailable = true,
+            isApproved = true,
+            donationCount = 3,
+            country = "India"
+        ),
+        BloodDonor(
+            id = "d13",
+            name = "Priya Patel",
+            bloodGroup = "O+",
+            phone = "+919833445566",
+            email = "priya@gmail.com",
+            district = "Maharashtra",
+            upazila = "Mumbai Worli",
+            lastDonationDate = "Available",
+            isAvailable = true,
+            isApproved = true,
+            donationCount = 2,
+            country = "India"
+        ),
+        BloodDonor(
+            id = "d14",
+            name = "Amit Singh",
+            bloodGroup = "AB-",
+            phone = "+918022334455",
+            email = "amit@gmail.com",
+            district = "Karnataka",
+            upazila = "Bangalore Indiranagar",
+            lastDonationDate = "Available",
+            isAvailable = true,
+            isApproved = true,
+            donationCount = 1,
+            country = "India"
+        ),
+        BloodDonor(
+            id = "d15",
+            name = "Mohammed Al-Farsi",
+            bloodGroup = "O+",
+            phone = "+966501234567",
+            email = "mohammed@gmail.com",
+            district = "Riyadh",
+            upazila = "Al-Olaya",
+            lastDonationDate = "Available",
+            isAvailable = true,
+            isApproved = true,
+            donationCount = 6,
+            country = "Saudi Arabia"
+        ),
+        BloodDonor(
+            id = "d16",
+            name = "Fatima Al-Sudairi",
+            bloodGroup = "B+",
+            phone = "+966507654321",
+            email = "fatima@gmail.com",
+            district = "Makkah",
+            upazila = "Jeddah Al-Hamra",
+            lastDonationDate = "Available",
+            isAvailable = true,
+            isApproved = true,
+            donationCount = 4,
+            country = "Saudi Arabia"
+        ),
+        BloodDonor(
+            id = "d17",
+            name = "Zainab Al-Mansoori",
+            bloodGroup = "A+",
+            phone = "+971501122334",
+            email = "zainab@gmail.com",
+            district = "Dubai",
+            upazila = "Dubai Marina",
+            lastDonationDate = "Available",
+            isAvailable = true,
+            isApproved = true,
+            donationCount = 3,
+            country = "United Arab Emirates"
+        ),
+        BloodDonor(
+            id = "d18",
+            name = "Omar Al-Shamsi",
+            bloodGroup = "B+",
+            phone = "+971507788990",
+            email = "omar@gmail.com",
+            district = "Abu Dhabi",
+            upazila = "Al-Reem Island",
+            lastDonationDate = "Available",
+            isAvailable = true,
+            isApproved = true,
+            donationCount = 5,
+            country = "United Arab Emirates"
+        ),
+        BloodDonor(
+            id = "d19",
+            name = "James Smith",
+            bloodGroup = "O-",
+            phone = "+442079460192",
+            email = "james@gmail.com",
+            district = "London",
+            upazila = "Westminster",
+            lastDonationDate = "Available",
+            isAvailable = true,
+            isApproved = true,
+            donationCount = 4,
+            country = "United Kingdom"
+        ),
+        BloodDonor(
+            id = "d20",
+            name = "Eleanor Taylor",
+            bloodGroup = "A+",
+            phone = "+441619460293",
+            email = "eleanor@gmail.com",
+            district = "Greater Manchester",
+            upazila = "Deansgate",
+            lastDonationDate = "Available",
+            isAvailable = true,
+            isApproved = true,
+            donationCount = 2,
+            country = "United Kingdom"
+        )
+    )
+
+    val initialRequests = listOf(
+        BloodRequest(
+            id = "r1",
+            patientName = "Siddiqur Rahman",
+            bloodGroup = "A+",
+            bloodAmount = "3 Bags",
+            hospitalName = "Dhaka Medical College Hospital (DMCH)",
+            district = "Dhaka",
+            upazila = "Tejgaon",
+            contactNumber = "01711998877",
+            details = "Patient has upcoming bypass surgery. Needs 3 bags. Highly urgent.",
+            isEmergency = true,
+            isApproved = true,
+            dateRequested = "2026-06-12",
+            status = "Active",
+            country = "Bangladesh"
+        ),
+        BloodRequest(
+            id = "r2",
+            patientName = "Khadiza Begum",
+            bloodGroup = "B+",
+            bloodAmount = "1 Bag",
+            hospitalName = "Chattogram General Hospital (CGH)",
+            district = "Chattogram",
+            upazila = "Double Mooring",
+            contactNumber = "01822445566",
+            details = "Thalassemia patient needs regular blood transfusion. Pls contact soon.",
+            isEmergency = true,
+            isApproved = true,
+            dateRequested = "2026-06-11",
+            status = "Active",
+            country = "Bangladesh"
+        ),
+        BloodRequest(
+            id = "r3",
+            patientName = "Mainul Hossain",
+            bloodGroup = "O-",
+            bloodAmount = "2 Bags",
+            hospitalName = "Sylhet MAG Osmani Medical College",
+            district = "Sylhet",
+            upazila = "Sylhet Sadar",
+            contactNumber = "01933556677",
+            details = "Accident emergency. Negative group is highly rare and needed ASAP.",
+            isEmergency = true,
+            isApproved = true,
+            dateRequested = "2026-06-12",
+            status = "Active",
+            country = "Bangladesh"
+        ),
+        BloodRequest(
+            id = "r4",
+            patientName = "Rowshan Ara",
+            bloodGroup = "AB+",
+            bloodAmount = "1 Bag",
+            hospitalName = "Rajshahi Medical College Hospital",
+            district = "Rajshahi",
+            upazila = "Rajpara",
+            contactNumber = "01533778899",
+            details = "Post-delivery complications. Immediate attention appreciated.",
+            isEmergency = false,
+            isApproved = true,
+            dateRequested = "2026-06-10",
+            status = "Active",
+            country = "Bangladesh"
+        ),
+        BloodRequest(
+            id = "r5",
+            patientName = "Robert Smith",
+            bloodGroup = "O+",
+            bloodAmount = "2 Bags",
+            hospitalName = "Mount Sinai Hospital",
+            district = "New York",
+            upazila = "Manhattan",
+            contactNumber = "+12025550188",
+            details = "Cardiac center emergency, needs O+ blood donors matching urgently.",
+            isEmergency = true,
+            isApproved = true,
+            dateRequested = "2026-06-12",
+            status = "Active",
+            country = "United States"
+        ),
+        BloodRequest(
+            id = "r6",
+            patientName = "Emily Davis",
+            bloodGroup = "B+",
+            bloodAmount = "1 Unit",
+            hospitalName = "Stanford Health Care",
+            district = "California",
+            upazila = "San Francisco",
+            contactNumber = "+14155554311",
+            details = "Postoperative complications. Any nearby B+ donor please reach out.",
+            isEmergency = true,
+            isApproved = true,
+            dateRequested = "2026-06-11",
+            status = "Active",
+            country = "United States"
+        ),
+        BloodRequest(
+            id = "r7",
+            patientName = "Vikram Malhotra",
+            bloodGroup = "O+",
+            bloodAmount = "2 Bags",
+            hospitalName = "AIIMS New Delhi",
+            district = "Delhi",
+            upazila = "Connaught Place",
+            contactNumber = "+919811223344",
+            details = "Undergoing major surgery, needs immediate O+ blood transfusion.",
+            isEmergency = true,
+            isApproved = true,
+            dateRequested = "2026-06-12",
+            status = "Active",
+            country = "India"
+        ),
+        BloodRequest(
+            id = "r8",
+            patientName = "Sunita Rao",
+            bloodGroup = "A+",
+            bloodAmount = "1 Bag",
+            hospitalName = "Fortis Hospital Mumbai",
+            district = "Maharashtra",
+            upazila = "Mumbai Worli",
+            contactNumber = "+919866778899",
+            details = "Thalassemia support, requires blood counts replacement.",
+            isEmergency = false,
+            isApproved = true,
+            dateRequested = "2026-06-10",
+            status = "Active",
+            country = "India"
+        ),
+        BloodRequest(
+            id = "r9",
+            patientName = "Khalid Mansoor",
+            bloodGroup = "O+",
+            bloodAmount = "3 Bags",
+            hospitalName = "King Faisal Specialist Hospital",
+            district = "Riyadh",
+            upazila = "Al-Olaya",
+            contactNumber = "+966504433221",
+            details = "Urgent blood requests for transplant surgery support.",
+            isEmergency = true,
+            isApproved = true,
+            dateRequested = "2026-06-12",
+            status = "Active",
+            country = "Saudi Arabia"
+        ),
+        BloodRequest(
+            id = "r10",
+            patientName = "Sarah Ibrahim",
+            bloodGroup = "A+",
+            bloodAmount = "1 Bag",
+            hospitalName = "Cleveland Clinic Abu Dhabi",
+            district = "Abu Dhabi",
+            upazila = "Al-Reem Island",
+            contactNumber = "+971509988776",
+            details = "Patient needs A+ blood count maintenance transfusion.",
+            isEmergency = true,
+            isApproved = true,
+            dateRequested = "2026-06-12",
+            status = "Active",
+            country = "United Arab Emirates"
+        ),
+        BloodRequest(
+            id = "r11",
+            patientName = "George Brown",
+            bloodGroup = "O-",
+            bloodAmount = "2 Bags",
+            hospitalName = "St Thomas' Hospital London",
+            district = "London",
+            upazila = "Westminster",
+            contactNumber = "+442079464455",
+            details = "Rare matching negative O blood group demanded immediately.",
+            isEmergency = true,
+            isApproved = true,
+            dateRequested = "2026-06-12",
+            status = "Active",
+            country = "United Kingdom"
+        )
+    )
+
+    val initialNotifications = listOf(
+        DonationNotification(
+            id = "n1",
+            titleEn = "Urgent O- Needed!",
+            titleBn = "জরুরি O- রক্তের প্রয়োজন!",
+            messageEn = "A critical blood request has been posted at Sylhet MAG Osmani Hospital.",
+            messageBn = "সিলেট এমএজি ওসমানী হাসপাতালে একটি অত্যন্ত জরুরি রক্তের অনুরোধ পোস্ট করা হয়েছে।",
+            timestamp = "10 mins ago",
+            isRead = false,
+            type = "ALERT",
+            country = "Bangladesh"
+        ),
+        DonationNotification(
+            id = "n2",
+            titleEn = "New Request Near You",
+            titleBn = "আপনার নিকটবর্তী নতুন অনুরোধ",
+            messageEn = "Patient Siddiqur Rahman is looking for A+ blood at DMCH, Dhaka.",
+            messageBn = "ডিএমসিএইচ, ঢাকা-তে এ+ রক্তের জন্য অনুরোধ করা হয়েছে।",
+            timestamp = "1 hour ago",
+            isRead = false,
+            type = "REQUEST",
+            country = "Bangladesh"
+        ),
+        DonationNotification(
+            id = "n3",
+            titleEn = "Welcome to Alif Blood Bank info hub",
+            titleBn = "ব্লাড কানেক্ট বিডি অ্যাপে স্বাগতম",
+            messageEn = "Register as a donor to start saving lives and participate in campaigns.",
+            messageBn = "জীবন বাঁচাতে এবং ক্যাম্পেইনে অংশ নিতে আজই রক্তদাতা হিসেবে যোগ দিন।",
+            timestamp = "Yesterday",
+            isRead = true,
+            type = "SUCCESS",
+            country = "Bangladesh"
+        ),
+        DonationNotification(
+            id = "n_us1",
+            titleEn = "Urgent O+ Needed at Mount Sinai!",
+            titleBn = "মাউন্ট সিনাই হাসপাতালে জরুরি O+ রক্ত প্রয়োজন!",
+            messageEn = "Patient Robert Smith requires matching O+ blood transfusion in NYC.",
+            messageBn = "রবার্ট স্মিথ নামক রোগীর জন্য মাউন্ট সিনাই হাসপাতালে জরুরি O+ রক্ত লাগবে।",
+            timestamp = "15 mins ago",
+            isRead = false,
+            type = "ALERT",
+            country = "United States"
+        ),
+        DonationNotification(
+            id = "n_us2",
+            titleEn = "Welcome to Blood Connect US Hub",
+            titleBn = "ব্লাড কানেক্ট ইউএস হাব-এ স্বাগতম",
+            messageEn = "Join our network of real life savers in United States of America.",
+            messageBn = "আমেরিকার রিয়েল লাইফ সেভার্স নেটওয়ার্কে আপনাকে চমৎকার সম্ভাষণ।",
+            timestamp = "Yesterday",
+            isRead = true,
+            type = "SUCCESS",
+            country = "United States"
+        ),
+        DonationNotification(
+            id = "n_in1",
+            titleEn = "AIIMS New Delhi Urgent O+ Need",
+            titleBn = "এইমস দিল্লি জরুরি O+ রক্তের অনুরোধ",
+            messageEn = "Vikram Malhotra requires immediate blood matching donor in Delhi area.",
+            messageBn = "দিল্লি অঞ্চলে বিক্রম মালহোত্রার জন্য জরুরি রক্তের ডোনার প্রয়োজন।",
+            timestamp = "30 mins ago",
+            isRead = false,
+            type = "ALERT",
+            country = "India"
+        ),
+        DonationNotification(
+            id = "n_in2",
+            titleEn = "Welcome to Blood Connect India",
+            titleBn = "ব্লাড কানেক্ট ইন্ডিয়া হাব-এ স্বাগতম",
+            messageEn = "Register today to participate in regional blood bank directory updates.",
+            messageBn = "আঞ্চলিক ব্লাড ব্যাংকের ডিরেক্টরি আপডেটে আজই যুক্ত হোন।",
+            timestamp = "Yesterday",
+            isRead = true,
+            type = "SUCCESS",
+            country = "India"
+        ),
+        DonationNotification(
+            id = "n_sa1",
+            titleEn = "Riyadh King Faisal Specialist Alert",
+            titleBn = "রিয়াদ কিং ফয়সাল স্পেশালিস্ট এলার্ট",
+            messageEn = "Khalid Mansoor requested urgent O+ blood bags.",
+            messageBn = "খালিদ মনসুরের জন্য জরুরি ও প্লাস রক্তের অনুরোধ করা হয়েছে।",
+            timestamp = "45 mins ago",
+            isRead = false,
+            type = "ALERT",
+            country = "Saudi Arabia"
+        ),
+        DonationNotification(
+            id = "n_ae1",
+            titleEn = "Abu Dhabi Cleveland Clinic Call",
+            titleBn = "আবুধাবি ক্লিভল্যান্ড ক্লিনিক থেকে জরুরি কল",
+            messageEn = "Sarah Ibrahim needs matching A+ transfusion immediately.",
+            messageBn = "সারাহ ইব্রাহিমের জন্য ক্লিভল্যান্ড ক্লিনিকে এ+ রক্তের প্রয়োজন।",
+            timestamp = "1 hour ago",
+            isRead = false,
+            type = "ALERT",
+            country = "United Arab Emirates"
+        ),
+        DonationNotification(
+            id = "n_gb1",
+            titleEn = "St Thomas' Hospital Westminster Alert",
+            titleBn = "সেন্ট থমাস হাসপাতাল ওয়েস্টমিনস্টার এলার্ট",
+            messageEn = "George Brown requires O- negative donor near London Westminster.",
+            messageBn = "জর্জ ব্রাউনের জন্য সেন্ট থমাস হাসপাতালে ও নেগেটিভ রক্ত প্রয়োজন।",
+            timestamp = "2 hours ago",
+            isRead = false,
+            type = "ALERT",
+            country = "United Kingdom"
+        )
+    )
+
+    val initialMessages = listOf(
+        ChatMessage(
+            id = "m1",
+            senderPhone = "01711223344", // Alimul Raji
+            senderName = "Alimul Raji",
+            receiverPhone = "01811556677", // Tanjina Sajjad
+            receiverName = "Tanjina Sajjad",
+            message = "Hello Tanjina, I saw your post requesting B+ blood. Is the patient still in need of a donor?",
+            timestamp = "09:30 AM",
+            isRead = true
+        ),
+        ChatMessage(
+            id = "m2",
+            senderPhone = "01811556677",
+            senderName = "Tanjina Sajjad",
+            receiverPhone = "01711223344",
+            receiverName = "Alimul Raji",
+            message = "Yes, brother! We still need 1 bag of B+ blood for my uncle's surgery at Dhaka Medical College Hospital tomorrow morning.",
+            timestamp = "09:35 AM",
+            isRead = true
+        ),
+        ChatMessage(
+            id = "m3",
+            senderPhone = "01711223344",
+            senderName = "Alimul Raji",
+            receiverPhone = "01811556677",
+            receiverName = "Tanjina Sajjad",
+            message = "Okay, I am free tomorrow morning. I can donate. Please send me the contact person's number and exact time.",
+            timestamp = "09:40 AM",
+            isRead = false
+        ),
+        ChatMessage(
+            id = "m4",
+            senderPhone = "01912998877", // Kamrul Hasan
+            senderName = "Kamrul Hasan",
+            receiverPhone = "01511234567", // Rashedul Alam
+            receiverName = "Rashedul Alam",
+            message = "আসসালামু আলাইকুম, ভাই। আপনার ও+ রক্তের রোগীর কি অবস্থা এখন? রক্ত ম্যানেজ হয়েছে?",
+            timestamp = "02:15 PM",
+            isRead = true
+        ),
+        ChatMessage(
+            id = "m5",
+            senderPhone = "01511234567",
+            senderName = "Rashedul Alam",
+            receiverPhone = "01912998877",
+            receiverName = "Kamrul Hasan",
+            message = "ওয়া আলাইকুম আসসালাম। আলহামদুলিল্লাহ ভাই, আল্লাহর রহমতে একটু আগেই একজন ডোনার রক্ত দিয়ে গেছেন। আপনার আগ্রহের জন্য অনেক ধন্যবাদ!",
+            timestamp = "02:20 PM",
+            isRead = true
+        )
+    )
+
+    val initialAmbulances = listOf(
+        Ambulance(
+            id = "amb_m1",
+            ownerName = "M Plus Team",
+            serviceName = "M Plus Ambulance (Dhaka)",
+            phone = "01600000010",
+            district = "Dhaka",
+            upazila = "Gulshan",
+            ambulanceType = "ICU",
+            description = "এম প্লাস অ্যাম্বুলেন্স সার্ভিস। গুলশান ও বনানী এলাকায় দ্রুত সেবা প্রদান করা হয়।",
+            country = "Bangladesh"
+        ),
+        Ambulance(
+            id = "amb_m2",
+            ownerName = "M Plus Team",
+            serviceName = "M Plus Ambulance (Rajshahi)",
+            phone = "01500000020",
+            district = "Rajshahi",
+            upazila = "Boalia",
+            ambulanceType = "AC",
+            description = "এম প্লাস অ্যাম্বুলেন্স সার্ভিস রাজশাহী। উন্নত মানের এসি অ্যাম্বুলেন্স।",
+            country = "Bangladesh"
+        ),
+        Ambulance(
+            id = "amb1",
+            ownerName = "Rahim Uddin",
+            serviceName = "Dhaka Emergency Service",
+            phone = "01700000001",
+            district = "Dhaka",
+            upazila = "Mirpur",
+            ambulanceType = "AC",
+            description = "Well equipped AC ambulance, 24/7 available.",
+            country = "Bangladesh"
+        ),
+        Ambulance(
+            id = "amb2",
+            ownerName = "Karim Mia",
+            serviceName = "Life Save Ambulance",
+            phone = "01800000002",
+            district = "Dhaka",
+            upazila = "Uttara",
+            ambulanceType = "ICU",
+            description = "Advanced ICU ambulance with professional support.",
+            country = "Bangladesh"
+        ),
+        Ambulance(
+            id = "amb3",
+            ownerName = "Salma Begum",
+            serviceName = "Ctg Fast Service",
+            phone = "01900000003",
+            district = "Chattogram",
+            upazila = "Panchlaish",
+            ambulanceType = "Non-AC",
+            description = "Affordable non-AC ambulance service in Chattogram.",
+            country = "Bangladesh"
+        ),
+        Ambulance(
+            id = "amb4",
+            ownerName = "John Miller",
+            serviceName = "NYC Rapid Rescue",
+            phone = "+12025550199",
+            district = "New York",
+            upazila = "Manhattan",
+            ambulanceType = "ICU",
+            description = "Critical care transport in Manhattan area.",
+            country = "United States"
+        )
+    )
+}
