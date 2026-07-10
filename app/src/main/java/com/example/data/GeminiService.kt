@@ -1,7 +1,6 @@
 package com.example.data
 
 import android.util.Log
-import com.example.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -12,19 +11,23 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
+data class RecoveryResult(
+    val verified: Boolean,
+    val password: String?,
+    val message: String
+)
+
 object GeminiService {
     private const val TAG = "GeminiService"
-    
+    private const val MODEL_NAME = "gemini-3.5-flash"
+    private const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/$MODEL_NAME:generateContent"
+
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    /**
-     * Verifies user recovery details via the Gemini API using the gemini-3.5-flash model.
-     * Returns a recovery result containing whether it is verified, the password, and a message.
-     */
     suspend fun recoverPassword(
         name: String,
         email: String,
@@ -35,179 +38,112 @@ object GeminiService {
         registeredDonors: List<BloodDonor>,
         userPasswords: Map<String, String>
     ): RecoveryResult = withContext(Dispatchers.IO) {
+        // 1. Perform actual validation against registered donors
+        val emailNormalized = email.trim().lowercase()
+        val phoneNormalized = phone.trim().replace(Regex("[^a-zA-Z0-9+]"), "")
+
+        val donor = registeredDonors.find { d ->
+            val dEmail = d.email.trim().lowercase()
+            val dPhone = d.phone.trim().replace(Regex("[^a-zA-Z0-9+]"), "")
+            
+            (dEmail == emailNormalized || dPhone == phoneNormalized) &&
+                    d.name.trim().equals(name.trim(), ignoreCase = true) &&
+                    d.bloodGroup.trim().equals(bloodGroup.trim(), ignoreCase = true) &&
+                    d.district.trim().equals(district.trim(), ignoreCase = true) &&
+                    d.upazila.trim().equals(upazila.trim(), ignoreCase = true)
+        }
+
+        if (donor == null) {
+            return@withContext RecoveryResult(
+                verified = false,
+                password = null,
+                message = "প্রদত্ত তথ্যের সাথে কোনো নিবন্ধিত রক্তদাতার মিল পাওয়া যায়নি। দয়া করে আপনার নাম, ইমেইল, ফোন নম্বর এবং রক্তের গ্রুপ পুনরায় চেক করুন।"
+            )
+        }
+
+        // Retrieve the password from map
+        val matchedEmail = donor.email.lowercase()
+        val matchedPhone = donor.phone
+        val password = userPasswords[matchedEmail] ?: userPasswords[matchedPhone] ?: "alif1234"
+
+        // 2. Call Gemini to generate a friendly greeting and recovery instruction in Bengali
         val apiKey = try {
-            BuildConfig.GEMINI_API_KEY
+            val field = com.example.BuildConfig::class.java.getField("GEMINI_API_KEY")
+            field.get(null) as? String ?: ""
         } catch (e: Exception) {
             ""
         }
 
-        if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
-            Log.e(TAG, "Gemini API key is missing or is placeholder. Falling back to local offline AI validation.")
-            return@withContext localOfflineVerify(name, email, phone, bloodGroup, district, upazila, registeredDonors, userPasswords)
+        if (apiKey.isBlank() || apiKey == "your-gemini-api-key") {
+            Log.d(TAG, "Gemini API key is missing or default. Using local fallback.")
+            return@withContext RecoveryResult(
+                verified = true,
+                password = password,
+                message = "অভিনন্দন ${donor.name}! আপনার পরিচয় সফলভাবে যাচাই করা হয়েছে। নিচে আপনার পাসওয়ার্ড দেওয়া হলো। নিরাপত্তা বজায় রাখতে এটি পরিবর্তন করার পরামর্শ দেওয়া হচ্ছে।"
+            )
         }
-
-        // Build the list of existing users to match
-        val usersJson = JSONArray()
-        for (donor in registeredDonors) {
-            val userObj = JSONObject()
-            userObj.put("name", donor.name)
-            userObj.put("email", donor.email)
-            userObj.put("phone", donor.phone)
-            userObj.put("bloodGroup", donor.bloodGroup)
-            userObj.put("district", donor.district)
-            userObj.put("upazila", donor.upazila)
-            // Match password from our map
-            val pwd = userPasswords[donor.email.lowercase()] ?: userPasswords[donor.phone] ?: "019Alif11#"
-            userObj.put("password", pwd)
-            usersJson.put(userObj)
-        }
-
-        val systemInstruction = """
-            You are the secure AI Password Recovery Controller for Alif Blood Bank.
-            Your task is to securely verify user details against our database of registered users.
-            If the details match, you recover their password.
-            
-            Database of Registered Users:
-            ${usersJson.toString(2)}
-            
-            Validation Rules:
-            1. The User-Provided Name, Email, and Phone MUST match a record in our database.
-            2. Match phone numbers exactly.
-            3. Match emails and names case-insensitively. Allow minor trailing/leading whitespaces.
-            4. Blood Group, District, and Upazila should match.
-            
-            Response Format:
-            You MUST return a JSON object ONLY. No explanation, no markdown blocks, just raw JSON with these exact fields:
-            {
-              "verified": true or false,
-              "password": "the_password_if_verified_else_null",
-              "message": "A polite message in Bengali (preferred) or English confirming the status."
-            }
-        """.trimIndent()
-
-        val prompt = """
-            Please verify these User-Provided Details:
-            - Name: $name
-            - Email: $email
-            - Phone: $phone
-            - Blood Group: $bloodGroup
-            - District: $district
-            - Upazila: $upazila
-        """.trimIndent()
 
         try {
-            // Construct generateContent request body
-            val requestJson = JSONObject()
-            
-            // contents list
-            val contentsArray = JSONArray()
-            val contentObj = JSONObject()
-            val partsArray = JSONArray()
-            val partObj = JSONObject()
-            partObj.put("text", prompt)
-            partsArray.put(partObj)
-            contentObj.put("parts", partsArray)
-            contentsArray.put(contentObj)
-            requestJson.put("contents", contentsArray)
+            val prompt = """
+                You are Alif Blood Bank password recovery assistant. 
+                A user has successfully verified their identity. 
+                Name: ${donor.name}
+                Email: ${donor.email}
+                Phone: ${donor.phone}
+                Blood Group: ${donor.bloodGroup}
+                District: ${donor.district}
+                Upazila: ${donor.upazila}
+                
+                Please generate a warm, compassionate, and extremely polite message in Bengali language welcoming them back, congratulating them on successful verification, and letting them know that their password has been securely recovered below. Keep it under 100 words. Keep it professional.
+            """.trimIndent()
 
-            // systemInstruction
-            val systemInstructionObj = JSONObject()
-            val systemPartsArray = JSONArray()
-            val systemPartObj = JSONObject()
-            systemPartObj.put("text", systemInstruction)
-            systemPartsArray.put(systemPartObj)
-            systemInstructionObj.put("parts", systemPartsArray)
-            requestJson.put("systemInstruction", systemInstructionObj)
-
-            // generationConfig to force JSON output
-            val generationConfig = JSONObject()
-            val responseFormat = JSONObject()
-            responseFormat.put("mimeType", "application/json")
-            generationConfig.put("responseFormat", responseFormat)
-            generationConfig.put("temperature", 0.1) // Low temperature for factual precision
-            requestJson.put("generationConfig", generationConfig)
-
-            val mediaType = "application/json; charset=utf-8".toMediaType()
-            val body = requestJson.toString().toRequestBody(mediaType)
-
-            val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=$apiKey"
-            val request = Request.Builder()
-                .url(url)
-                .post(body)
-                .build()
-
-            val response = client.newCall(request).execute()
-            if (!response.isSuccessful) {
-                Log.e(TAG, "Gemini API call failed with code: ${response.code}")
-                return@withContext localOfflineVerify(name, email, phone, bloodGroup, district, upazila, registeredDonors, userPasswords)
+            val jsonBody = JSONObject().apply {
+                val contents = JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("parts", JSONArray().apply {
+                            put(JSONObject().apply {
+                                put("text", prompt)
+                            })
+                        })
+                    })
+                }
+                put("contents", contents)
             }
 
-            val responseBodyString = response.body?.string() ?: ""
-            Log.d(TAG, "Gemini Raw Response: $responseBodyString")
+            val request = Request.Builder()
+                .url("$BASE_URL?key=$apiKey")
+                .post(jsonBody.toString().toRequestBody("application/json".toMediaType()))
+                .build()
 
-            val responseJson = JSONObject(responseBodyString)
-            val candidates = responseJson.getJSONArray("candidates")
-            val firstCandidate = candidates.getJSONObject(0)
-            val content = firstCandidate.getJSONObject("content")
-            val parts = content.getJSONArray("parts")
-            val replyText = parts.getJSONObject(0).getString("text").trim()
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val respStr = response.body?.string() ?: ""
+                    val respJson = JSONObject(respStr)
+                    val candidates = respJson.optJSONArray("candidates")
+                    val text = candidates?.optJSONObject(0)
+                        ?.optJSONObject("content")
+                        ?.optJSONArray("parts")
+                        ?.optJSONObject(0)
+                        ?.optString("text")
 
-            Log.d(TAG, "Gemini Reply Text: $replyText")
-
-            val replyJson = JSONObject(replyText)
-            val verified = replyJson.optBoolean("verified", false)
-            val password = replyJson.optString("password", "")
-            val message = replyJson.optString("message", "Verification completed.")
-
-            RecoveryResult(verified, if (verified) password else null, message)
+                    if (!text.isNullOrBlank()) {
+                        return@withContext RecoveryResult(
+                            verified = true,
+                            password = password,
+                            message = text.trim()
+                        )
+                    }
+                }
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error calling Gemini API: ${e.message}", e)
-            localOfflineVerify(name, email, phone, bloodGroup, district, upazila, registeredDonors, userPasswords)
-        }
-    }
-
-    /**
-     * Local fallback check for offline use or when Gemini API key is missing.
-     */
-    private fun localOfflineVerify(
-        name: String,
-        email: String,
-        phone: String,
-        bloodGroup: String,
-        district: String,
-        upazila: String,
-        registeredDonors: List<BloodDonor>,
-        userPasswords: Map<String, String>
-    ): RecoveryResult {
-        val match = registeredDonors.find { donor ->
-            val nameMatch = donor.name.equals(name, ignoreCase = true) || donor.name.contains(name, ignoreCase = true) || name.contains(donor.name, ignoreCase = true)
-            val emailMatch = donor.email.equals(email, ignoreCase = true)
-            val phoneMatch = donor.phone.replace("+88", "").trim() == phone.replace("+88", "").trim()
-            val bloodMatch = donor.bloodGroup == bloodGroup
-            
-            // Allow minor flexibility but require high matching
-            phoneMatch && (emailMatch || nameMatch)
         }
 
-        return if (match != null) {
-            val pwd = userPasswords[match.email.lowercase()] ?: userPasswords[match.phone] ?: "019Alif11#"
-            RecoveryResult(
-                verified = true,
-                password = pwd,
-                message = "সফলভাবে তথ্য যাচাই করা হয়েছে! আপনার একাউন্ট পাসওয়ার্ডটি হলো: $pwd"
-            )
-        } else {
-            RecoveryResult(
-                verified = false,
-                password = null,
-                message = "দুঃখিত, আপনার দেওয়া তথ্যের সাথে কোনো মিল পাওয়া যায়নি। দয়া করে সঠিক নাম, ইমেইল ও মোবাইল নম্বর দিন।"
-            )
-        }
+        // Generic fallback if Gemini API call fails
+        return@withContext RecoveryResult(
+            verified = true,
+            password = password,
+            message = "অভিনন্দন ${donor.name}! আপনার পরিচয় সফলভাবে যাচাই করা হয়েছে। নিচে আপনার পাসওয়ার্ড দেওয়া হলো। নিরাপত্তা বজায় রাখতে এটি পরিবর্তন করার পরামর্শ দেওয়া হচ্ছে।"
+        )
     }
 }
-
-data class RecoveryResult(
-    val verified: Boolean,
-    val password: String?,
-    val message: String
-)

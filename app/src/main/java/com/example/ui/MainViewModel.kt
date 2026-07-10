@@ -197,9 +197,7 @@ class MainViewModel(
         list.filter { it.country.equals(countryName, ignoreCase = true) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val ambulances: StateFlow<List<Ambulance>> = combine(repository.ambulances, detectedCountry) { list, countryName ->
-        list.filter { it.country.equals(countryName, ignoreCase = true) }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val ambulances: StateFlow<List<Ambulance>> = repository.ambulances
 
     val messages: StateFlow<List<ChatMessage>> = repository.messages
 
@@ -325,10 +323,16 @@ class MainViewModel(
         profileEditCountry = countryName
         
         if (isBD) {
+            _searchDistrict.value = "Dhaka"
             repository.setLanguage(AppLanguage.BAN)
         } else {
+            _searchDistrict.value = "All"
             repository.setLanguage(AppLanguage.ENG)
         }
+        _searchUpazila.value = "All"
+        _searchHospital.value = "All"
+        _searchAmbulanceType.value = "All"
+        _searchAmbulanceQuery.value = ""
     }
 
     // --- SELECTED DONOR FOR DETAILED PROFILE ---
@@ -392,6 +396,13 @@ class MainViewModel(
     private val _searchAmbulanceType = MutableStateFlow("All")
     val searchAmbulanceType: StateFlow<String> = _searchAmbulanceType.asStateFlow()
 
+    private val _searchAmbulanceQuery = MutableStateFlow("")
+    val searchAmbulanceQuery: StateFlow<String> = _searchAmbulanceQuery.asStateFlow()
+
+    fun updateAmbulanceQuery(query: String) {
+        _searchAmbulanceQuery.value = query
+    }
+
     fun updateFilters(bloodGroup: String, district: String, upazila: String, hospital: String = "All") {
         _searchBloodGroup.value = bloodGroup
         _searchDistrict.value = district
@@ -452,13 +463,31 @@ class MainViewModel(
         ambulances,
         _searchDistrict,
         _searchUpazila,
-        _searchAmbulanceType
-    ) { list, dist, upz, type ->
+        _searchAmbulanceType,
+        _searchAmbulanceQuery,
+        detectedCountry
+    ) { flowsArray ->
+        @Suppress("UNCHECKED_CAST")
+        val list = flowsArray[0] as List<Ambulance>
+        val dist = flowsArray[1] as String
+        val upz = flowsArray[2] as String
+        val type = flowsArray[3] as String
+        val query = flowsArray[4] as String
+        val countryName = flowsArray[5] as String
+
         list.filter { amb ->
+            val matchCountry = amb.country.equals(countryName, ignoreCase = true)
             val matchDist = (dist == "All" || amb.district.equals(dist, ignoreCase = true))
             val matchUpz = (upz == "All" || amb.upazila.equals(upz, ignoreCase = true))
             val matchType = (type == "All" || amb.ambulanceType.equals(type, ignoreCase = true))
-            matchDist && matchUpz && matchType
+            val matchQuery = query.isBlank() ||
+                    amb.serviceName.contains(query, ignoreCase = true) ||
+                    amb.ownerName.contains(query, ignoreCase = true) ||
+                    amb.phone.contains(query, ignoreCase = true) ||
+                    amb.description.contains(query, ignoreCase = true) ||
+                    amb.district.contains(query, ignoreCase = true) ||
+                    amb.upazila.contains(query, ignoreCase = true)
+            matchCountry && matchDist && matchUpz && matchType && matchQuery
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -645,7 +674,6 @@ class MainViewModel(
                     setAdminMode(true)
                 }
             }
-            clearBackStackAndNavigateTo(AppScreen.HOME)
         }
         return success
     }
@@ -679,7 +707,6 @@ class MainViewModel(
         if (user != null) {
             seedProfileForm(user)
         }
-        clearBackStackAndNavigateTo(AppScreen.HOME)
         return true
     }
 
@@ -776,6 +803,14 @@ class MainViewModel(
 
     fun adminDeleteRequest(id: String) {
         repository.deleteRequest(id)
+    }
+
+    fun adminDeleteAmbulance(id: String) {
+        repository.deleteAmbulance(id)
+    }
+
+    fun adminDeleteScamReport(id: String) {
+        repository.deleteScamReport(id)
     }
 
     fun adminToggleRequest(id: String) {

@@ -30,6 +30,7 @@ import com.example.data.AppLanguage
 import com.example.data.BloodDonor
 import com.example.data.BloodRequest
 import com.example.data.ScamReport
+import com.example.data.Ambulance
 import com.example.data.CustomAdConfig
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -803,6 +804,7 @@ fun AdminReportsTab(
     language: AppLanguage,
     onDismiss: (String) -> Unit,
     onBan: (String) -> Unit,
+    onDeleteReport: (String) -> Unit,
     strings: Map<String, String>,
     donors: List<BloodDonor> = emptyList(),
     onUpdateReport: ((id: String, scammerName: String, scammerPhone: String, amount: String, reason: String, status: String) -> Unit)? = null,
@@ -1082,8 +1084,8 @@ fun AdminReportsTab(
                                 }
                             }
 
-                            if (rep.status == "Pending") {
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                if (rep.status == "Pending") {
                                     TextButton(
                                         onClick = { onDismiss(rep.id) },
                                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
@@ -1117,6 +1119,21 @@ fun AdminReportsTab(
                                             fontWeight = FontWeight.Bold
                                         )
                                     }
+                                }
+
+                                // Delete Report Button
+                                IconButton(
+                                    onClick = { onDeleteReport(rep.id) },
+                                    modifier = Modifier
+                                        .size(30.dp)
+                                        .background(AdminAccRed.copy(alpha = 0.15f), CircleShape)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Delete Report",
+                                        tint = AdminAccRed,
+                                        modifier = Modifier.size(14.dp)
+                                    )
                                 }
                             }
                         }
@@ -1170,6 +1187,21 @@ fun AdminReportsTab(
                                 imageVector = if (isEditing) Icons.Default.Visibility else Icons.Default.Edit,
                                 contentDescription = "Toggle Edit Mode",
                                 tint = AdminPrimaryBlue,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                        IconButton(
+                            onClick = {
+                                onDeleteReport(rep.id)
+                                selectedReport = null
+                            },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Delete Report",
+                                tint = AdminAccRed,
                                 modifier = Modifier.size(16.dp)
                             )
                         }
@@ -2061,14 +2093,36 @@ fun AdminSettingsTab(
                     }
                 }
 
-                if (syncError != null) {
+                val currentSyncError = syncError
+                if (currentSyncError != null) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = if (language == AppLanguage.ENG) "Sync Error: ${syncError}" else "ত্রুটি: ${syncError}",
+                        text = if (language == AppLanguage.ENG) "Sync Error: ${currentSyncError}" else "ত্রুটি: ${currentSyncError}",
                         color = AdminAccRed,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold
                     )
+                    
+                    if (currentSyncError.contains("404") || currentSyncError.contains("not found", ignoreCase = true)) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+                            border = BorderStroke(1.dp, Color(0xFFFFCDD2)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Text(
+                                    text = if (language == AppLanguage.ENG)
+                                        "💡 Tip: HTTP 404 means the 'donors' or 'requests' table does not exist in your Supabase database schema yet. Please run the SQL migration schema in your Supabase SQL Editor!"
+                                        else "💡 পরামর্শ: HTTP 404 এর অর্থ হলো আপনার সুপাবেস (Supabase) ডাটাবেসে 'donors' অথবা 'requests' টেবিলটি তৈরি করা হয়নি। দয়া করে সুপাবেস এসকিউএল এডিটরে টেবিল তৈরির এসকিউএল স্ক্রিপ্টটি রান করুন!",
+                                    fontSize = 10.sp,
+                                    color = Color(0xFFC62828),
+                                    fontWeight = FontWeight.Medium,
+                                    lineHeight = 14.sp
+                                )
+                            }
+                        }
+                    }
                 } else if (isRemoteConnected && !isSyncing) {
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
@@ -3371,6 +3425,91 @@ fun AdminSupportTab(viewModel: MainViewModel, language: AppLanguage) {
                         Text(lastMsg.message, color = AdminTextMuted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     Text(lastMsg.timestamp.split(" ").last(), color = AdminTextMuted, fontSize = 10.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AdminAmbulancesTab(
+    ambulances: List<Ambulance>,
+    language: AppLanguage,
+    onDelete: (String) -> Unit
+) {
+    if (ambulances.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = if (language == AppLanguage.BAN) "কোনো অ্যাম্বুলেন্স পোস্ট পাওয়া যায়নি।" else "No ambulance posts found.",
+                color = AdminTextMuted,
+                fontSize = 13.sp
+            )
+        }
+    } else {
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxSize()) {
+            items(ambulances) { amb ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(1.dp, RoundedCornerShape(12.dp)),
+                    colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+                    border = BorderStroke(1.dp, AdminBorder)
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(text = amb.serviceName, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AdminTextWhite)
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        if (amb.isAvailable) AdminAccGreen.copy(alpha = 0.15f) else AdminAccOrange.copy(alpha = 0.15f),
+                                        RoundedCornerShape(6.dp)
+                                    )
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = if (amb.isAvailable) "Available" else "Busy",
+                                    color = if (amb.isAvailable) AdminAccGreen else AdminAccOrange,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(text = "Type: ${amb.ambulanceType} • Owner: ${amb.ownerName}", fontSize = 12.sp, color = AdminTextWhite.copy(alpha = 0.9f))
+                        Text(text = "Location: ${amb.upazila}, ${amb.district}", fontSize = 11.sp, color = AdminTextMuted)
+                        Text(text = "Contact: ${amb.phone}", fontSize = 11.sp, color = AdminTextMuted)
+                        if (amb.description.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(text = "Info: ${amb.description}", fontSize = 11.sp, color = AdminTextWhite.copy(alpha = 0.7f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(
+                                onClick = { onDelete(amb.id) },
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(AdminAccRed.copy(alpha = 0.15f), CircleShape)
+                            ) {
+                                Icon(Icons.Filled.Delete, "Delete", tint = AdminAccRed, modifier = Modifier.size(14.dp))
+                            }
+                        }
+                    }
                 }
             }
         }

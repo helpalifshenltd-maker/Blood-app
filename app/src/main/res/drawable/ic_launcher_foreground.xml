@@ -3,6 +3,6 @@
     <item
         android:width="66dp"
         android:height="66dp"
-        android:drawable="@drawable/alif_blood_bank_logo_1782414962404"
+        android:drawable="@drawable/img_alif_blood_bank_logo_1783648271595"
         android:gravity="center" />
 </layer-list>

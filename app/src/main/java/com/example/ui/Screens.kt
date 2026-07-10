@@ -211,7 +211,9 @@ fun MainAppContainer(viewModel: MainViewModel) {
                                     onItemClick = { targetScreen ->
                                         if (targetScreen == AppScreen.SUPPORT_CHAT) {
                                             scope.launch { drawerState.close() }
-                                            viewModel.startSupportChat()
+                                            AdManager.showRewarded(context) {
+                                                viewModel.startSupportChat()
+                                            }
                                         } else if (targetScreen == AppScreen.ADMIN_DASHBOARD) {
                                             showAdminPasswordDialog = true
                                         } else {
@@ -335,7 +337,11 @@ fun MainAppContainer(viewModel: MainViewModel) {
                     contentAlignment = Alignment.BottomEnd
                 ) {
                     FloatingActionButton(
-                        onClick = { viewModel.startSupportChat() },
+                        onClick = {
+                            AdManager.showRewarded(context) {
+                                viewModel.startSupportChat()
+                            }
+                        },
                         containerColor = BloodRed,
                         contentColor = Color.White,
                         modifier = Modifier
@@ -868,7 +874,9 @@ fun SplashScreen(viewModel: MainViewModel) {
     LaunchedEffect(Unit) {
         viewModel.detectUserLocation(context)
         kotlinx.coroutines.delay(3500) // 3.5 seconds aesthetic delay for loading/welcome
-        viewModel.clearBackStackAndNavigateTo(AppScreen.HOME)
+        AdManager.showInterstitial(context, forceShow = true) {
+            viewModel.clearBackStackAndNavigateTo(AppScreen.HOME)
+        }
     }
 
     Box(
@@ -893,7 +901,7 @@ fun SplashScreen(viewModel: MainViewModel) {
         ) {
             // 1. Logo Image
             Image(
-                painter = androidx.compose.ui.res.painterResource(id = com.example.R.drawable.alif_blood_bank_logo_1782414962404),
+                painter = androidx.compose.ui.res.painterResource(id = com.example.R.drawable.img_alif_blood_bank_logo_1783648271595),
                 contentDescription = "Alif Blood Bank Logo",
                 modifier = Modifier
                     .size(220.dp)
@@ -966,6 +974,15 @@ fun SplashScreen(viewModel: MainViewModel) {
     }
 }
 
+// Data class for Conversational AI Password Recovery
+data class RecoveryMessage(
+    val id: String,
+    val sender: String,
+    val text: String,
+    val isUser: Boolean,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
 
 // --- 2. LOGIN / REGISTER SCREEN ---
 
@@ -988,12 +1005,19 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
     }
 
     var loginMethodIsEmail by remember { mutableStateOf(true) }
+    var showLoginSuccessPopup by remember { mutableStateOf(false) }
+    var showSignupSuccessPopup by remember { mutableStateOf(false) }
     val isUserInBangladesh by viewModel.isUserInBangladesh.collectAsState()
 
     // Forgot Password and Recovery States
     var showForgotPasswordDialog by remember { mutableStateOf(false) }
     val isRecovering by viewModel.isRecovering.collectAsState()
     val recoveryResult by viewModel.recoveryResult.collectAsState()
+
+    // AI Chat Recovery States
+    val chatMessages = remember { androidx.compose.runtime.mutableStateListOf<RecoveryMessage>() }
+    var chatStep by remember { mutableStateOf(1) } // 1: Name, 2: Phone, 3: Email, 4: Blood Group, 5: District, 6: Upazila, 7: Ready, 8: Result
+    var currentChatInput by remember { mutableStateOf("") }
 
     // Forms states
     var phoneInput by remember { mutableStateOf("") }
@@ -1036,6 +1060,109 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
     }
 
     if (showForgotPasswordDialog) {
+        // Handle initial welcome message
+        androidx.compose.runtime.LaunchedEffect(showForgotPasswordDialog) {
+            if (showForgotPasswordDialog) {
+                chatMessages.clear()
+                chatStep = 1
+                currentChatInput = ""
+                viewModel.resetRecoveryState()
+                
+                val welcomeText = if (language == AppLanguage.BAN) {
+                    "আসসালামু আলাইকুম! আমি আপনার এআই পাসওয়ার্ড পুনরুদ্ধার সহকারী। 🤖\n\nআপনার নিবন্ধিত অ্যাকাউন্টটি পুনরুদ্ধার করতে আমি আপনাকে কয়েকটি সাধারণ প্রশ্ন করব। অনুগ্রহ করে একটি একটি করে উত্তর দিন।\n\nশুরু করতে, দয়া করে আপনার **নিবন্ধিত পূর্ণ নাম** টাইপ করুন:"
+                } else {
+                    "Hello! I am your AI Password Recovery Assistant. 🤖\n\nI will ask you a few quick questions step-by-step to verify and recover your registered account. Please answer one by one.\n\nTo begin, please type your **registered full name**:"
+                }
+                chatMessages.add(RecoveryMessage("welcome", "AI Assistant", welcomeText, false))
+            }
+        }
+
+        // Handle typing simulations and successive questions
+        androidx.compose.runtime.LaunchedEffect(chatStep) {
+            if (chatStep in 2..7) {
+                kotlinx.coroutines.delay(1000)
+                chatMessages.removeAll { it.text == "..." }
+                val idStr = "ai_${System.currentTimeMillis()}"
+                when (chatStep) {
+                    2 -> {
+                        val reply = if (language == AppLanguage.BAN) {
+                            "চমৎকার! ধন্যবাদ, **${viewModel.recoveryName}**। এবার দয়া করে আপনার একাউন্টের **মোবাইল নম্বরটি** দিন:"
+                        } else {
+                            "Excellent! Thank you, **${viewModel.recoveryName}**.\nNow, please provide your registered **mobile phone number**:"
+                        }
+                        chatMessages.add(RecoveryMessage(idStr, "AI Assistant", reply, false))
+                    }
+                    3 -> {
+                        val reply = if (language == AppLanguage.BAN) {
+                            "ধন্যবাদ। এবার আপনার নিবন্ধিত **ইমেইল এড্রেসটি** দিন:"
+                        } else {
+                            "Got it. Now, please enter your registered **email address**:"
+                        }
+                        chatMessages.add(RecoveryMessage(idStr, "AI Assistant", reply, false))
+                    }
+                    4 -> {
+                        val reply = if (language == AppLanguage.BAN) {
+                            "ধন্যবাদ। আপনার **রক্তের গ্রুপ** কোনটি? নিচের অপশন থেকে নির্বাচন করুন বা টাইপ করুন:"
+                        } else {
+                            "Thanks. What is your **blood group**?\nPlease select from the quick options below or type it:"
+                        }
+                        chatMessages.add(RecoveryMessage(idStr, "AI Assistant", reply, false))
+                    }
+                    5 -> {
+                        val reply = if (language == AppLanguage.BAN) {
+                            "ধন্যবাদ। আপনার নিবন্ধিত **জেলা** কোনটি? নিচে প্রধান জেলাগুলো দেওয়া হলো অথবা আপনার জেলাটি টাইপ করুন:"
+                        } else {
+                            "Great. What is your registered **district**?\nSelect one or type your district name:"
+                        }
+                        chatMessages.add(RecoveryMessage(idStr, "AI Assistant", reply, false))
+                    }
+                    6 -> {
+                        val reply = if (language == AppLanguage.BAN) {
+                            "বুঝেছি। শেষ প্রশ্ন, আপনার নিবন্ধিত **উপজেলা** কোনটি?"
+                        } else {
+                            "I see. Last question, what is your registered **upazila**?"
+                        }
+                        chatMessages.add(RecoveryMessage(idStr, "AI Assistant", reply, false))
+                    }
+                    7 -> {
+                        val reply = if (language == AppLanguage.BAN) {
+                            "সব তথ্য নেওয়া হয়েছে! আমি এখন ডাটাবেস ও এআই ইঞ্জিনের সাথে মিলিয়ে আপনার বিবরণ যাচাই করে দেখছি। দয়া করে কিছুক্ষণ অপেক্ষা করুন... ⏳"
+                        } else {
+                            "All details collected! I am now securely verifying your details with our database and AI engine. Please wait a moment... ⏳"
+                        }
+                        chatMessages.add(RecoveryMessage(idStr, "AI Assistant", reply, false))
+                        
+                        viewModel.triggerPasswordRecovery()
+                        chatStep = 8
+                    }
+                }
+            }
+        }
+
+        // Handle final password verification outcome
+        androidx.compose.runtime.LaunchedEffect(recoveryResult) {
+            val result = recoveryResult
+            if (result != null && chatStep == 8) {
+                chatMessages.removeAll { it.text == "..." }
+                val idStr = "ai_res_${System.currentTimeMillis()}"
+                if (result.verified) {
+                    val successText = if (language == AppLanguage.BAN) {
+                        "🎉 অভিনন্দন! আপনার তথ্য সফলভাবে যাচাই করা হয়েছে। আপনার একাউন্টের পাসওয়ার্ড নিচে দেওয়া হলো:"
+                    } else {
+                        "🎉 Congratulations! Your details have been successfully verified. Your password is shown below:"
+                    }
+                    chatMessages.add(RecoveryMessage(idStr, "AI Assistant", successText, false))
+                } else {
+                    val errorText = if (language == AppLanguage.BAN) {
+                        "❌ যাচাইকরণ ব্যর্থ হয়েছে!\n\n${result.message}"
+                    } else {
+                        "❌ Verification failed!\n\n${result.message}"
+                    }
+                    chatMessages.add(RecoveryMessage(idStr, "AI Assistant", errorText, false))
+                }
+            }
+        }
+
         AlertDialog(
             onDismissRequest = {
                 if (!isRecovering) {
@@ -1050,183 +1177,360 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
                 ) {
                     Icon(
                         imageVector = Icons.Filled.AutoAwesome,
-                        contentDescription = "AI Recovery",
+                        contentDescription = "AI Chat Recovery",
                         tint = BloodRed,
                         modifier = Modifier.size(28.dp)
                     )
                     Text(
-                        text = if (language == AppLanguage.BAN) "এআই পাসওয়ার্ড পুনরুদ্ধার" else "AI Password Recovery",
+                        text = if (language == AppLanguage.BAN) "এআই সিকিউরিটি চ্যাট" else "AI Security Chat",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = BloodRed)
                     )
                 }
             },
             text = {
+                val lazyListState = androidx.compose.foundation.lazy.rememberLazyListState()
+                
+                // Auto-scroll to the last message when messages change size
+                androidx.compose.runtime.LaunchedEffect(chatMessages.size) {
+                    if (chatMessages.isNotEmpty()) {
+                        lazyListState.animateScrollToItem(chatMessages.size - 1)
+                    }
+                }
+
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                        .height(380.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
-                        text = if (language == AppLanguage.BAN) 
-                            "এআই আপনার নিবন্ধিত তথ্যাদি যাচাই করে পাসওয়ার্ডটি প্রদান করবে।" 
-                            else "AI will securely verify your registered details to recover your password.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = SecondaryText
-                    )
-
-                    OutlinedTextField(
-                        value = viewModel.recoveryName,
-                        onValueChange = { viewModel.recoveryName = it },
-                        label = { Text(if (language == AppLanguage.BAN) "পূর্ণ নাম" else "Full Name") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
-                        singleLine = true
-                    )
-
-                    OutlinedTextField(
-                        value = viewModel.recoveryPhone,
-                        onValueChange = { viewModel.recoveryPhone = it },
-                        label = { Text(if (language == AppLanguage.BAN) "মোবাইল নম্বর" else "Phone Number") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
-                        singleLine = true
-                    )
-
-                    OutlinedTextField(
-                        value = viewModel.recoveryEmail,
-                        onValueChange = { viewModel.recoveryEmail = it },
-                        label = { Text(if (language == AppLanguage.BAN) "ইমেইল এড্রেস" else "Email Address") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
-                        singleLine = true
-                    )
-
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
-                            value = viewModel.recoveryBloodGroup,
-                            onValueChange = { viewModel.recoveryBloodGroup = it },
-                            label = { Text(if (language == AppLanguage.BAN) "রক্তের গ্রুপ" else "Blood Group") },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(8.dp),
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = viewModel.recoveryDistrict,
-                            onValueChange = { viewModel.recoveryDistrict = it },
-                            label = { Text(if (language == AppLanguage.BAN) "জেলা" else "District") },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(8.dp),
-                            singleLine = true
-                        )
-                    }
-
-                    OutlinedTextField(
-                        value = viewModel.recoveryUpazila,
-                        onValueChange = { viewModel.recoveryUpazila = it },
-                        label = { Text(if (language == AppLanguage.BAN) "উপজেলা" else "Upazila") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
-                        singleLine = true
-                    )
-
-                    if (isRecovering) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            CircularProgressIndicator(color = BloodRed, modifier = Modifier.size(24.dp))
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = if (language == AppLanguage.BAN) "এআই যাচাই করছে..." else "AI is verifying...",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = BloodRed
-                            )
-                        }
-                    }
-
-                    recoveryResult?.let { result ->
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (result.verified) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
-                            ),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
+                    // Chat Messages LazyColumn
+                    LazyColumn(
+                        state = lazyListState,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(chatMessages) { message ->
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalAlignment = if (message.isUser) Alignment.End else Alignment.Start
+                            ) {
+                                // Sender name bubble tag
                                 Text(
-                                    text = result.message,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = if (result.verified) Color(0xFF2E7D32) else Color(0xFFC62828),
-                                    fontWeight = FontWeight.Medium
+                                    text = if (message.isUser) (if (language == AppLanguage.BAN) "আপনি" else "You") else "Alif AI Security",
+                                    fontSize = 9.sp,
+                                    color = SecondaryText,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
                                 )
                                 
-                                if (result.verified && result.password != null) {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = "${if (language == AppLanguage.BAN) "পাসওয়ার্ড" else "Password"}: ${result.password}",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color(0xFF2E7D32)
-                                        )
-                                        IconButton(
-                                            onClick = {
-                                                val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                                                val clip = android.content.ClipData.newPlainText("password", result.password)
-                                                clipboard.setPrimaryClip(clip)
-                                                Toast.makeText(context, if (language == AppLanguage.BAN) "পাসওয়ার্ড কপি করা হয়েছে!" else "Password copied!", Toast.LENGTH_SHORT).show()
+                                // Message bubble
+                                Card(
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (message.isUser) BloodRed else Color(0xFFF1F3F4)
+                                    ),
+                                    shape = RoundedCornerShape(
+                                        topStart = 12.dp,
+                                        topEnd = 12.dp,
+                                        bottomStart = if (message.isUser) 12.dp else 0.dp,
+                                        bottomEnd = if (message.isUser) 0.dp else 12.dp
+                                    ),
+                                    modifier = Modifier.widthIn(max = 220.dp)
+                                ) {
+                                    Column(modifier = Modifier.padding(10.dp)) {
+                                        if (message.text == "...") {
+                                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(12.dp),
+                                                    strokeWidth = 1.5.dp,
+                                                    color = Color.Gray
+                                                )
+                                                Text(
+                                                    text = if (language == AppLanguage.BAN) "লিখছে..." else "Typing...",
+                                                    fontSize = 11.sp,
+                                                    color = Color.Gray
+                                                )
                                             }
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Filled.ContentCopy,
-                                                contentDescription = "Copy",
-                                                tint = Color(0xFF2E7D32),
-                                                modifier = Modifier.size(20.dp)
+                                        } else {
+                                            Text(
+                                                text = message.text,
+                                                fontSize = 12.sp,
+                                                color = if (message.isUser) Color.White else DarkText,
+                                                fontWeight = FontWeight.Normal,
+                                                lineHeight = 16.sp
                                             )
                                         }
                                     }
                                 }
                             }
                         }
+                        
+                        // If successfully verified, show the password explicitly with a copy button in the scroll view
+                        if (chatStep == 8 && recoveryResult?.verified == true && recoveryResult?.password != null) {
+                            item {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+                                    border = BorderStroke(1.dp, Color(0xFFC8E6C9)),
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Text(
+                                            text = if (language == AppLanguage.BAN) "পাসওয়ার্ডটি কপি করুন:" else "Copy Password:",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF2E7D32)
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = recoveryResult?.password ?: "",
+                                                fontSize = 18.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF2E7D32)
+                                            )
+                                            IconButton(
+                                                onClick = {
+                                                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                                    val clip = android.content.ClipData.newPlainText("password", recoveryResult?.password)
+                                                    clipboard.setPrimaryClip(clip)
+                                                    Toast.makeText(context, if (language == AppLanguage.BAN) "পাসওয়ার্ড কপি করা হয়েছে!" else "Password copied!", Toast.LENGTH_SHORT).show()
+                                                },
+                                                modifier = Modifier.size(36.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Filled.ContentCopy,
+                                                    contentDescription = "Copy Password",
+                                                    tint = Color(0xFF2E7D32),
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // If verification failed, show restart button
+                        if (chatStep == 8 && recoveryResult?.verified == false) {
+                            item {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Button(
+                                        onClick = {
+                                            chatMessages.clear()
+                                            chatStep = 1
+                                            currentChatInput = ""
+                                            viewModel.resetRecoveryState()
+                                            val welcomeText = if (language == AppLanguage.BAN) {
+                                                "চলুন আবার চেষ্টা করি! 🤖\n\nদয়া করে আপনার **নিবন্ধিত পূর্ণ নাম** টাইপ করুন:"
+                                            } else {
+                                                "Let's try again! 🤖\n\nPlease type your **registered full name**:"
+                                            }
+                                            chatMessages.add(RecoveryMessage("welcome_retry", "AI Assistant", welcomeText, false))
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = BloodRed),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Icon(Icons.Filled.Sync, contentDescription = "restart", modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(if (language == AppLanguage.BAN) "আবার শুরু করুন" else "Restart Recovery", fontSize = 11.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Quick Reply Chips / Buttons depending on the step
+                    if (chatStep == 4) { // Blood groups
+                        Spacer(modifier = Modifier.height(4.dp))
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            val groups = listOf("A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-")
+                            items(groups) { bg ->
+                                androidx.compose.material3.SuggestionChip(
+                                    onClick = {
+                                        val input = bg
+                                        chatMessages.add(RecoveryMessage("user_bg_${System.currentTimeMillis()}", "You", input, true))
+                                        viewModel.recoveryBloodGroup = input
+                                        chatStep = 5
+                                        currentChatInput = ""
+                                        chatMessages.add(RecoveryMessage("ai_thinking_${System.currentTimeMillis()}", "AI Assistant", "...", false))
+                                    },
+                                    label = { Text(bg, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = BloodRed) }
+                                )
+                            }
+                        }
+                    } else if (chatStep == 5) { // District suggestions
+                        Spacer(modifier = Modifier.height(4.dp))
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            val popularDistricts = listOf("Dhaka", "Chattogram", "Rajshahi", "Sylhet", "Khulna", "Barishal", "Rangpur", "Mymensingh")
+                            items(popularDistricts) { dist ->
+                                androidx.compose.material3.SuggestionChip(
+                                    onClick = {
+                                        val input = dist
+                                        chatMessages.add(RecoveryMessage("user_dist_${System.currentTimeMillis()}", "You", input, true))
+                                        viewModel.recoveryDistrict = input
+                                        chatStep = 6
+                                        currentChatInput = ""
+                                        chatMessages.add(RecoveryMessage("ai_thinking_${System.currentTimeMillis()}", "AI Assistant", "...", false))
+                                    },
+                                    label = { Text(dist, fontSize = 10.sp, color = Color.DarkGray) }
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Text Input Bar
+                    if (chatStep < 7) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            val keyboardType = when (chatStep) {
+                                2 -> KeyboardType.Phone
+                                3 -> KeyboardType.Email
+                                else -> KeyboardType.Text
+                            }
+                            
+                            val placeholderText = when (chatStep) {
+                                1 -> if (language == AppLanguage.BAN) "আপনার নাম লিখুন..." else "Enter full name..."
+                                2 -> if (language == AppLanguage.BAN) "মোবাইল নম্বর লিখুন..." else "Enter phone number..."
+                                3 -> if (language == AppLanguage.BAN) "ইমেইল এড্রেস..." else "Enter email..."
+                                4 -> if (language == AppLanguage.BAN) "রক্তের গ্রুপ..." else "Enter blood group..."
+                                5 -> if (language == AppLanguage.BAN) "জেলার নাম..." else "Enter district..."
+                                6 -> if (language == AppLanguage.BAN) "উপজেলার নাম..." else "Enter upazila..."
+                                else -> ""
+                            }
+
+                            OutlinedTextField(
+                                value = currentChatInput,
+                                onValueChange = { currentChatInput = it },
+                                placeholder = { Text(placeholderText, fontSize = 12.sp, color = Color.Gray) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("recovery_chat_input"),
+                                shape = RoundedCornerShape(24.dp),
+                                singleLine = true,
+                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp),
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = keyboardType,
+                                    imeAction = androidx.compose.ui.text.input.ImeAction.Send
+                                ),
+                                keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                                    onSend = {
+                                        if (currentChatInput.isNotBlank()) {
+                                            val input = currentChatInput.trim()
+                                            currentChatInput = ""
+                                            chatMessages.add(RecoveryMessage("user_${System.currentTimeMillis()}", "You", input, true))
+                                            when (chatStep) {
+                                                1 -> {
+                                                    viewModel.recoveryName = input
+                                                    chatStep = 2
+                                                }
+                                                2 -> {
+                                                    viewModel.recoveryPhone = input
+                                                    chatStep = 3
+                                                }
+                                                3 -> {
+                                                    viewModel.recoveryEmail = input
+                                                    chatStep = 4
+                                                }
+                                                4 -> {
+                                                    viewModel.recoveryBloodGroup = input
+                                                    chatStep = 5
+                                                }
+                                                5 -> {
+                                                    viewModel.recoveryDistrict = input
+                                                    chatStep = 6
+                                                }
+                                                6 -> {
+                                                    viewModel.recoveryUpazila = input
+                                                    chatStep = 7
+                                                }
+                                            }
+                                            chatMessages.add(RecoveryMessage("ai_thinking_${System.currentTimeMillis()}", "AI Assistant", "...", false))
+                                        }
+                                    }
+                                )
+                            )
+
+                            IconButton(
+                                onClick = {
+                                    if (currentChatInput.isNotBlank()) {
+                                        val input = currentChatInput.trim()
+                                        currentChatInput = ""
+                                        chatMessages.add(RecoveryMessage("user_${System.currentTimeMillis()}", "You", input, true))
+                                        when (chatStep) {
+                                            1 -> {
+                                                viewModel.recoveryName = input
+                                                chatStep = 2
+                                            }
+                                            2 -> {
+                                                viewModel.recoveryPhone = input
+                                                chatStep = 3
+                                            }
+                                            3 -> {
+                                                viewModel.recoveryEmail = input
+                                                chatStep = 4
+                                            }
+                                            4 -> {
+                                                viewModel.recoveryBloodGroup = input
+                                                chatStep = 5
+                                            }
+                                            5 -> {
+                                                viewModel.recoveryDistrict = input
+                                                chatStep = 6
+                                            }
+                                            6 -> {
+                                                viewModel.recoveryUpazila = input
+                                                chatStep = 7
+                                            }
+                                        }
+                                        chatMessages.add(RecoveryMessage("ai_thinking_${System.currentTimeMillis()}", "AI Assistant", "...", false))
+                                    }
+                                },
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(BloodRed, CircleShape)
+                                    .testTag("recovery_chat_send_btn")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Send,
+                                    contentDescription = "Send",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
                     }
                 }
             },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (viewModel.recoveryName.isBlank() || viewModel.recoveryPhone.isBlank() || viewModel.recoveryEmail.isBlank()) {
-                            Toast.makeText(context, if (language == AppLanguage.BAN) "দয়া করে নাম, ইমেইল ও মোবাইল নম্বর দিন" else "Please fill Name, Email, and Phone!", Toast.LENGTH_SHORT).show()
-                        } else {
-                            viewModel.triggerPasswordRecovery()
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = BloodRed),
-                    shape = RoundedCornerShape(8.dp),
-                    enabled = !isRecovering
-                ) {
-                    Text(if (language == AppLanguage.BAN) "যাচাই করুন" else "Verify")
-                }
-            },
+            confirmButton = {},
             dismissButton = {
                 TextButton(
                     onClick = {
                         showForgotPasswordDialog = false
                         viewModel.resetRecoveryState()
-                    },
-                    enabled = !isRecovering
+                    }
                 ) {
                     Text(
                         text = if (language == AppLanguage.BAN) "বন্ধ করুন" else "Close",
-                        color = DarkText
+                        color = DarkText,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
@@ -1236,8 +1540,8 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
 
 
     val bloodGroups = listOf("A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-")
-    val districts = MockData.districts
-    val availableUpazilas = MockData.getUpazilasForDistrict(regDistrictInput)
+    val districts = remember(regCountryInput) { MockData.getDistrictsForCountry(regCountryInput) }
+    val availableUpazilas = remember(regDistrictInput, regCountryInput) { MockData.getUpazilasForDistrict(regDistrictInput, regCountryInput) }
 
     Column(
         modifier = Modifier
@@ -1451,7 +1755,9 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
                         viewModel.loginEmail = if (loginMethodIsEmail) emailInput else ""
                         viewModel.loginPassword = passwordInput
                         val loginSuccess = viewModel.triggerLogin(isGoogle = false)
-                        if (!loginSuccess) {
+                        if (loginSuccess) {
+                            showLoginSuccessPopup = true
+                        } else {
                             Toast.makeText(
                                 context,
                                 if (language == AppLanguage.BAN) "লগইন ব্যর্থ হয়েছে! এই ইমেইল বা ফোন নম্বরটি নিবন্ধিত নয়।" else "Login failed! This email or phone is not registered.",
@@ -1751,12 +2057,7 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
 
                         val ok = viewModel.triggerSignup()
                         if (ok) {
-                            val successMsg = if (regRoleInput == "Donor") {
-                                strings["msg_donor_registered"] ?: "Registered and logged in as donor successfully!"
-                            } else {
-                                if (language == AppLanguage.BAN) "রক্ত গ্রহীতা হিসেবে সফলভাবে নিবন্ধিত হয়েছেন!" else "Registered and logged in as Blood Requester successfully!"
-                            }
-                            Toast.makeText(context, successMsg, Toast.LENGTH_LONG).show()
+                            showSignupSuccessPopup = true
                         }
                     }
                 },
@@ -1798,6 +2099,106 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
             }
         }
     }
+
+    if (showLoginSuccessPopup) {
+        val isBn = language == AppLanguage.BAN
+        AlertDialog(
+            onDismissRequest = {
+                showLoginSuccessPopup = false
+                viewModel.clearBackStackAndNavigateTo(AppScreen.HOME)
+            },
+            icon = {
+                Icon(
+                    imageVector = Icons.Filled.CheckCircle,
+                    contentDescription = "Success",
+                    tint = Color(0xFF2E7D32),
+                    modifier = Modifier.size(54.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = if (isBn) "লগইন সফল হয়েছে!" else "Login Successful!",
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF2E7D32),
+                    fontSize = 20.sp
+                )
+            },
+            text = {
+                Text(
+                    text = if (isBn) {
+                        "স্বাগতম! আপনি সফলভাবে আপনার অ্যাকাউন্টে লগইন করেছেন। রক্তদান করুন ও জীবন বাঁচান।"
+                    } else {
+                        "Welcome back! You have successfully logged into your account. Keep donating blood to save lives."
+                    },
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    fontSize = 14.sp,
+                    color = Color.DarkGray
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showLoginSuccessPopup = false
+                        viewModel.clearBackStackAndNavigateTo(AppScreen.HOME)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(if (isBn) "হোমে যান" else "Go to Home", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
+    if (showSignupSuccessPopup) {
+        val isBn = language == AppLanguage.BAN
+        AlertDialog(
+            onDismissRequest = {
+                showSignupSuccessPopup = false
+                viewModel.clearBackStackAndNavigateTo(AppScreen.HOME)
+            },
+            icon = {
+                Icon(
+                    imageVector = Icons.Filled.CheckCircle,
+                    contentDescription = "Success",
+                    tint = Color(0xFF2E7D32),
+                    modifier = Modifier.size(54.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = if (isBn) "নিবন্ধন সফল হয়েছে!" else "Registration Successful!",
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF2E7D32),
+                    fontSize = 20.sp
+                )
+            },
+            text = {
+                Text(
+                    text = if (isBn) {
+                        "অভিনন্দন! আপনার অ্যাকাউন্টটি সফলভাবে তৈরি করা হয়েছে। আপনি এখন এই সেভিংস ক্লাবের একজন গর্বিত সদস্য।"
+                    } else {
+                        "Congratulations! Your account has been created successfully. You are now a proud member of this life-saving club."
+                    },
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    fontSize = 14.sp,
+                    color = Color.DarkGray
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showSignupSuccessPopup = false
+                        viewModel.clearBackStackAndNavigateTo(AppScreen.HOME)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(if (isBn) "হোমে যান" else "Go to Home", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
 }
 
 
@@ -1817,6 +2218,7 @@ fun HomeScreen(viewModel: MainViewModel) {
     val detectedCountryCode by viewModel.detectedCountryCode.collectAsState()
     val isDeviceInBangladesh by viewModel.isDeviceInBangladesh.collectAsState()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     val displayHomeNotice = remember(homeNotice, language) {
         if (language == AppLanguage.ENG) {
@@ -1935,6 +2337,29 @@ fun HomeScreen(viewModel: MainViewModel) {
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    // VPN sync / detection button at the top
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                android.widget.Toast.makeText(context, if (isBn) "ভিপিএন / আইপি সংযোগ চেক করা হচ্ছে..." else "Checking VPN / IP connection...", android.widget.Toast.LENGTH_SHORT).show()
+                                viewModel.detectUserLocation(context)
+                                kotlinx.coroutines.delay(1500)
+                                val current = viewModel.detectedCountry.value
+                                android.widget.Toast.makeText(context, if (isBn) "আইপি রিফ্রেশ করা হয়েছে। বর্তমান সার্ভার: $current" else "IP refreshed. Active server: $current", android.widget.Toast.LENGTH_LONG).show()
+                                showCountryChangeDialog = false
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = BloodRed, contentColor = Color.White),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(imageVector = Icons.Filled.Sync, contentDescription = "VPN Sync")
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(text = if (isBn) "ভিপিএন / আইপি রিফ্রেশ করুন" else "Refresh IP / VPN", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
                     Text(
                         text = if (isBn) {
                             "আইপি অনুযায়ী আপনার বর্তমান সার্ভার: $detectedCountry"
@@ -1971,11 +2396,20 @@ fun HomeScreen(viewModel: MainViewModel) {
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(if (isCurrent) Color(0xFFFFEBEE) else Color.Transparent)
                                     .clickable {
-                                        if (isCurrent) {
-                                            showCountryChangeDialog = false
-                                        } else {
-                                            showSwitchWarningDialog = true
+                                        if (!isCurrent) {
+                                            val countryCode = when (name) {
+                                                "Bangladesh" -> "BD"
+                                                "India" -> "IN"
+                                                "Saudi Arabia" -> "SA"
+                                                "United Arab Emirates" -> "AE"
+                                                "United States" -> "US"
+                                                "United Kingdom" -> "GB"
+                                                else -> "GL"
+                                            }
+                                            viewModel.setDetectedCountry(name, countryCode)
+                                            android.widget.Toast.makeText(context, if (isBn) "$name সার্ভারে পরিবর্তন করা হয়েছে।" else "Switched to $name server.", android.widget.Toast.LENGTH_SHORT).show()
                                         }
+                                        showCountryChangeDialog = false
                                     }
                                     .padding(horizontal = 12.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -1983,11 +2417,20 @@ fun HomeScreen(viewModel: MainViewModel) {
                                 RadioButton(
                                     selected = isCurrent,
                                     onClick = {
-                                        if (isCurrent) {
-                                            showCountryChangeDialog = false
-                                        } else {
-                                            showSwitchWarningDialog = true
+                                        if (!isCurrent) {
+                                            val countryCode = when (name) {
+                                                "Bangladesh" -> "BD"
+                                                "India" -> "IN"
+                                                "Saudi Arabia" -> "SA"
+                                                "United Arab Emirates" -> "AE"
+                                                "United States" -> "US"
+                                                "United Kingdom" -> "GB"
+                                                else -> "GL"
+                                            }
+                                            viewModel.setDetectedCountry(name, countryCode)
+                                            android.widget.Toast.makeText(context, if (isBn) "$name সার্ভারে পরিবর্তন করা হয়েছে।" else "Switched to $name server.", android.widget.Toast.LENGTH_SHORT).show()
                                         }
+                                        showCountryChangeDialog = false
                                     },
                                     colors = RadioButtonDefaults.colors(selectedColor = BloodRed)
                                 )
@@ -2008,7 +2451,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                                 if (isCurrent) {
                                     Spacer(modifier = Modifier.weight(1f))
                                     Text(
-                                        text = if (isBn) "সংযুক্ত (আইপি)" else "Connected (IP)",
+                                        text = if (isBn) "সংযুক্ত" else "Connected",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color(0xFF2E7D32),
@@ -5179,6 +5622,7 @@ fun SearchDonorScreen(viewModel: MainViewModel) {
     val strings by viewModel.strings.collectAsState()
     val language by viewModel.language.collectAsState()
     val donorsList by viewModel.filteredDonors.collectAsState()
+    val detectedCountryFlow by viewModel.detectedCountry.collectAsState()
 
     val bloodGroupFilter by viewModel.searchBloodGroup.collectAsState()
     val districtFilter by viewModel.searchDistrict.collectAsState()
@@ -5191,19 +5635,43 @@ fun SearchDonorScreen(viewModel: MainViewModel) {
     var exHospital by remember { mutableStateOf(false) }
 
     val bloodGroups = listOf("All", "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-")
-    val districts = listOf("All") + MockData.districts
-    val matchingUpazilas = if (districtFilter == "All") listOf("All") else listOf("All") + MockData.getUpazilasForDistrict(districtFilter)
-    val hospitalsList = listOf(
-        "All",
-        "Dhaka Medical College Hospital (DMCH)",
-        "Sir Salimullah Medical College Hospital",
-        "Chattogram General Hospital (CGH)",
-        "Sylhet MAG Osmani Medical College",
-        "Rajshahi Medical College Hospital",
-        "Mymensingh Medical College Hospital",
-        "Khulna Medical College Hospital",
-        "Sher-e-Bangla Medical College Hospital"
-    )
+    val districts = remember(detectedCountryFlow) { listOf("All") + MockData.getDistrictsForCountry(detectedCountryFlow) }
+    val matchingUpazilas = remember(districtFilter, detectedCountryFlow) {
+        if (districtFilter == "All") listOf("All") else listOf("All") + MockData.getUpazilasForDistrict(districtFilter, detectedCountryFlow)
+    }
+    val hospitalsList = remember(detectedCountryFlow) {
+        listOf("All") + when (detectedCountryFlow) {
+            "Bangladesh" -> listOf(
+                "Dhaka Medical College Hospital (DMCH)",
+                "Sir Salimullah Medical College Hospital",
+                "Chattogram General Hospital (CGH)",
+                "Sylhet MAG Osmani Medical College",
+                "Rajshahi Medical College Hospital",
+                "Mymensingh Medical College Hospital",
+                "Khulna Medical College Hospital",
+                "Sher-e-Bangla Medical College Hospital"
+            )
+            "United States" -> listOf(
+                "Mount Sinai Hospital",
+                "Stanford Health Care",
+                "Houston Methodist Hospital"
+            )
+            "India" -> listOf(
+                "AIIMS New Delhi",
+                "Fortis Hospital Mumbai"
+            )
+            "Saudi Arabia" -> listOf(
+                "King Faisal Specialist Hospital"
+            )
+            "United Arab Emirates" -> listOf(
+                "Cleveland Clinic Abu Dhabi"
+            )
+            "United Kingdom" -> listOf(
+                "St Thomas' Hospital London"
+            )
+            else -> listOf("$detectedCountryFlow Central Health Center")
+        }
+    }
 
     val context = LocalContext.current
 
@@ -6045,8 +6513,8 @@ fun RequestBloodScreen(viewModel: MainViewModel) {
     var expandedCountry by remember { mutableStateOf(false) }
 
     val bloodGroups = listOf("A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-")
-    val districts = MockData.districts
-    val availableUpazilas = MockData.getUpazilasForDistrict(district)
+    val districts = remember(reqCountryInput) { MockData.getDistrictsForCountry(reqCountryInput) }
+    val availableUpazilas = remember(district, reqCountryInput) { MockData.getUpazilasForDistrict(district, reqCountryInput) }
 
     Column(
         modifier = Modifier
@@ -6257,7 +6725,7 @@ fun RequestBloodScreen(viewModel: MainViewModel) {
                             text = { Text(dist) },
                             onClick = {
                                 district = dist
-                                val subUpz = MockData.getUpazilasForDistrict(dist)
+                                val subUpz = MockData.getUpazilasForDistrict(dist, reqCountryInput)
                                 upazila = subUpz.firstOrNull() ?: ""
                                 expandedDistrict = false
                             }
@@ -6281,7 +6749,7 @@ fun RequestBloodScreen(viewModel: MainViewModel) {
                     expanded = expandedUpazila,
                     onDismissRequest = { expandedUpazila = false }
                 ) {
-                    val currentUpazilas = MockData.getUpazilasForDistrict(district)
+                    val currentUpazilas = MockData.getUpazilasForDistrict(district, reqCountryInput)
                     if (currentUpazilas.isNotEmpty()) {
                         currentUpazilas.forEach { upz ->
                             DropdownMenuItem(
@@ -6382,10 +6850,12 @@ fun RequestBloodScreen(viewModel: MainViewModel) {
                     viewModel.reqIsEmergency = isEmergency
                     viewModel.reqCountry = reqCountryInput
 
-                    val success = viewModel.triggerSubmitRequest(context)
-                    if (success) {
-                        Toast.makeText(context, strings["msg_request_posted"], Toast.LENGTH_LONG).show()
-                        viewModel.navigateTo(AppScreen.EMERGENCY_REQUESTS)
+                    AdManager.showInterstitial(context, forceShow = true) {
+                        val success = viewModel.triggerSubmitRequest(context)
+                        if (success) {
+                            Toast.makeText(context, strings["msg_request_posted"], Toast.LENGTH_LONG).show()
+                            viewModel.navigateTo(AppScreen.EMERGENCY_REQUESTS)
+                        }
                     }
                 }
             },
@@ -6605,7 +7075,11 @@ fun EmergencyRequestsScreen(viewModel: MainViewModel) {
 
         // Floating Action Button to post a new request
         FloatingActionButton(
-            onClick = { viewModel.navigateTo(AppScreen.REQUEST_BLOOD) },
+            onClick = {
+                AdManager.showRewarded(context) {
+                    viewModel.navigateTo(AppScreen.REQUEST_BLOOD)
+                }
+            },
             containerColor = BloodRed,
             contentColor = Color.White,
             modifier = Modifier
@@ -6787,8 +7261,8 @@ fun UserProfileScreen(viewModel: MainViewModel) {
     var expandedCountry by remember { mutableStateOf(false) }
 
     val bloodGroups = listOf("A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-")
-    val districts = MockData.districts
-    val availableUpazilas = MockData.getUpazilasForDistrict(editDistrict)
+    val districts = remember(editCountry) { MockData.getDistrictsForCountry(editCountry) }
+    val availableUpazilas = remember(editDistrict, editCountry) { MockData.getUpazilasForDistrict(editDistrict, editCountry) }
 
     Column(
         modifier = Modifier
@@ -7376,6 +7850,7 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
     val donorsList by viewModel.donors.collectAsState()
     val requestsList by viewModel.requests.collectAsState()
     val scamReportsList by viewModel.scamReports.collectAsState()
+    val ambulancesList by viewModel.ambulances.collectAsState()
     val strings by viewModel.strings.collectAsState()
     val language by viewModel.language.collectAsState()
 
@@ -7447,6 +7922,25 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
         }
     }
 
+    val filteredAmbulancesAdmin = remember(ambulancesList, searchQuery, filterStatus) {
+        ambulancesList.filter { amb ->
+            val matchesSearch = searchQuery.isEmpty() ||
+                amb.serviceName.contains(searchQuery, ignoreCase = true) ||
+                amb.ownerName.contains(searchQuery, ignoreCase = true) ||
+                amb.phone.contains(searchQuery) ||
+                amb.district.contains(searchQuery, ignoreCase = true) ||
+                amb.upazila.contains(searchQuery, ignoreCase = true)
+
+            val matchesStatus = when (filterStatus) {
+                "Available" -> amb.isAvailable
+                "Busy" -> !amb.isAvailable
+                else -> true
+            }
+
+            matchesSearch && matchesStatus
+        }
+    }
+
     // Modern Indigo Purple theme color palette for NOVUS
     val novusSidebarBg = Color(0xFF3F4FB5)
     val novusSidebarDark = Color(0xFF2E3280)
@@ -7459,6 +7953,7 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
         Triple("DASHBOARD", if (language == AppLanguage.ENG) "Dashboard" else "ড্যাশবোর্ড", Icons.Default.Dashboard),
         Triple("DONORS", if (language == AppLanguage.ENG) "Donors List" else "রক্তদাতা তালিকা", Icons.Default.Person),
         Triple("REQUESTS", if (language == AppLanguage.ENG) "Blood Requests" else "রক্তের অনুরোধসমূহ", Icons.Default.Favorite),
+        Triple("AMBULANCES", if (language == AppLanguage.ENG) "Ambulance Posts" else "অ্যাম্বুলেন্স পোস্টসমূহ", Icons.Default.AirportShuttle),
         Triple("SUPPORT", if (language == AppLanguage.ENG) "Live Support" else "লাইভ সাপোর্ট", Icons.Default.Chat),
         Triple("POLICIES", if (language == AppLanguage.ENG) "Page Policies" else "পৃষ্ঠা নীতিসমূহ", Icons.Default.List),
         Triple("REPORTS", if (language == AppLanguage.ENG) "Fraud Reports" else "প্রতারণা রিপোর্ট", Icons.Default.Warning),
@@ -7523,6 +8018,7 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                                 val badgeValue = when (tag) {
                                     "DONORS" -> "${donorsList.size}"
                                     "REQUESTS" -> "${requestsList.filter { it.status == "Active" }.size}"
+                                    "AMBULANCES" -> "${ambulancesList.size}"
                                     "REPORTS" -> "${scamReportsList.size}"
                                     else -> null
                                 }
@@ -7711,12 +8207,12 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                     AdminStatCard(
-                                        modifier = Modifier.weight(1f),
-                                        title = if (language == AppLanguage.ENG) "Donors & Likes" else "রক্তদাতা ও লাইক",
-                                        value = "${95 + donorsList.size}K",
-                                        subtitle = if (language == AppLanguage.ENG) "${donorsList.size} Registered Donors" else "${donorsList.size} জন রক্তদাতা",
-                                        backgroundColor = Color(0xFF3B5998),
-                                        icon = Icons.Default.ThumbUp
+                                        modifier = Modifier.weight(1f).testTag("total_users_stat_card_compact"),
+                                        title = if (language == AppLanguage.ENG) "Total App Users" else "সর্বমোট ব্যবহারকারী",
+                                        value = "${donorsList.size}",
+                                        subtitle = if (language == AppLanguage.ENG) "${donorsList.size} Registered Accounts" else "${donorsList.size} জন নিবন্ধিত ইউজার",
+                                        backgroundColor = Color(0xFFD32F2F),
+                                        icon = Icons.Default.Person
                                     )
                                     AdminStatCard(
                                         modifier = Modifier.weight(1f),
@@ -7749,12 +8245,12 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                         } else {
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 AdminStatCard(
-                                    modifier = Modifier.weight(1f),
-                                    title = if (language == AppLanguage.ENG) "Donors & Likes" else "রক্তদাতা ও লাইক",
-                                    value = "${95 + donorsList.size}K",
+                                    modifier = Modifier.weight(1f).testTag("total_users_stat_card_wide"),
+                                    title = if (language == AppLanguage.ENG) "Total App Users" else "সর্বমোট ব্যবহারকারী",
+                                    value = "${donorsList.size}",
                                     subtitle = if (language == AppLanguage.ENG) "${donorsList.size} Registered" else "${donorsList.size} জন নিবন্ধিত",
-                                    backgroundColor = Color(0xFF3B5998),
-                                    icon = Icons.Default.ThumbUp
+                                    backgroundColor = Color(0xFFD32F2F),
+                                    icon = Icons.Default.Person
                                 )
                                 AdminStatCard(
                                     modifier = Modifier.weight(1f),
@@ -8531,6 +9027,154 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                                 }
                             }
                         }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // --- NEW CARD: USERS BY COUNTRY / দেশভিত্তিক ব্যবহারকারী ---
+                        val usersByCountry = remember(donorsList) {
+                            donorsList.groupBy { it.country }
+                                .mapValues { it.value.size }
+                                .toList()
+                                .sortedByDescending { it.second }
+                        }
+
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("country_users_card"),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                            border = BorderStroke(1.dp, novusBorder),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = if (language == AppLanguage.ENG) "USERS BY COUNTRY" else "দেশভিত্তিক ব্যবহারকারী পরিসংখ্যান",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.Gray,
+                                            letterSpacing = 0.5.sp
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = if (language == AppLanguage.ENG) "Global donor distribution metrics" else "বিশ্বব্যাপী রক্তদাতাদের নিবন্ধিত সংখ্যা ও বিন্যাস",
+                                            fontSize = 9.sp,
+                                            color = Color.Gray
+                                        )
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .background(novusSidebarBg.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.LocationOn,
+                                                contentDescription = null,
+                                                tint = novusSidebarBg,
+                                                modifier = Modifier.size(12.dp)
+                                            )
+                                            Text(
+                                                text = "${usersByCountry.size} " + (if (language == AppLanguage.ENG) "Countries" else "দেশ"),
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = novusSidebarBg
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    usersByCountry.forEach { (countryName, count) ->
+                                        val flag = when (countryName.lowercase().trim()) {
+                                            "bangladesh" -> "🇧🇩"
+                                            "united states", "usa", "us" -> "🇺🇸"
+                                            "india" -> "🇮🇳"
+                                            "saudi arabia", "saudi" -> "🇸🇦"
+                                            "united arab emirates", "uae" -> "🇦🇪"
+                                            "united kingdom", "uk" -> "🇬🇧"
+                                            "canada" -> "🇨🇦"
+                                            "australia" -> "🇦🇺"
+                                            "pakistan" -> "🇵🇰"
+                                            else -> "🏳️"
+                                        }
+
+                                        val totalDonors = donorsList.size.coerceAtLeast(1)
+                                        val ratio = count.toFloat() / totalDonors.toFloat()
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.width(130.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                Text(flag, fontSize = 16.sp)
+                                                Text(
+                                                    text = countryName,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color.DarkGray,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+
+                                            Box(
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .height(8.dp)
+                                                    .background(Color(0xFFF3F4F6), RoundedCornerShape(4.dp))
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth(ratio)
+                                                        .height(8.dp)
+                                                        .background(
+                                                            brush = Brush.horizontalGradient(
+                                                                colors = listOf(novusSidebarBg, Color(0xFFEF4444))
+                                                            ),
+                                                            shape = RoundedCornerShape(4.dp)
+                                                        )
+                                                )
+                                            }
+
+                                            Column(
+                                                horizontalAlignment = Alignment.End,
+                                                modifier = Modifier.width(70.dp)
+                                            ) {
+                                                Text(
+                                                    text = if (language == AppLanguage.ENG) "$count Users" else "$count জন ইউজার",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color.DarkGray
+                                                )
+                                                Text(
+                                                    text = "${(ratio * 100).toInt()}%",
+                                                    fontSize = 9.sp,
+                                                    color = Color.Gray,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                     /*
                                                 horizontalArrangement = Arrangement.SpaceBetween
@@ -8661,11 +9305,12 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                         val statusOptions = when (activeTab) {
                             "DONORS" -> listOf("All", "Pending", "Approved")
                             "REQUESTS" -> listOf("All", "Active", "Resolved")
+                            "AMBULANCES" -> listOf("All", "Available", "Busy")
                             "REPORTS" -> listOf("All", "Pending", "Banned", "Dismissed")
                             else -> listOf("All")
                         }
 
-                        if (activeTab in listOf("DONORS", "REQUESTS", "REPORTS")) {
+                        if (activeTab in listOf("DONORS", "REQUESTS", "REPORTS", "AMBULANCES")) {
                             AdminFiltersCard(
                                 language = language,
                                 searchQuery = searchQuery,
@@ -8714,6 +9359,16 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                                         }
                                     )
                                 }
+                                "AMBULANCES" -> {
+                                    AdminAmbulancesTab(
+                                        ambulances = filteredAmbulancesAdmin,
+                                        language = language,
+                                        onDelete = { id ->
+                                            viewModel.adminDeleteAmbulance(id)
+                                            Toast.makeText(context, "Ambulance Post Deleted", Toast.LENGTH_SHORT).show()
+                                        }
+                                    )
+                                }
                                 "SUPPORT" -> {
                                     AdminSupportTab(viewModel = viewModel, language = language)
                                 }
@@ -8750,6 +9405,10 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                                         onBan = { id ->
                                             viewModel.adminActionOnScamReport(id, "Banned")
                                             Toast.makeText(context, "Scammer suspended and banned!", Toast.LENGTH_LONG).show()
+                                        },
+                                        onDeleteReport = { id ->
+                                            viewModel.adminDeleteScamReport(id)
+                                            Toast.makeText(context, "Report deleted successfully!", Toast.LENGTH_SHORT).show()
                                         },
                                         strings = strings,
                                         donors = donorsList,
@@ -9608,15 +10267,29 @@ fun ChatRoomScreen(viewModel: MainViewModel) {
                 IconButton(
                     onClick = {
                         if (msgInput.isNotBlank()) {
-                            viewModel.sendInAppChatMessage(
-                                context = context,
-                                senderPhone = senderPhone,
-                                senderName = senderName,
-                                receiverPhone = peerPhoneStr,
-                                receiverName = peerNameStr,
-                                messageText = msgInput.trim()
-                            )
-                            msgInput = ""
+                            if (peerPhoneStr == "LIVE_SUPPORT") {
+                                AdManager.showRewarded(context) {
+                                    viewModel.sendInAppChatMessage(
+                                        context = context,
+                                        senderPhone = senderPhone,
+                                        senderName = senderName,
+                                        receiverPhone = peerPhoneStr,
+                                        receiverName = peerNameStr,
+                                        messageText = msgInput.trim()
+                                    )
+                                    msgInput = ""
+                                }
+                            } else {
+                                viewModel.sendInAppChatMessage(
+                                    context = context,
+                                    senderPhone = senderPhone,
+                                    senderName = senderName,
+                                    receiverPhone = peerPhoneStr,
+                                    receiverName = peerNameStr,
+                                    messageText = msgInput.trim()
+                                )
+                                msgInput = ""
+                            }
                         }
                     },
                     modifier = Modifier
@@ -10062,7 +10735,9 @@ fun AmbulanceListScreen(viewModel: MainViewModel) {
     val searchDist by viewModel.searchDistrict.collectAsState()
     val searchUpz by viewModel.searchUpazila.collectAsState()
     val searchType by viewModel.searchAmbulanceType.collectAsState()
+    val searchQuery by viewModel.searchAmbulanceQuery.collectAsState()
     val context = LocalContext.current
+    val detectedCountryFlow by viewModel.detectedCountry.collectAsState()
 
     val ambulanceTypes = listOf("All", "AC", "Non-AC", "ICU")
 
@@ -10070,9 +10745,9 @@ fun AmbulanceListScreen(viewModel: MainViewModel) {
     var expandedUpazila by remember { mutableStateOf(false) }
     var expandedType by remember { mutableStateOf(false) }
 
-    val districts = remember { listOf("All") + MockData.districts }
-    val availableUpazilas = remember(searchDist) {
-        if (searchDist == "All") listOf("All") else listOf("All") + MockData.getUpazilasForDistrict(searchDist)
+    val districts = remember(detectedCountryFlow) { listOf("All") + MockData.getDistrictsForCountry(detectedCountryFlow) }
+    val availableUpazilas = remember(searchDist, detectedCountryFlow) {
+        if (searchDist == "All") listOf("All") else listOf("All") + MockData.getUpazilasForDistrict(searchDist, detectedCountryFlow)
     }
 
     Scaffold(
@@ -10090,7 +10765,11 @@ fun AmbulanceListScreen(viewModel: MainViewModel) {
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { viewModel.navigateTo(AppScreen.ADD_AMBULANCE) },
+                onClick = {
+                    AdManager.showRewarded(context) {
+                        viewModel.navigateTo(AppScreen.ADD_AMBULANCE)
+                    }
+                },
                 containerColor = BloodRed,
                 contentColor = Color.White
             ) {
@@ -10119,6 +10798,49 @@ fun AmbulanceListScreen(viewModel: MainViewModel) {
                         style = MaterialTheme.typography.titleSmall,
                         color = BloodRed,
                         modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { viewModel.updateAmbulanceQuery(it) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp),
+                        placeholder = {
+                            Text(
+                                text = if (language == AppLanguage.ENG) "Search by name, owner, phone..." else "নাম, মালিক বা মোবাইল দিয়ে খুঁজুন...",
+                                fontSize = 13.sp
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "Search icon",
+                                tint = BloodRed,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { viewModel.updateAmbulanceQuery("") }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Clear search",
+                                        tint = Color.Gray,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(8.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = BloodRed,
+                            unfocusedBorderColor = Color(0xFFE0E0E0),
+                            focusedContainerColor = Color(0xFFFAFAFA),
+                            unfocusedContainerColor = Color(0xFFFAFAFA)
+                        ),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp)
                     )
                     
                     Row(
@@ -10241,11 +10963,15 @@ fun AmbulanceListScreen(viewModel: MainViewModel) {
                             strings = strings,
                             language = language,
                             onCall = {
-                                val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${amb.phone}"))
-                                context.startActivity(intent)
+                                AdManager.showRewarded(context) {
+                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${amb.phone}"))
+                                    context.startActivity(intent)
+                                }
                             },
                             onChat = {
-                                viewModel.openChatRoom(amb.phone, amb.serviceName)
+                                AdManager.showRewarded(context) {
+                                    viewModel.openChatRoom(amb.phone, amb.serviceName)
+                                }
                             }
                         )
                     }
@@ -10326,7 +11052,7 @@ fun AmbulanceCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.LocationOn, contentDescription = null, tint = SecondaryText, modifier = Modifier.size(14.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text(text = "${ambulance.upazila}, ${ambulance.district}", fontSize = 12.sp, color = SecondaryText)
+                Text(text = "${ambulance.upazila}, ${ambulance.district} (${ambulance.country})", fontSize = 12.sp, color = SecondaryText)
             }
             
             Spacer(modifier = Modifier.height(16.dp))
@@ -10391,8 +11117,8 @@ fun AddAmbulanceScreen(viewModel: MainViewModel) {
     var expandedUpazila by remember { mutableStateOf(false) }
 
     val countries by viewModel.customCountries.collectAsState()
-    val districts = MockData.districts
-    val availableUpazilas = MockData.getUpazilasForDistrict(district)
+    val districts = remember(country) { MockData.getDistrictsForCountry(country) }
+    val availableUpazilas = remember(district, country) { MockData.getUpazilasForDistrict(district, country) }
 
     androidx.compose.runtime.LaunchedEffect(detectedCountryFlow) {
         if (country == "Bangladesh" || country == "" || country == "International" || country == "United States") {
@@ -10583,16 +11309,18 @@ fun AddAmbulanceScreen(viewModel: MainViewModel) {
                     if (serviceName.isBlank() || phone.isBlank()) {
                         android.widget.Toast.makeText(context, "Please fill all fields", android.widget.Toast.LENGTH_SHORT).show()
                     } else {
-                        viewModel.ambServiceName = serviceName
-                        viewModel.ambOwnerName = ownerName
-                        viewModel.ambPhone = phone
-                        viewModel.ambDescription = description
-                        viewModel.ambType = ambulanceType
-                        viewModel.ambDistrict = district
-                        viewModel.ambUpazila = upazila
-                        viewModel.ambCountry = country
-                        viewModel.triggerRegisterAmbulance()
-                        android.widget.Toast.makeText(context, strings["msg_ambulance_added"] ?: "Added!", android.widget.Toast.LENGTH_SHORT).show()
+                        AdManager.showRewarded(context) {
+                            viewModel.ambServiceName = serviceName
+                            viewModel.ambOwnerName = ownerName
+                            viewModel.ambPhone = phone
+                            viewModel.ambDescription = description
+                            viewModel.ambType = ambulanceType
+                            viewModel.ambDistrict = district
+                            viewModel.ambUpazila = upazila
+                            viewModel.ambCountry = country
+                            viewModel.triggerRegisterAmbulance()
+                            android.widget.Toast.makeText(context, strings["msg_ambulance_added"] ?: "Added!", android.widget.Toast.LENGTH_SHORT).show()
+                        }
                     }
                 },
                 modifier = Modifier

@@ -27,8 +27,77 @@ object MockData {
         "Bogura" to listOf("Sadar", "Sherpur", "Sariakandi", "Shajahanpur", "Kahaloo", "Gabtali")
     )
 
-    fun getUpazilasForDistrict(district: String): List<String> {
-        return upazilasMap[district] ?: listOf("Sadar")
+    val countryDistricts = mapOf(
+        "Bangladesh" to listOf(
+            "Dhaka", "Chattogram", "Sylhet", "Rajshahi", "Khulna", "Barishal", "Rangpur", "Mymensingh", "Cumilla", "Bogura"
+        ),
+        "United States" to listOf(
+            "New York", "California", "Texas"
+        ),
+        "India" to listOf(
+            "Delhi", "Maharashtra", "West Bengal", "Karnataka"
+        ),
+        "Saudi Arabia" to listOf(
+            "Riyadh", "Makkah", "Eastern Province"
+        ),
+        "United Arab Emirates" to listOf(
+            "Abu Dhabi", "Dubai", "Sharjah"
+        ),
+        "United Kingdom" to listOf(
+            "London", "Scotland", "Wales"
+        )
+    )
+
+    val countryUpazilasMap = mapOf(
+        "Bangladesh" to mapOf(
+            "Dhaka" to listOf("Mirpur", "Dhanmondi", "Uttara", "Gulshan", "Badda", "Mohammadpur", "Tejgaon", "Khilgaon"),
+            "Chattogram" to listOf("Panchlaish", "Double Mooring", "Halishahar", "Hathazari", "Anwara", "Patiya", "Sitakunda"),
+            "Sylhet" to listOf("Sylhet Sadar", "Beanibazar", "Golapganj", "Balaganj", "Fenchuganj", "Jaintiapur"),
+            "Rajshahi" to listOf("Boalia", "Rajpara", "Motihar", "Paba", "Godagari", "Bagha", "Tanore"),
+            "Khulna" to listOf("Sadar", "Sonadanga", "Daulatpur", "Khalishpur", "Rupsha", "Phultala", "Bagerhat"),
+            "Barishal" to listOf("Sadar", "Gournadi", "Babuganj", "Bakerganj", "Wazirpur", "Banaripara"),
+            "Rangpur" to listOf("Sadar", "Mithapukur", "Pirganj", "Kaunia", "Badarganj", "Gangachara"),
+            "Mymensingh" to listOf("Sadar", "Trishal", "Bhaluka", "Gafargaon", "Muktagachha", "Ishwarganj"),
+            "Cumilla" to listOf("Sadar South", "Adarsha Sadar", "Debidwar", "Burichang", "Laksam", "Daudkandi"),
+            "Bogura" to listOf("Sadar", "Sherpur", "Sariakandi", "Shajahanpur", "Kahaloo", "Gabtali")
+        ),
+        "United States" to mapOf(
+            "New York" to listOf("Manhattan", "Brooklyn", "Queens", "Bronx"),
+            "California" to listOf("San Francisco", "Los Angeles", "San Diego", "San Jose"),
+            "Texas" to listOf("Houston", "Dallas", "Austin", "San Antonio")
+        ),
+        "India" to mapOf(
+            "Delhi" to listOf("Connaught Place", "Dwarka", "Saket", "Karol Bagh"),
+            "Maharashtra" to listOf("Mumbai Worli", "Pune", "Nagpur", "Thane"),
+            "West Bengal" to listOf("Kolkata", "Howrah", "Darjeeling"),
+            "Karnataka" to listOf("Bengaluru", "Mysore", "Hubli")
+        ),
+        "Saudi Arabia" to mapOf(
+            "Riyadh" to listOf("Al-Olaya", "Al-Malaz", "Al-Murabba"),
+            "Makkah" to listOf("Jeddah", "Mecca", "Taif"),
+            "Eastern Province" to listOf("Dammam", "Khobar", "Jubail")
+        ),
+        "United Arab Emirates" to mapOf(
+            "Abu Dhabi" to listOf("Al-Reem Island", "Yas Island", "Al-Khalidiya"),
+            "Dubai" to listOf("Downtown Dubai", "Marina", "Deira", "Jumeirah"),
+            "Sharjah" to listOf("Al-Nahda", "Al-Majaz", "Muwaileh")
+        ),
+        "United Kingdom" to mapOf(
+            "London" to listOf("Westminster", "Camden", "Chelsea", "Greenwich"),
+            "Scotland" to listOf("Edinburgh", "Glasgow", "Aberdeen"),
+            "Wales" to listOf("Cardiff", "Swansea", "Newport")
+        )
+    )
+
+    fun getDistrictsForCountry(country: String): List<String> {
+        val normalizedCountry = if (country.isBlank()) "Bangladesh" else country
+        return countryDistricts[normalizedCountry] ?: countryDistricts["Bangladesh"]!!
+    }
+
+    fun getUpazilasForDistrict(district: String, country: String = "Bangladesh"): List<String> {
+        val normalizedCountry = if (country.isBlank()) "Bangladesh" else country
+        val subMap = countryUpazilasMap[normalizedCountry] ?: countryUpazilasMap["Bangladesh"]!!
+        return subMap[district] ?: listOf("Sadar")
     }
 
     val initialDonors = listOf(
@@ -732,6 +801,39 @@ object MockData {
             ambulanceType = "ICU",
             description = "Critical care transport in Manhattan area.",
             country = "United States"
+        ),
+        Ambulance(
+            id = "amb5",
+            ownerName = "Amit Patel",
+            serviceName = "Delhi Metro Care",
+            phone = "+919876543210",
+            district = "Delhi",
+            upazila = "Connaught Place",
+            ambulanceType = "AC",
+            description = "Rapid response medical team and oxygen support in Delhi NCR.",
+            country = "India"
+        ),
+        Ambulance(
+            id = "amb6",
+            ownerName = "Emma Watson",
+            serviceName = "London Heartbeat Service",
+            phone = "+442079460192",
+            district = "London",
+            upazila = "Westminster",
+            ambulanceType = "ICU",
+            description = "Emergency cardiac life saving support in central London.",
+            country = "United Kingdom"
+        ),
+        Ambulance(
+            id = "amb7",
+            ownerName = "Fahad Al-Saud",
+            serviceName = "Riyadh Oasis EMS",
+            phone = "+966114013033",
+            district = "Riyadh",
+            upazila = "Al-Olaya",
+            ambulanceType = "AC",
+            description = "Premium class fully equipped AC ambulances serving Riyadh.",
+            country = "Saudi Arabia"
         )
     )
 }

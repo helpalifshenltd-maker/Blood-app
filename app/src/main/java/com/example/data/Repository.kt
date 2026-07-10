@@ -1155,6 +1155,14 @@ class BloodConnectRepository private constructor() {
         _requests.value = _requests.value.filterNot { it.id == id }
     }
 
+    fun deleteAmbulance(id: String) {
+        _ambulances.value = _ambulances.value.filterNot { it.id == id }
+    }
+
+    fun deleteScamReport(id: String) {
+        _scamReports.value = _scamReports.value.filterNot { it.id == id }
+    }
+
     fun toggleRequestStatus(id: String) {
         _requests.value = _requests.value.map {
             if (it.id == id) {
