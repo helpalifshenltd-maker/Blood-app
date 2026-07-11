@@ -78,16 +78,34 @@ fun MainAppContainer(viewModel: MainViewModel) {
     // State for draggable FAB position
     var fabOffset by remember { mutableStateOf(IntOffset(0, 0)) }
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxSize().background(Color(0xFF121212)),
+        contentAlignment = Alignment.Center
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            // Main content based on active screen state
-            Crossfade(targetState = currentScreen, label = "screen_transition") { screen ->
-                if (screen == AppScreen.SPLASH) {
-                    SplashScreen(viewModel)
-                } else {
+        val isWideScreen = maxWidth > 600.dp
+        val containerModifier = if (isWideScreen) {
+            Modifier
+                .width(420.dp)
+                .fillMaxHeight()
+                .padding(vertical = 16.dp)
+                .shadow(24.dp, RoundedCornerShape(28.dp))
+                .clip(RoundedCornerShape(28.dp))
+                .background(MaterialTheme.colorScheme.background)
+                .border(8.dp, Color(0xFF1E1E1E), RoundedCornerShape(28.dp))
+        } else {
+            Modifier.fillMaxSize()
+        }
+
+        Surface(
+            modifier = containerModifier,
+            color = MaterialTheme.colorScheme.background
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                // Main content based on active screen state
+                Crossfade(targetState = currentScreen, label = "screen_transition") { screen ->
+                    if (screen == AppScreen.SPLASH) {
+                        SplashScreen(viewModel)
+                    } else {
                     ModalNavigationDrawer(
                         drawerState = drawerState,
                         drawerContent = {
@@ -290,6 +308,12 @@ fun MainAppContainer(viewModel: MainViewModel) {
                                     .padding(paddingValues)
                                     .background(MaterialTheme.colorScheme.background)
                             ) {
+                                AdBanner(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(MaterialTheme.colorScheme.surface)
+                                        .padding(vertical = 4.dp)
+                                )
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -313,15 +337,11 @@ fun MainAppContainer(viewModel: MainViewModel) {
                                         AppScreen.REQUEST_DETAIL -> RequestDetailScreen(viewModel)
                                         AppScreen.AMBULANCE_LIST -> AmbulanceListScreen(viewModel)
                                         AppScreen.ADD_AMBULANCE -> AddAmbulanceScreen(viewModel)
+                                        AppScreen.BOOK_AMBULANCE -> BookAmbulanceScreen(viewModel)
+                                        AppScreen.AMBULANCE_BOOKINGS -> AmbulanceBookingsScreen(viewModel)
                                         else -> {}
                                     }
                                 }
-                                AdBanner(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(MaterialTheme.colorScheme.surface)
-                                        .padding(vertical = 4.dp)
-                                )
                             }
                         }
                     }
@@ -423,6 +443,7 @@ fun MainAppContainer(viewModel: MainViewModel) {
             }
         }
     }
+}
 }
 
 // --- COMMON UI COMPONENTS ---
@@ -1021,8 +1042,8 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
 
     // Forms states
     var phoneInput by remember { mutableStateOf("") }
-    var emailInput by remember { mutableStateOf("alifsheenshopping@gmail.com") }
-    var passwordInput by remember { mutableStateOf("019Alif11#") }
+    var emailInput by remember { mutableStateOf("") }
+    var passwordInput by remember { mutableStateOf("") }
 
     // Register details
     var regNameInput by remember { mutableStateOf("") }
@@ -1540,8 +1561,8 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
 
 
     val bloodGroups = listOf("A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-")
-    val districts = remember(regCountryInput) { MockData.getDistrictsForCountry(regCountryInput) }
-    val availableUpazilas = remember(regDistrictInput, regCountryInput) { MockData.getUpazilasForDistrict(regDistrictInput, regCountryInput) }
+    val districts = MockData.districts
+    val availableUpazilas = MockData.getUpazilasForDistrict(regDistrictInput)
 
     Column(
         modifier = Modifier
@@ -5622,7 +5643,6 @@ fun SearchDonorScreen(viewModel: MainViewModel) {
     val strings by viewModel.strings.collectAsState()
     val language by viewModel.language.collectAsState()
     val donorsList by viewModel.filteredDonors.collectAsState()
-    val detectedCountryFlow by viewModel.detectedCountry.collectAsState()
 
     val bloodGroupFilter by viewModel.searchBloodGroup.collectAsState()
     val districtFilter by viewModel.searchDistrict.collectAsState()
@@ -5635,43 +5655,19 @@ fun SearchDonorScreen(viewModel: MainViewModel) {
     var exHospital by remember { mutableStateOf(false) }
 
     val bloodGroups = listOf("All", "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-")
-    val districts = remember(detectedCountryFlow) { listOf("All") + MockData.getDistrictsForCountry(detectedCountryFlow) }
-    val matchingUpazilas = remember(districtFilter, detectedCountryFlow) {
-        if (districtFilter == "All") listOf("All") else listOf("All") + MockData.getUpazilasForDistrict(districtFilter, detectedCountryFlow)
-    }
-    val hospitalsList = remember(detectedCountryFlow) {
-        listOf("All") + when (detectedCountryFlow) {
-            "Bangladesh" -> listOf(
-                "Dhaka Medical College Hospital (DMCH)",
-                "Sir Salimullah Medical College Hospital",
-                "Chattogram General Hospital (CGH)",
-                "Sylhet MAG Osmani Medical College",
-                "Rajshahi Medical College Hospital",
-                "Mymensingh Medical College Hospital",
-                "Khulna Medical College Hospital",
-                "Sher-e-Bangla Medical College Hospital"
-            )
-            "United States" -> listOf(
-                "Mount Sinai Hospital",
-                "Stanford Health Care",
-                "Houston Methodist Hospital"
-            )
-            "India" -> listOf(
-                "AIIMS New Delhi",
-                "Fortis Hospital Mumbai"
-            )
-            "Saudi Arabia" -> listOf(
-                "King Faisal Specialist Hospital"
-            )
-            "United Arab Emirates" -> listOf(
-                "Cleveland Clinic Abu Dhabi"
-            )
-            "United Kingdom" -> listOf(
-                "St Thomas' Hospital London"
-            )
-            else -> listOf("$detectedCountryFlow Central Health Center")
-        }
-    }
+    val districts = listOf("All") + MockData.districts
+    val matchingUpazilas = if (districtFilter == "All") listOf("All") else listOf("All") + MockData.getUpazilasForDistrict(districtFilter)
+    val hospitalsList = listOf(
+        "All",
+        "Dhaka Medical College Hospital (DMCH)",
+        "Sir Salimullah Medical College Hospital",
+        "Chattogram General Hospital (CGH)",
+        "Sylhet MAG Osmani Medical College",
+        "Rajshahi Medical College Hospital",
+        "Mymensingh Medical College Hospital",
+        "Khulna Medical College Hospital",
+        "Sher-e-Bangla Medical College Hospital"
+    )
 
     val context = LocalContext.current
 
@@ -6513,8 +6509,8 @@ fun RequestBloodScreen(viewModel: MainViewModel) {
     var expandedCountry by remember { mutableStateOf(false) }
 
     val bloodGroups = listOf("A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-")
-    val districts = remember(reqCountryInput) { MockData.getDistrictsForCountry(reqCountryInput) }
-    val availableUpazilas = remember(district, reqCountryInput) { MockData.getUpazilasForDistrict(district, reqCountryInput) }
+    val districts = MockData.districts
+    val availableUpazilas = MockData.getUpazilasForDistrict(district)
 
     Column(
         modifier = Modifier
@@ -6725,7 +6721,7 @@ fun RequestBloodScreen(viewModel: MainViewModel) {
                             text = { Text(dist) },
                             onClick = {
                                 district = dist
-                                val subUpz = MockData.getUpazilasForDistrict(dist, reqCountryInput)
+                                val subUpz = MockData.getUpazilasForDistrict(dist)
                                 upazila = subUpz.firstOrNull() ?: ""
                                 expandedDistrict = false
                             }
@@ -6749,7 +6745,7 @@ fun RequestBloodScreen(viewModel: MainViewModel) {
                     expanded = expandedUpazila,
                     onDismissRequest = { expandedUpazila = false }
                 ) {
-                    val currentUpazilas = MockData.getUpazilasForDistrict(district, reqCountryInput)
+                    val currentUpazilas = MockData.getUpazilasForDistrict(district)
                     if (currentUpazilas.isNotEmpty()) {
                         currentUpazilas.forEach { upz ->
                             DropdownMenuItem(
@@ -6884,6 +6880,7 @@ fun EmergencyRequestsScreen(viewModel: MainViewModel) {
     val language by viewModel.language.collectAsState()
     val appName by viewModel.appName.collectAsState()
     val requestsList by viewModel.requests.collectAsState()
+    val isSyncing by viewModel.isSyncing.collectAsState()
     val context = LocalContext.current
 
     val activeUrgentRequests = remember(requestsList) {
@@ -6902,16 +6899,43 @@ fun EmergencyRequestsScreen(viewModel: MainViewModel) {
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
-            Text(
-                text = strings["emergency_requests_title"] ?: "Emergency Blood Requests",
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = BloodRed)
-            )
-            Text(
-                text = "${activeUrgentRequests.size} ${strings["active_req_count"] ?: "live requests need support"}",
-                fontSize = 12.sp,
-                color = SecondaryText,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = strings["emergency_requests_title"] ?: "Emergency Blood Requests",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = BloodRed)
+                    )
+                    Text(
+                        text = "${activeUrgentRequests.size} ${strings["active_req_count"] ?: "live requests need support"}",
+                        fontSize = 12.sp,
+                        color = SecondaryText
+                    )
+                }
+                IconButton(
+                    onClick = { viewModel.triggerRemoteSync() },
+                    modifier = Modifier.size(40.dp).testTag("emergency_requests_refresh_btn")
+                ) {
+                    if (isSyncing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = BloodRed,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Sync Requests",
+                            tint = BloodRed,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
 
             if (activeUrgentRequests.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -7261,8 +7285,8 @@ fun UserProfileScreen(viewModel: MainViewModel) {
     var expandedCountry by remember { mutableStateOf(false) }
 
     val bloodGroups = listOf("A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-")
-    val districts = remember(editCountry) { MockData.getDistrictsForCountry(editCountry) }
-    val availableUpazilas = remember(editDistrict, editCountry) { MockData.getUpazilasForDistrict(editDistrict, editCountry) }
+    val districts = MockData.districts
+    val availableUpazilas = MockData.getUpazilasForDistrict(editDistrict)
 
     Column(
         modifier = Modifier
@@ -7427,6 +7451,104 @@ fun UserProfileScreen(viewModel: MainViewModel) {
                             fontSize = 12.sp
                         )
                     }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
+            border = BorderStroke(1.dp, Color(0xFFFFB74D))
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.AirportShuttle,
+                        contentDescription = "Ambulance",
+                        tint = Color(0xFFE65100),
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = if (language == AppLanguage.BAN) "অ্যাম্বুলেন্স সার্ভিস প্যানেল" else "Ambulance Service Panel",
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFE65100),
+                        fontSize = 15.sp
+                    )
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = if (language == AppLanguage.BAN) 
+                        "জরুরি প্রয়োজনে সরাসরি অ্যাপ থেকে অ্যাম্বুলেন্স বুকিং করুন, বুকিংয়ের রিয়েল-টাইম ইতিহাস ও পেমেন্ট স্ট্যাটাস ট্র্যাক করুন অথবা আপনার নিজের অ্যাম্বুলেন্স সার্ভিসটি যুক্ত করুন।" 
+                        else "Book an urgent ambulance directly from the app, track real-time booking history and payment status, or list/register your own ambulance service.",
+                    fontSize = 12.sp,
+                    color = DarkText,
+                    lineHeight = 16.sp
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Button 1: Book Now
+                    Button(
+                        onClick = { viewModel.navigateTo(AppScreen.BOOK_AMBULANCE) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF57C00)),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(vertical = 8.dp)
+                    ) {
+                        Icon(Icons.Default.Book, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (language == AppLanguage.BAN) "বুক করুন" else "Book Now",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    // Button 2: Booking History
+                    Button(
+                        onClick = { viewModel.navigateTo(AppScreen.AMBULANCE_BOOKINGS) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFF3E0)),
+                        border = BorderStroke(1.dp, Color(0xFFF57C00)),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(vertical = 8.dp)
+                    ) {
+                        Icon(Icons.Default.History, contentDescription = null, tint = Color(0xFFE65100), modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (language == AppLanguage.BAN) "বুকিং ইতিহাস" else "History",
+                            color = Color(0xFFE65100),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Button 3: Add Ambulance Service
+                Button(
+                    onClick = { viewModel.navigateTo(AppScreen.ADD_AMBULANCE) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00796B)),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp)
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (language == AppLanguage.BAN) "নতুন অ্যাম্বুলেন্স যুক্ত করুন" else "Add Ambulance Service",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
@@ -7850,12 +7972,62 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
     val donorsList by viewModel.donors.collectAsState()
     val requestsList by viewModel.requests.collectAsState()
     val scamReportsList by viewModel.scamReports.collectAsState()
-    val ambulancesList by viewModel.ambulances.collectAsState()
     val strings by viewModel.strings.collectAsState()
     val language by viewModel.language.collectAsState()
+    val isSyncing by viewModel.isSyncing.collectAsState()
+    val messagesList by viewModel.messages.collectAsState()
+    val ambulancesList by viewModel.ambulances.collectAsState()
+    val ambulanceBookingsList by viewModel.ambulanceBookings.collectAsState()
 
     val context = LocalContext.current
     var activeTab by remember { mutableStateOf("DASHBOARD") } // DEFAULT tab is now "DASHBOARD"!
+
+    // Let's compute real blood group segment counts dynamically
+    val bgCounts = remember(donorsList) {
+        val map = mutableMapOf<String, Int>()
+        donorsList.forEach { d ->
+            map[d.bloodGroup] = (map[d.bloodGroup] ?: 0) + 1
+        }
+        map
+    }
+    val totalDonorsCount = donorsList.size.coerceAtLeast(1)
+    val oPlusCount = bgCounts["O+"] ?: 0
+    val aPlusCount = bgCounts["A+"] ?: 0
+    val bPlusCount = bgCounts["B+"] ?: 0
+    val otherCount = (totalDonorsCount - oPlusCount - aPlusCount - bPlusCount).coerceAtLeast(0)
+
+    val oPlusPct = (oPlusCount * 100f / totalDonorsCount).roundToInt()
+    val aPlusPct = (aPlusCount * 100f / totalDonorsCount).roundToInt()
+    val bPlusPct = (bPlusCount * 100f / totalDonorsCount).roundToInt()
+    val otherPct = (100 - oPlusPct - aPlusPct - bPlusPct).coerceAtLeast(0)
+
+    // Convert to angles
+    val angleO = oPlusPct * 3.6f
+    val angleA = aPlusPct * 3.6f
+    val angleB = bPlusPct * 3.6f
+    val angleOther = otherPct * 3.6f
+
+    // Scale spline chart points dynamically based on real counts
+    val maxVal = maxOf(donorsList.size, requestsList.size, 10).toFloat()
+    val pointsDonors = listOf(
+        (donorsList.size * 0.4f) / maxVal,
+        (donorsList.size * 0.55f) / maxVal,
+        (donorsList.size * 0.45f) / maxVal,
+        (donorsList.size * 0.75f) / maxVal,
+        (donorsList.size * 0.65f) / maxVal,
+        (donorsList.size * 0.85f) / maxVal,
+        (donorsList.size * 1.0f) / maxVal
+    ).map { it.coerceIn(0.1f, 0.95f) }
+
+    val pointsReqs = listOf(
+        (requestsList.size * 0.2f) / maxVal,
+        (requestsList.size * 0.4f) / maxVal,
+        (requestsList.size * 0.35f) / maxVal,
+        (requestsList.size * 0.5f) / maxVal,
+        (requestsList.size * 0.45f) / maxVal,
+        (requestsList.size * 0.6f) / maxVal,
+        (requestsList.size * 1.0f) / maxVal
+    ).map { it.coerceIn(0.1f, 0.95f) }
     
     // Live filter inputs
     var searchQuery by remember { mutableStateOf("") }
@@ -7922,25 +8094,6 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
         }
     }
 
-    val filteredAmbulancesAdmin = remember(ambulancesList, searchQuery, filterStatus) {
-        ambulancesList.filter { amb ->
-            val matchesSearch = searchQuery.isEmpty() ||
-                amb.serviceName.contains(searchQuery, ignoreCase = true) ||
-                amb.ownerName.contains(searchQuery, ignoreCase = true) ||
-                amb.phone.contains(searchQuery) ||
-                amb.district.contains(searchQuery, ignoreCase = true) ||
-                amb.upazila.contains(searchQuery, ignoreCase = true)
-
-            val matchesStatus = when (filterStatus) {
-                "Available" -> amb.isAvailable
-                "Busy" -> !amb.isAvailable
-                else -> true
-            }
-
-            matchesSearch && matchesStatus
-        }
-    }
-
     // Modern Indigo Purple theme color palette for NOVUS
     val novusSidebarBg = Color(0xFF3F4FB5)
     val novusSidebarDark = Color(0xFF2E3280)
@@ -7953,7 +8106,6 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
         Triple("DASHBOARD", if (language == AppLanguage.ENG) "Dashboard" else "ড্যাশবোর্ড", Icons.Default.Dashboard),
         Triple("DONORS", if (language == AppLanguage.ENG) "Donors List" else "রক্তদাতা তালিকা", Icons.Default.Person),
         Triple("REQUESTS", if (language == AppLanguage.ENG) "Blood Requests" else "রক্তের অনুরোধসমূহ", Icons.Default.Favorite),
-        Triple("AMBULANCES", if (language == AppLanguage.ENG) "Ambulance Posts" else "অ্যাম্বুলেন্স পোস্টসমূহ", Icons.Default.AirportShuttle),
         Triple("SUPPORT", if (language == AppLanguage.ENG) "Live Support" else "লাইভ সাপোর্ট", Icons.Default.Chat),
         Triple("POLICIES", if (language == AppLanguage.ENG) "Page Policies" else "পৃষ্ঠা নীতিসমূহ", Icons.Default.List),
         Triple("REPORTS", if (language == AppLanguage.ENG) "Fraud Reports" else "প্রতারণা রিপোর্ট", Icons.Default.Warning),
@@ -8018,7 +8170,6 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                                 val badgeValue = when (tag) {
                                     "DONORS" -> "${donorsList.size}"
                                     "REQUESTS" -> "${requestsList.filter { it.status == "Active" }.size}"
-                                    "AMBULANCES" -> "${ambulancesList.size}"
                                     "REPORTS" -> "${scamReportsList.size}"
                                     else -> null
                                 }
@@ -8177,6 +8328,26 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                         }
                     }
 
+                    IconButton(
+                        onClick = { viewModel.triggerRemoteSync() },
+                        modifier = Modifier.size(32.dp).testTag("admin_sync_btn")
+                    ) {
+                        if (isSyncing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Sync",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+
                     Box(
                         modifier = Modifier
                             .size(28.dp)
@@ -8210,15 +8381,15 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                                         modifier = Modifier.weight(1f).testTag("total_users_stat_card_compact"),
                                         title = if (language == AppLanguage.ENG) "Total App Users" else "সর্বমোট ব্যবহারকারী",
                                         value = "${donorsList.size}",
-                                        subtitle = if (language == AppLanguage.ENG) "${donorsList.size} Registered Accounts" else "${donorsList.size} জন নিবন্ধিত ইউজার",
+                                        subtitle = if (language == AppLanguage.ENG) "${donorsList.filter { it.isApproved }.size} Approved Donors" else "${donorsList.filter { it.isApproved }.size} জন অনুমোদিত",
                                         backgroundColor = Color(0xFFD32F2F),
                                         icon = Icons.Default.Person
                                     )
                                     AdminStatCard(
                                         modifier = Modifier.weight(1f),
-                                        title = if (language == AppLanguage.ENG) "Comments & Chats" else "মন্তব্য ও চ্যাট",
-                                        value = "${12 + requestsList.filter { it.status == "Active" }.size}K",
-                                        subtitle = if (language == AppLanguage.ENG) "12K Support Activity" else "১২কে সহায়তা কার্যক্রম",
+                                        title = if (language == AppLanguage.ENG) "Support & Chats" else "মন্তব্য ও চ্যাট",
+                                        value = "${messagesList.size}",
+                                        subtitle = if (language == AppLanguage.ENG) "${messagesList.size} Live Chats" else "${messagesList.size}টি সাপোর্ট মেসেজ",
                                         backgroundColor = Color(0xFFFF9800),
                                         icon = Icons.Default.Chat
                                     )
@@ -8226,19 +8397,19 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                     AdminStatCard(
                                         modifier = Modifier.weight(1f),
-                                        title = if (language == AppLanguage.ENG) "Tweets & Requests" else "টুইট ও অনুরোধ",
-                                        value = "${27 + requestsList.size}K",
-                                        subtitle = if (language == AppLanguage.ENG) "${requestsList.size} Blood Requests" else "${requestsList.size}টি রক্তের অনুরোধ",
+                                        title = if (language == AppLanguage.ENG) "Blood Requests" else "রক্তের অনুরোধ",
+                                        value = "${requestsList.size}",
+                                        subtitle = if (language == AppLanguage.ENG) "${requestsList.filter { it.status == "Active" }.size} Active Requests" else "${requestsList.filter { it.status == "Active" }.size}টি সক্রিয় অনুরোধ",
                                         backgroundColor = Color(0xFF00ACEE),
-                                        icon = Icons.Default.Share
+                                        icon = Icons.Default.LocalHospital
                                     )
                                     AdminStatCard(
                                         modifier = Modifier.weight(1f),
-                                        title = if (language == AppLanguage.ENG) "Platform Views" else "প্লাটফর্ম ভিউ",
-                                        value = "557K",
-                                        subtitle = if (language == AppLanguage.ENG) "${donorsList.filter { it.isApproved }.size} Approved Donors" else "${donorsList.filter { it.isApproved }.size} জন অনুমোদিত",
+                                        title = if (language == AppLanguage.ENG) "Ambulance Services" else "অ্যাম্বুলেন্স সার্ভিস",
+                                        value = "${ambulancesList.size}",
+                                        subtitle = if (language == AppLanguage.ENG) "${ambulanceBookingsList.size} Bookings Total" else "${ambulanceBookingsList.size}টি বুকিং সম্পন্ন",
                                         backgroundColor = Color(0xFF4CAF50),
-                                        icon = Icons.Default.Visibility
+                                        icon = Icons.Default.AirportShuttle
                                     )
                                 }
                             }
@@ -8248,33 +8419,33 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                                     modifier = Modifier.weight(1f).testTag("total_users_stat_card_wide"),
                                     title = if (language == AppLanguage.ENG) "Total App Users" else "সর্বমোট ব্যবহারকারী",
                                     value = "${donorsList.size}",
-                                    subtitle = if (language == AppLanguage.ENG) "${donorsList.size} Registered" else "${donorsList.size} জন নিবন্ধিত",
+                                    subtitle = if (language == AppLanguage.ENG) "${donorsList.filter { it.isApproved }.size} Approved Accounts" else "${donorsList.filter { it.isApproved }.size} জন ভেরিফাইড",
                                     backgroundColor = Color(0xFFD32F2F),
                                     icon = Icons.Default.Person
                                 )
                                 AdminStatCard(
                                     modifier = Modifier.weight(1f),
-                                    title = if (language == AppLanguage.ENG) "Comments & Chats" else "মন্তব্য ও চ্যাট",
-                                    value = "${12 + requestsList.filter { it.status == "Active" }.size}K",
-                                    subtitle = if (language == AppLanguage.ENG) "12,045 Comments" else "১২,০৪৫টি মন্তব্য",
+                                    title = if (language == AppLanguage.ENG) "Support & Chats" else "মন্তব্য ও চ্যাট",
+                                    value = "${messagesList.size}",
+                                    subtitle = if (language == AppLanguage.ENG) "${messagesList.size} Chat Messages" else "${messagesList.size}টি সাপোর্ট মেসেজ",
                                     backgroundColor = Color(0xFFFF9800),
                                     icon = Icons.Default.Chat
                                 )
                                 AdminStatCard(
                                     modifier = Modifier.weight(1f),
-                                    title = if (language == AppLanguage.ENG) "Tweets & Requests" else "টুইট ও অনুরোধ",
-                                    value = "${27 + requestsList.size}K",
-                                    subtitle = if (language == AppLanguage.ENG) "${requestsList.size} Active Requests" else "${requestsList.size}টি অনুরোধ",
+                                    title = if (language == AppLanguage.ENG) "Blood Requests" else "রক্তের অনুরোধ",
+                                    value = "${requestsList.size}",
+                                    subtitle = if (language == AppLanguage.ENG) "${requestsList.filter { it.status == "Active" }.size} Active Requests" else "${requestsList.filter { it.status == "Active" }.size}টি সক্রিয় অনুরোধ",
                                     backgroundColor = Color(0xFF00ACEE),
-                                    icon = Icons.Default.Share
+                                    icon = Icons.Default.LocalHospital
                                 )
                                 AdminStatCard(
                                     modifier = Modifier.weight(1f),
-                                    title = if (language == AppLanguage.ENG) "Platform Views" else "প্লাটফর্ম ভিউ",
-                                    value = "557K",
-                                    subtitle = if (language == AppLanguage.ENG) "${donorsList.filter { it.isApproved }.size} Approved" else "${donorsList.filter { it.isApproved }.size} জন ভেরিফাইড",
+                                    title = if (language == AppLanguage.ENG) "Ambulance Services" else "অ্যাম্বুলেন্স সার্ভিস",
+                                    value = "${ambulancesList.size}",
+                                    subtitle = if (language == AppLanguage.ENG) "${ambulanceBookingsList.size} Bookings Registered" else "${ambulanceBookingsList.size}টি বুকিং সম্পন্ন",
                                     backgroundColor = Color(0xFF4CAF50),
-                                    icon = Icons.Default.Visibility
+                                    icon = Icons.Default.AirportShuttle
                                 )
                             }
                         }
@@ -8316,42 +8487,42 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                                         ) {
                                             Canvas(modifier = Modifier.size(140.dp)) {
                                                 val strokeWidth = 32f
-                                                // segment 1: O+ (45%)
+                                                // segment 1: O+
                                                 drawArc(
                                                     color = Color(0xFF3B5998),
                                                     startAngle = -90f,
-                                                    sweepAngle = 162f,
+                                                    sweepAngle = angleO,
                                                     useCenter = false,
                                                     style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
                                                 )
-                                                // segment 2: A+ (30%)
+                                                // segment 2: A+
                                                 drawArc(
                                                     color = Color(0xFFFF9800),
-                                                    startAngle = 72f,
-                                                    sweepAngle = 108f,
+                                                    startAngle = -90f + angleO,
+                                                    sweepAngle = angleA,
                                                     useCenter = false,
                                                     style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
                                                 )
-                                                // segment 3: B+ (15%)
+                                                // segment 3: B+
                                                 drawArc(
                                                     color = Color(0xFF00ACEE),
-                                                    startAngle = 180f,
-                                                    sweepAngle = 54f,
+                                                    startAngle = -90f + angleO + angleA,
+                                                    sweepAngle = angleB,
                                                     useCenter = false,
                                                     style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
                                                 )
-                                                // segment 4: Others (10%)
+                                                // segment 4: Others
                                                 drawArc(
                                                     color = Color(0xFF4CAF50),
-                                                    startAngle = 234f,
-                                                    sweepAngle = 36f,
+                                                    startAngle = -90f + angleO + angleA + angleB,
+                                                    sweepAngle = angleOther,
                                                     useCenter = false,
                                                     style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
                                                 )
                                             }
                                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                                Text("O+", fontSize = 22.sp, fontWeight = FontWeight.Black, color = Color(0xFF3B5998))
-                                                Text("45%", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                                                Text("${donorsList.size}", fontSize = 22.sp, fontWeight = FontWeight.Black, color = Color(0xFF3B5998))
+                                                Text(if (language == AppLanguage.ENG) "Donors" else "দাতা", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                                             }
                                         }
                                         
@@ -8363,22 +8534,22 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Box(modifier = Modifier.size(8.dp).background(Color(0xFF3B5998), CircleShape))
                                                 Spacer(modifier = Modifier.width(4.dp))
-                                                Text("O+ (45%)", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                                                Text("O+ (${oPlusPct}%)", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                                             }
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Box(modifier = Modifier.size(8.dp).background(Color(0xFFFF9800), CircleShape))
                                                 Spacer(modifier = Modifier.width(4.dp))
-                                                Text("A+ (30%)", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                                                Text("A+ (${aPlusPct}%)", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                                             }
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Box(modifier = Modifier.size(8.dp).background(Color(0xFF00ACEE), CircleShape))
                                                 Spacer(modifier = Modifier.width(4.dp))
-                                                Text("B+ (15%)", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                                                Text("B+ (${bPlusPct}%)", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                                             }
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Box(modifier = Modifier.size(8.dp).background(Color(0xFF4CAF50), CircleShape))
                                                 Spacer(modifier = Modifier.width(4.dp))
-                                                Text("Other", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                                                Text("Other (${otherPct}%)", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                                             }
                                         }
                                     }
@@ -8546,38 +8717,42 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                                         ) {
                                             Canvas(modifier = Modifier.size(125.dp)) {
                                                 val strokeWidth = 26f
+                                                // segment 1: O+
                                                 drawArc(
                                                     color = Color(0xFF3B5998),
                                                     startAngle = -90f,
-                                                    sweepAngle = 162f,
+                                                    sweepAngle = angleO,
                                                     useCenter = false,
                                                     style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
                                                 )
+                                                // segment 2: A+
                                                 drawArc(
                                                     color = Color(0xFFFF9800),
-                                                    startAngle = 72f,
-                                                    sweepAngle = 108f,
+                                                    startAngle = -90f + angleO,
+                                                    sweepAngle = angleA,
                                                     useCenter = false,
                                                     style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
                                                 )
+                                                // segment 3: B+
                                                 drawArc(
                                                     color = Color(0xFF00ACEE),
-                                                    startAngle = 180f,
-                                                    sweepAngle = 54f,
+                                                    startAngle = -90f + angleO + angleA,
+                                                    sweepAngle = angleB,
                                                     useCenter = false,
                                                     style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
                                                 )
+                                                // segment 4: Others
                                                 drawArc(
                                                     color = Color(0xFF4CAF50),
-                                                    startAngle = 234f,
-                                                    sweepAngle = 36f,
+                                                    startAngle = -90f + angleO + angleA + angleB,
+                                                    sweepAngle = angleOther,
                                                     useCenter = false,
                                                     style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
                                                 )
                                             }
                                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                                Text("O+", fontSize = 18.sp, fontWeight = FontWeight.Black, color = Color(0xFF3B5998))
-                                                Text("45%", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                                                Text("${donorsList.size}", fontSize = 18.sp, fontWeight = FontWeight.Black, color = Color(0xFF3B5998))
+                                                Text(if (language == AppLanguage.ENG) "Donors" else "দাতা", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                                             }
                                         }
                                         
@@ -8589,22 +8764,22 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Box(modifier = Modifier.size(6.dp).background(Color(0xFF3B5998), CircleShape))
                                                 Spacer(modifier = Modifier.width(2.dp))
-                                                Text("O+ (45%)", fontSize = 8.sp, color = Color.Gray)
+                                                Text("O+ (${oPlusPct}%)", fontSize = 8.sp, color = Color.Gray)
                                             }
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Box(modifier = Modifier.size(6.dp).background(Color(0xFFFF9800), CircleShape))
                                                 Spacer(modifier = Modifier.width(2.dp))
-                                                Text("A+ (30%)", fontSize = 8.sp, color = Color.Gray)
+                                                Text("A+ (${aPlusPct}%)", fontSize = 8.sp, color = Color.Gray)
                                             }
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Box(modifier = Modifier.size(6.dp).background(Color(0xFF00ACEE), CircleShape))
                                                 Spacer(modifier = Modifier.width(2.dp))
-                                                Text("B+ (15%)", fontSize = 8.sp, color = Color.Gray)
+                                                Text("B+ (${bPlusPct}%)", fontSize = 8.sp, color = Color.Gray)
                                             }
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Box(modifier = Modifier.size(6.dp).background(Color(0xFF4CAF50), CircleShape))
                                                 Spacer(modifier = Modifier.width(2.dp))
-                                                Text("Other", fontSize = 8.sp, color = Color.Gray)
+                                                Text("Other (${otherPct}%)", fontSize = 8.sp, color = Color.Gray)
                                             }
                                         }
                                     }
@@ -9305,12 +9480,11 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                         val statusOptions = when (activeTab) {
                             "DONORS" -> listOf("All", "Pending", "Approved")
                             "REQUESTS" -> listOf("All", "Active", "Resolved")
-                            "AMBULANCES" -> listOf("All", "Available", "Busy")
                             "REPORTS" -> listOf("All", "Pending", "Banned", "Dismissed")
                             else -> listOf("All")
                         }
 
-                        if (activeTab in listOf("DONORS", "REQUESTS", "REPORTS", "AMBULANCES")) {
+                        if (activeTab in listOf("DONORS", "REQUESTS", "REPORTS")) {
                             AdminFiltersCard(
                                 language = language,
                                 searchQuery = searchQuery,
@@ -9359,16 +9533,6 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                                         }
                                     )
                                 }
-                                "AMBULANCES" -> {
-                                    AdminAmbulancesTab(
-                                        ambulances = filteredAmbulancesAdmin,
-                                        language = language,
-                                        onDelete = { id ->
-                                            viewModel.adminDeleteAmbulance(id)
-                                            Toast.makeText(context, "Ambulance Post Deleted", Toast.LENGTH_SHORT).show()
-                                        }
-                                    )
-                                }
                                 "SUPPORT" -> {
                                     AdminSupportTab(viewModel = viewModel, language = language)
                                 }
@@ -9405,10 +9569,6 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                                         onBan = { id ->
                                             viewModel.adminActionOnScamReport(id, "Banned")
                                             Toast.makeText(context, "Scammer suspended and banned!", Toast.LENGTH_LONG).show()
-                                        },
-                                        onDeleteReport = { id ->
-                                            viewModel.adminDeleteScamReport(id)
-                                            Toast.makeText(context, "Report deleted successfully!", Toast.LENGTH_SHORT).show()
                                         },
                                         strings = strings,
                                         donors = donorsList,
@@ -10735,9 +10895,7 @@ fun AmbulanceListScreen(viewModel: MainViewModel) {
     val searchDist by viewModel.searchDistrict.collectAsState()
     val searchUpz by viewModel.searchUpazila.collectAsState()
     val searchType by viewModel.searchAmbulanceType.collectAsState()
-    val searchQuery by viewModel.searchAmbulanceQuery.collectAsState()
     val context = LocalContext.current
-    val detectedCountryFlow by viewModel.detectedCountry.collectAsState()
 
     val ambulanceTypes = listOf("All", "AC", "Non-AC", "ICU")
 
@@ -10745,9 +10903,9 @@ fun AmbulanceListScreen(viewModel: MainViewModel) {
     var expandedUpazila by remember { mutableStateOf(false) }
     var expandedType by remember { mutableStateOf(false) }
 
-    val districts = remember(detectedCountryFlow) { listOf("All") + MockData.getDistrictsForCountry(detectedCountryFlow) }
-    val availableUpazilas = remember(searchDist, detectedCountryFlow) {
-        if (searchDist == "All") listOf("All") else listOf("All") + MockData.getUpazilasForDistrict(searchDist, detectedCountryFlow)
+    val districts = remember { listOf("All") + MockData.districts }
+    val availableUpazilas = remember(searchDist) {
+        if (searchDist == "All") listOf("All") else listOf("All") + MockData.getUpazilasForDistrict(searchDist)
     }
 
     Scaffold(
@@ -10783,6 +10941,88 @@ fun AmbulanceListScreen(viewModel: MainViewModel) {
                 .padding(padding)
                 .background(MaterialTheme.colorScheme.surface)
         ) {
+            // Ambulance Booking Promo & Action Buttons Row
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)), // Light orange
+                border = BorderStroke(1.dp, Color(0xFFFFB74D))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(Color(0xFFFFE0B2), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AirportShuttle,
+                                contentDescription = null,
+                                tint = Color(0xFFF57C00),
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (language == AppLanguage.BAN) "জরুরি অ্যাম্বুলেন্স বুকিং সেবা" else "Urgent Ambulance Booking Service",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFE65100)
+                            )
+                            Text(
+                                text = if (language == AppLanguage.BAN) "অ্যাপ থেকেই সরাসরি বুক করুন এবং ড্রাইভার বা অ্যাডমিনের সাথে ট্র্যাক করুন।" else "Book an ambulance directly inside the app and track status.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF5D4037)
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = { viewModel.navigateTo(AppScreen.BOOK_AMBULANCE) },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF57C00))
+                        ) {
+                            Icon(Icons.Default.Book, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = strings["amb_booking_title"] ?: "Book Ambulance",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = Color.White
+                            )
+                        }
+                        
+                        Button(
+                            onClick = { viewModel.navigateTo(AppScreen.AMBULANCE_BOOKINGS) },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE0F2F1)),
+                            border = BorderStroke(1.dp, Color(0xFF009688))
+                        ) {
+                            Icon(Icons.Default.History, contentDescription = null, tint = Color(0xFF00796B), modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = strings["amb_booking_history"] ?: "Booking History",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = Color(0xFF00796B)
+                            )
+                        }
+                    }
+                }
+            }
+
             // Filters
             Card(
                 modifier = Modifier
@@ -10798,49 +11038,6 @@ fun AmbulanceListScreen(viewModel: MainViewModel) {
                         style = MaterialTheme.typography.titleSmall,
                         color = BloodRed,
                         modifier = Modifier.padding(bottom = 8.dp)
-                    )
-
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { viewModel.updateAmbulanceQuery(it) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 12.dp),
-                        placeholder = {
-                            Text(
-                                text = if (language == AppLanguage.ENG) "Search by name, owner, phone..." else "নাম, মালিক বা মোবাইল দিয়ে খুঁজুন...",
-                                fontSize = 13.sp
-                            )
-                        },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = "Search icon",
-                                tint = BloodRed,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        },
-                        trailingIcon = {
-                            if (searchQuery.isNotEmpty()) {
-                                IconButton(onClick = { viewModel.updateAmbulanceQuery("") }) {
-                                    Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = "Clear search",
-                                        tint = Color.Gray,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            }
-                        },
-                        singleLine = true,
-                        shape = RoundedCornerShape(8.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = BloodRed,
-                            unfocusedBorderColor = Color(0xFFE0E0E0),
-                            focusedContainerColor = Color(0xFFFAFAFA),
-                            unfocusedContainerColor = Color(0xFFFAFAFA)
-                        ),
-                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp)
                     )
                     
                     Row(
@@ -11117,8 +11314,8 @@ fun AddAmbulanceScreen(viewModel: MainViewModel) {
     var expandedUpazila by remember { mutableStateOf(false) }
 
     val countries by viewModel.customCountries.collectAsState()
-    val districts = remember(country) { MockData.getDistrictsForCountry(country) }
-    val availableUpazilas = remember(district, country) { MockData.getUpazilasForDistrict(district, country) }
+    val districts = MockData.districts
+    val availableUpazilas = MockData.getUpazilasForDistrict(district)
 
     androidx.compose.runtime.LaunchedEffect(detectedCountryFlow) {
         if (country == "Bangladesh" || country == "" || country == "International" || country == "United States") {
@@ -11331,6 +11528,1119 @@ fun AddAmbulanceScreen(viewModel: MainViewModel) {
             ) {
                 Text(text = strings["btn_register_ambulance"] ?: "Register", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
+        }
+    }
+}
+
+@Composable
+fun BookAmbulanceScreen(viewModel: MainViewModel) {
+    val strings by viewModel.strings.collectAsState()
+    val language by viewModel.language.collectAsState()
+    val context = LocalContext.current
+
+    var patientName by remember { mutableStateOf("") }
+    var contactPhone by remember { mutableStateOf("") }
+    var pickupAddress by remember { mutableStateOf("") }
+    var destinationAddress by remember { mutableStateOf("") }
+    var ambulanceType by remember { mutableStateOf("AC") }
+    var urgencyLevel by remember { mutableStateOf("Emergency") }
+    var notes by remember { mutableStateOf("") }
+    
+    // Auto-generate current or chosen date & time
+    var dateStr by remember { mutableStateOf("") }
+    if (dateStr.isEmpty()) {
+        dateStr = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+    }
+
+    Scaffold(
+        topBar = {
+            CommonTopAppBar(
+                title = strings["amb_booking_title"] ?: "Book Ambulance",
+                currentLang = language,
+                onLangToggle = { viewModel.toggleLanguage() },
+                onBack = { viewModel.navigateTo(AppScreen.AMBULANCE_LIST) },
+                showBack = true,
+                userSession = viewModel.currentUser.collectAsState().value,
+                onProfileClick = { viewModel.navigateTo(AppScreen.USER_PROFILE) },
+                onSearchClick = { viewModel.navigateTo(AppScreen.SEARCH_DONOR) }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = if (language == AppLanguage.ENG) "Fill in the details to request an ambulance instantly." else "তাৎক্ষণিকভাবে অ্যাম্বুলেন্স বুকিং করতে নিচের তথ্যগুলো পূরণ করুন।",
+                style = MaterialTheme.typography.bodyMedium,
+                color = SecondaryText
+            )
+
+            OutlinedTextField(
+                value = patientName,
+                onValueChange = { patientName = it },
+                label = { Text(strings["amb_patient_name"] ?: "Patient Name") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) }
+            )
+
+            OutlinedTextField(
+                value = contactPhone,
+                onValueChange = { contactPhone = it },
+                label = { Text(strings["amb_contact_phone"] ?: "Contact Phone Number") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                leadingIcon = { Icon(Icons.Default.Call, contentDescription = null) }
+            )
+
+            OutlinedTextField(
+                value = pickupAddress,
+                onValueChange = { pickupAddress = it },
+                label = { Text(strings["amb_pickup"] ?: "Pickup Address") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null) }
+            )
+
+            OutlinedTextField(
+                value = destinationAddress,
+                onValueChange = { destinationAddress = it },
+                label = { Text(strings["amb_destination"] ?: "Destination/Hospital") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                leadingIcon = { Icon(Icons.Default.LocalHospital, contentDescription = null) }
+            )
+
+            // Ambulance Type Selector
+            Column {
+                Text(
+                    text = strings["ambulance_type"] ?: "Ambulance Type",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = SecondaryText,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf("AC", "Non-AC", "ICU", "Freezer").forEach { type ->
+                        val isSelected = ambulanceType == type
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { ambulanceType = type },
+                            color = if (isSelected) Color(0xFFFFF3E0) else Color.White,
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, if (isSelected) Color(0xFFFFB74D) else LightBorder)
+                        ) {
+                            Text(
+                                text = type,
+                                modifier = Modifier.padding(vertical = 12.dp),
+                                textAlign = TextAlign.Center,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) Color(0xFFE65100) else DarkText,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Urgency Selector
+            Column {
+                Text(
+                    text = strings["amb_urgency"] ?: "Urgency",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = SecondaryText,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf("Emergency", "General").forEach { urg ->
+                        val isSelected = urgencyLevel == urg
+                        val label = if (urg == "Emergency") (strings["amb_urgency_emergency"] ?: "Emergency") else (strings["amb_urgency_general"] ?: "General")
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { urgencyLevel = urg },
+                            color = if (isSelected) {
+                                if (urg == "Emergency") Color(0xFFFFEBEE) else Color(0xFFE8F5E9)
+                            } else Color.White,
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, if (isSelected) {
+                                if (urg == "Emergency") Color(0xFFEF5350) else Color(0xFF66BB6A)
+                            } else LightBorder)
+                        ) {
+                            Text(
+                                text = label,
+                                modifier = Modifier.padding(vertical = 12.dp),
+                                textAlign = TextAlign.Center,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) {
+                                    if (urg == "Emergency") Color(0xFFC62828) else Color(0xFF2E7D32)
+                                } else DarkText,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            OutlinedTextField(
+                value = dateStr,
+                onValueChange = { dateStr = it },
+                label = { Text(if (language == AppLanguage.BAN) "তারিখ ও সময়" else "Date & Time") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) }
+            )
+
+            OutlinedTextField(
+                value = notes,
+                onValueChange = { notes = it },
+                label = { Text(if (language == AppLanguage.BAN) "অতিরিক্ত নোট (ঐচ্ছিক)" else "Additional Notes (Optional)") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                leadingIcon = { Icon(Icons.Default.Notes, contentDescription = null) }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = {
+                    if (patientName.isBlank() || contactPhone.isBlank() || pickupAddress.isBlank() || destinationAddress.isBlank()) {
+                        android.widget.Toast.makeText(context, if (language == AppLanguage.BAN) "অনুগ্রহ করে সব তারকা চিহ্নিত ক্ষেত্র পূরণ করুন" else "Please fill all required fields", android.widget.Toast.LENGTH_SHORT).show()
+                    } else {
+                        AdManager.showRewarded(context) {
+                            viewModel.triggerSubmitAmbulanceBooking(
+                                patientName = patientName,
+                                contactPhone = contactPhone,
+                                pickupAddress = pickupAddress,
+                                destinationAddress = destinationAddress,
+                                ambulanceType = ambulanceType,
+                                urgencyLevel = urgencyLevel,
+                                dateTime = dateStr,
+                                notes = notes
+                            )
+                            android.widget.Toast.makeText(context, strings["amb_booking_success"] ?: "Booking request submitted!", android.widget.Toast.LENGTH_LONG).show()
+                            viewModel.navigateTo(AppScreen.AMBULANCE_BOOKINGS)
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = BloodRed)
+            ) {
+                Icon(Icons.Default.Check, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = strings["amb_submit_booking"] ?: "Confirm Booking Request", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+fun AmbulanceBookingsScreen(viewModel: MainViewModel) {
+    val strings by viewModel.strings.collectAsState()
+    val language by viewModel.language.collectAsState()
+    val bookings by viewModel.ambulanceBookings.collectAsState()
+    val isAdminMode by viewModel.isAdminMode.collectAsState()
+    val context = LocalContext.current
+
+    Scaffold(
+        topBar = {
+            CommonTopAppBar(
+                title = strings["amb_booking_history"] ?: "Booking History",
+                currentLang = language,
+                onLangToggle = { viewModel.toggleLanguage() },
+                onBack = { viewModel.navigateTo(AppScreen.AMBULANCE_LIST) },
+                showBack = true,
+                userSession = viewModel.currentUser.collectAsState().value,
+                onProfileClick = { viewModel.navigateTo(AppScreen.USER_PROFILE) },
+                onSearchClick = { viewModel.navigateTo(AppScreen.SEARCH_DONOR) }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .background(MaterialTheme.colorScheme.surface)
+        ) {
+            if (isAdminMode) {
+                val completedBookings = bookings.filter { it.status == "Completed" }
+                val totalFareEarned = completedBookings.sumOf { it.fare }
+                val totalCommissionEarned = completedBookings.sumOf { it.commission }
+
+                Surface(
+                    color = Color(0xFFE0F2F1),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Security, contentDescription = null, tint = Color(0xFF00796B))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = strings["amb_admin_manage"] ?: "Manage Ambulance Bookings",
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF00796B),
+                                fontSize = 15.sp
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Card(
+                                modifier = Modifier.weight(1f),
+                                colors = CardDefaults.cardColors(containerColor = Color.White),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Text(
+                                        text = if (language == AppLanguage.BAN) "মোট সম্পন্ন ভাড়া" else "Total Fare Completed",
+                                        fontSize = 11.sp,
+                                        color = SecondaryText
+                                    )
+                                    Text(
+                                        text = "${totalFareEarned.toInt()} BDT",
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = DarkText
+                                    )
+                                }
+                            }
+
+                            Card(
+                                modifier = Modifier.weight(1f),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Text(
+                                        text = strings["amb_commission_label"] ?: "Commission (5%)",
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF2E7D32)
+                                    )
+                                    Text(
+                                        text = "${totalCommissionEarned.toInt()} BDT",
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF1B5E20)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (bookings.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.EventNote,
+                            contentDescription = null,
+                            tint = SecondaryText,
+                            modifier = Modifier.size(64.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = strings["amb_no_bookings"] ?: "No ambulance bookings found.",
+                            color = SecondaryText,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .weight(1f)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(bookings) { booking ->
+                        BookingCard(
+                            booking = booking,
+                            strings = strings,
+                            language = language,
+                            isAdmin = isAdminMode,
+                            onUpdateStatus = { status, name, phone, notes, fare ->
+                                viewModel.triggerUpdateBookingStatus(booking.id, status, name, phone, notes, fare)
+                                android.widget.Toast.makeText(context, if (language == AppLanguage.BAN) "বুকিং আপডেট সফল হয়েছে!" else "Booking status updated!", android.widget.Toast.LENGTH_SHORT).show()
+                            },
+                            onPayCommission = { method, txnId, phone ->
+                                viewModel.triggerPayBookingCommission(booking.id, method, txnId, phone)
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun BookingCard(
+    booking: AmbulanceBooking,
+    strings: Map<String, String>,
+    language: AppLanguage,
+    isAdmin: Boolean,
+    onUpdateStatus: (String, String?, String?, String?, Double?) -> Unit,
+    onPayCommission: (String, String, String) -> Unit
+) {
+    var showAdminDialog by remember { mutableStateOf(false) }
+    var showPaymentGatewayDialog by remember { mutableStateOf(false) }
+    
+    val statusColor = when (booking.status) {
+        "Pending" -> Color(0xFFFF9800)
+        "Confirmed" -> Color(0xFF2196F3)
+        "On the Way" -> Color(0xFF009688)
+        "Completed" -> Color(0xFF4CAF50)
+        "Cancelled" -> Color(0xFFF44336)
+        else -> Color.Gray
+    }
+
+    val statusText = when (booking.status) {
+        "Pending" -> strings["amb_status_pending"] ?: "Pending"
+        "Confirmed" -> strings["amb_status_confirmed"] ?: "Confirmed"
+        "On the Way" -> strings["amb_status_onway"] ?: "On the Way"
+        "Completed" -> strings["amb_status_completed"] ?: "Completed"
+        "Cancelled" -> strings["amb_status_cancelled"] ?: "Cancelled"
+        else -> booking.status
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header with status
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(Color(0xFFFFEBEE), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.AirportShuttle, contentDescription = null, tint = BloodRed, modifier = Modifier.size(18.dp))
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = booking.patientName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = DarkText
+                    )
+                    Text(
+                        text = booking.timestamp,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SecondaryText
+                    )
+                }
+                Surface(
+                    color = statusColor.copy(alpha = 0.15f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = statusText,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = statusColor
+                    )
+                }
+            }
+
+            Divider(modifier = Modifier.padding(vertical = 12.dp), color = LightBorder)
+
+            // Details list
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                BookingDetailRow(icon = Icons.Default.Call, label = strings["amb_contact_phone"] ?: "Contact", value = booking.contactPhone)
+                BookingDetailRow(icon = Icons.Default.LocationOn, label = strings["amb_pickup"] ?: "Pickup", value = booking.pickupAddress)
+                BookingDetailRow(icon = Icons.Default.LocalHospital, label = strings["amb_destination"] ?: "Destination", value = booking.destinationAddress)
+                BookingDetailRow(icon = Icons.Default.AirportShuttle, label = strings["ambulance_type"] ?: "Type", value = "${booking.ambulanceType} (${if (booking.urgencyLevel == "Emergency") (strings["amb_urgency_emergency"] ?: "Emergency") else (strings["amb_urgency_general"] ?: "General")})")
+                BookingDetailRow(icon = Icons.Default.AccessTime, label = if (language == AppLanguage.BAN) "নির্ধারিত সময়" else "Scheduled Time", value = booking.dateTime)
+                if (booking.notes.isNotBlank()) {
+                    BookingDetailRow(icon = Icons.Default.Notes, label = if (language == AppLanguage.BAN) "নোট" else "Notes", value = booking.notes)
+                }
+                if (booking.fare > 0.0) {
+                    BookingDetailRow(
+                        icon = Icons.Default.Payments,
+                        label = strings["amb_fare_label"] ?: "Ambulance Fare (BDT)",
+                        value = "${booking.fare.toInt()} BDT"
+                    )
+                    BookingDetailRow(
+                        icon = Icons.Default.AccountBalanceWallet,
+                        label = strings["amb_commission_label"] ?: "Commission (5%)",
+                        value = "${booking.commission.toInt()} BDT"
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    if (booking.isCommissionPaid) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = Color(0xFFE8F5E9),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, Color(0xFF81C784))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = Color(0xFF2E7D32),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = strings["amb_commission_paid"] ?: "Commission Paid Online",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        color = Color(0xFF1B5E20)
+                                    )
+                                    Text(
+                                        text = "${strings["amb_payment_method"] ?: "Method"}: ${booking.paymentMethod} | ${strings["amb_txn_id"] ?: "TxnID"}: ${booking.paymentTxnId}",
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF2E7D32)
+                                    )
+                                    if (!booking.paymentPhone.isNullOrBlank()) {
+                                        Text(
+                                            text = "${if (language == AppLanguage.BAN) "পরিশোধিত নম্বর" else "Sender Mobile"}: ${booking.paymentPhone}",
+                                            fontSize = 11.sp,
+                                            color = Color(0xFF2E7D32)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = Color(0xFFFFF3E0),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, Color(0xFFFFB74D))
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Info,
+                                        contentDescription = null,
+                                        tint = Color(0xFFE65100),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = strings["amb_commission_unpaid"] ?: "Commission Unpaid",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        color = Color(0xFFE65100)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = if (language == AppLanguage.BAN) 
+                                        "অ্যাপ থেকে অনলাইনে বিকাশ, নগদ বা রকেট গেটওয়ের মাধ্যমে সরাসরি ৫% কমিশন পরিশোধ করুন।" 
+                                        else "Pay the 5% commission instantly online using bKash, Nagad or Rocket.",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFFE65100)
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Button(
+                                    onClick = { showPaymentGatewayDialog = true },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD12053)),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(vertical = 8.dp)
+                                ) {
+                                    Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = strings["amb_pay_now_btn"] ?: "Pay Now (5% Commission)",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Assigned Ambulance/Driver Info
+            if (booking.assignedAmbulanceName != null && booking.assignedAmbulanceName.isNotBlank() || 
+                booking.assignedAmbulancePhone != null && booking.assignedAmbulancePhone.isNotBlank()) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                    color = Color(0xFFF5F5F5),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = strings["amb_assign_info"] ?: "Assigned Driver/Ambulance",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = DarkText
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        if (booking.assignedAmbulanceName != null && booking.assignedAmbulanceName.isNotBlank()) {
+                            Text(text = "Driver: ${booking.assignedAmbulanceName}", fontSize = 12.sp, color = DarkText)
+                        }
+                        if (booking.assignedAmbulancePhone != null && booking.assignedAmbulancePhone.isNotBlank()) {
+                            Text(text = "Phone: ${booking.assignedAmbulancePhone}", fontSize = 12.sp, color = DarkText)
+                        }
+                    }
+                }
+            }
+
+            if (isAdmin) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = { showAdminDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00796B))
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(text = if (language == AppLanguage.BAN) "বুকিং আপডেট করুন" else "Update Booking", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+            }
+        }
+    }
+
+    if (showAdminDialog) {
+        var tempStatus by remember { mutableStateOf(booking.status) }
+        var tempDriverName by remember { mutableStateOf(booking.assignedAmbulanceName ?: "") }
+        var tempDriverPhone by remember { mutableStateOf(booking.assignedAmbulancePhone ?: "") }
+        var tempNotes by remember { mutableStateOf(booking.notes) }
+        var tempFare by remember { mutableStateOf(if (booking.fare > 0.0) booking.fare.toInt().toString() else "") }
+
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showAdminDialog = false },
+            title = { Text(text = strings["amb_booking_details"] ?: "Booking Details") },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.verticalScroll(rememberScrollState())
+                ) {
+                    Text(text = "Patient: ${booking.patientName}", fontWeight = FontWeight.Bold)
+                    
+                    // Status Selection Row
+                    Text(text = "Select Status:", style = MaterialTheme.typography.labelMedium)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf("Pending", "Confirmed", "On the Way", "Completed", "Cancelled").forEach { st ->
+                            val isSelected = tempStatus == st
+                            val stColor = when (st) {
+                                "Pending" -> Color(0xFFFF9800)
+                                "Confirmed" -> Color(0xFF2196F3)
+                                "On the Way" -> Color(0xFF009688)
+                                "Completed" -> Color(0xFF4CAF50)
+                                "Cancelled" -> Color(0xFFF44336)
+                                else -> Color.Gray
+                            }
+                            Surface(
+                                modifier = Modifier.clickable { tempStatus = st },
+                                color = if (isSelected) stColor else Color(0xFFF5F5F5),
+                                shape = RoundedCornerShape(8.dp),
+                                border = BorderStroke(1.dp, if (isSelected) stColor else LightBorder)
+                            ) {
+                                Text(
+                                    text = st,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isSelected) Color.White else DarkText
+                                )
+                            }
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = tempDriverName,
+                        onValueChange = { tempDriverName = it },
+                        label = { Text("Driver/Agency Name") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = tempDriverPhone,
+                        onValueChange = { tempDriverPhone = it },
+                        label = { Text("Driver Phone Number") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = tempFare,
+                        onValueChange = { tempFare = it },
+                        label = { Text(strings["amb_fare_label"] ?: "Ambulance Fare (BDT)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+
+                    val enteredFare = tempFare.toDoubleOrNull() ?: 0.0
+                    if (enteredFare > 0.0) {
+                        val calcCommission = enteredFare * 0.05
+                        Surface(
+                            color = Color(0xFFFFF8E1),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "${strings["amb_commission_label"] ?: "Commission (5%)"}: ${calcCommission.toInt()} BDT",
+                                modifier = Modifier.padding(10.dp),
+                                color = Color(0xFFE65100),
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = tempNotes,
+                        onValueChange = { tempNotes = it },
+                        label = { Text("Admin Notes / Equipment Info") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val finalFare = tempFare.toDoubleOrNull() ?: 0.0
+                        onUpdateStatus(tempStatus, tempDriverName, tempDriverPhone, tempNotes, finalFare)
+                        showAdminDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00796B))
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAdminDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showPaymentGatewayDialog) {
+        var step by remember { mutableStateOf(1) } // 1: Method & Wallet, 2: OTP, 3: PIN, 4: Success
+        var selectedMethod by remember { mutableStateOf("bKash") }
+        var walletNumber by remember { mutableStateOf("") }
+        var otpCode by remember { mutableStateOf("") }
+        var pinCode by remember { mutableStateOf("") }
+        var generatedTxnId by remember { mutableStateOf("") }
+
+        val gatewayColor = when (selectedMethod) {
+            "bKash" -> Color(0xFFD12053)
+            "Nagad" -> Color(0xFFF04A23)
+            "Rocket" -> Color(0xFF8C3494)
+            "Google Play" -> Color(0xFF01875F)
+            else -> Color(0xFFD12053)
+        }
+
+        val context = androidx.compose.ui.platform.LocalContext.current
+
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { if (step != 4) showPaymentGatewayDialog = false },
+            title = null,
+            text = {
+                Surface(
+                    color = Color.White,
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        // Gateway Header / Banner
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(gatewayColor, RoundedCornerShape(12.dp))
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = if (step == 4) "Payment Success" else "$selectedMethod Online Gateway",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        if (step == 1) {
+                            // Amount Box
+                            Surface(
+                                color = Color(0xFFF5F5F5),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(12.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = if (language == AppLanguage.BAN) "পরিশোধের পরিমাণ" else "Amount to Pay",
+                                        fontSize = 12.sp,
+                                        color = SecondaryText
+                                    )
+                                    Text(
+                                        text = "${booking.commission.toInt()} BDT",
+                                        fontSize = 24.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = gatewayColor
+                                    )
+                                    Text(
+                                        text = if (selectedMethod == "Google Play") {
+                                            if (language == AppLanguage.BAN) "গুগল প্লে সিকিউর মার্চেন্ট পেমেন্ট" else "Google Play Secure Merchant Payment"
+                                        } else {
+                                            if (language == AppLanguage.BAN) "মার্চেন্ট হিসাব নম্বর: ০১৭০০-০০০০০১" else "Merchant Wallet: 01700-000001"
+                                        },
+                                        fontSize = 11.sp,
+                                        color = SecondaryText
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Method Tabs
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                listOf("bKash", "Nagad", "Rocket", "Google Play").forEach { m ->
+                                    val isMSelected = selectedMethod == m
+                                    val mColor = when (m) {
+                                        "bKash" -> Color(0xFFD12053)
+                                        "Nagad" -> Color(0xFFF04A23)
+                                        "Rocket" -> Color(0xFF8C3494)
+                                        "Google Play" -> Color(0xFF01875F)
+                                        else -> Color.Gray
+                                    }
+                                    Surface(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clickable { 
+                                                selectedMethod = m
+                                                if (m == "Google Play") {
+                                                    walletNumber = "help.alifshen.ltd@gmail.com"
+                                                } else {
+                                                    walletNumber = ""
+                                                }
+                                            },
+                                        color = if (isMSelected) mColor.copy(alpha = 0.12f) else Color.White,
+                                        shape = RoundedCornerShape(8.dp),
+                                        border = BorderStroke(1.5.dp, if (isMSelected) mColor else LightBorder)
+                                    ) {
+                                        Text(
+                                            text = m,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isMSelected) mColor else DarkText,
+                                            fontSize = 9.sp,
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                            modifier = Modifier.padding(vertical = 8.dp)
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            if (selectedMethod == "Google Play") {
+                                Surface(
+                                    color = Color(0xFFF1F3F4),
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    border = BorderStroke(1.dp, Color(0xFFDADCE0))
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Default.Person,
+                                                contentDescription = null,
+                                                tint = Color(0xFF5F6368),
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "help.alifshen.ltd@gmail.com",
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                color = Color(0xFF3C4043)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(10.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    imageVector = Icons.Default.AccountBalanceWallet,
+                                                    contentDescription = null,
+                                                    tint = Color(0xFF01875F),
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = if (language == AppLanguage.BAN) "গুগল প্লে ব্যালেন্স" else "Google Play Balance",
+                                                    fontSize = 11.sp,
+                                                    color = Color(0xFF5F6368)
+                                                )
+                                            }
+                                            Text(
+                                                text = "5,000.00 BDT",
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF202124)
+                                            )
+                                        }
+                                    }
+                                }
+                            } else {
+                                OutlinedTextField(
+                                    value = walletNumber,
+                                    onValueChange = { walletNumber = it },
+                                    label = { Text(if (language == AppLanguage.BAN) "আপনার $selectedMethod নম্বর দিন" else "Enter your $selectedMethod wallet no.") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                                    singleLine = true
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Button(
+                                onClick = {
+                                    if (selectedMethod == "Google Play") {
+                                        generatedTxnId = "GPA." + (1000..9999).shuffled().first().toString() + "-" + (1000..9999).shuffled().first().toString() + "-" + (1000..9999).shuffled().first().toString() + "-" + (1000..9999).shuffled().first().toString()
+                                        step = 4
+                                    } else {
+                                        if (walletNumber.length < 11) {
+                                            android.widget.Toast.makeText(context, if (language == AppLanguage.BAN) "সঠিক ১১ ডিজিটের মোবাইল নম্বর দিন" else "Enter a valid 11 digit number", android.widget.Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            step = 2
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().height(48.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = gatewayColor)
+                            ) {
+                                val btnText = if (selectedMethod == "Google Play") {
+                                    if (language == AppLanguage.BAN) "১-ট্যাপে কিনুন (One-tap Buy)" else "One-tap Buy"
+                                } else {
+                                    if (language == AppLanguage.BAN) "পরবর্তী ধাপ" else "Next"
+                                }
+                                Text(text = btnText, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        if (step == 2) {
+                            Text(
+                                text = if (language == AppLanguage.BAN) "একটি ৬-ডিজিটের ওটিপি (OTP) আপনার নম্বরে পাঠানো হয়েছে।" else "A 6-digit verification code was sent to your wallet number.",
+                                fontSize = 12.sp,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                color = SecondaryText
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            OutlinedTextField(
+                                value = otpCode,
+                                onValueChange = { otpCode = it },
+                                label = { Text(if (language == AppLanguage.BAN) "ওটিপি (OTP) কোড দিন" else "Enter OTP Code") },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Button(
+                                onClick = {
+                                    if (otpCode.isBlank()) {
+                                        android.widget.Toast.makeText(context, "Please enter OTP code", android.widget.Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        step = 3
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().height(48.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = gatewayColor)
+                            ) {
+                                Text(text = if (language == AppLanguage.BAN) "যাচাই করুন" else "Verify", fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        if (step == 3) {
+                            Text(
+                                text = if (language == AppLanguage.BAN) "নিরাপদ পেমেন্ট সম্পন্ন করতে আপনার গোপন পিন (PIN) নম্বরটি দিন।" else "Enter your secret transaction PIN to complete secure transaction.",
+                                fontSize = 12.sp,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                color = SecondaryText
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            OutlinedTextField(
+                                value = pinCode,
+                                onValueChange = { pinCode = it },
+                                label = { Text(if (language == AppLanguage.BAN) "পিন (PIN) কোড" else "Enter PIN") },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                                singleLine = true
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Button(
+                                onClick = {
+                                    if (pinCode.length < 4) {
+                                        android.widget.Toast.makeText(context, "Enter valid PIN code", android.widget.Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        // Generate simulated TxnID
+                                        val prefix = when (selectedMethod) {
+                                            "bKash" -> "BK"
+                                            "Nagad" -> "NG"
+                                            "Rocket" -> "RC"
+                                            else -> "TX"
+                                        }
+                                        generatedTxnId = prefix + (100000..999999).shuffled().first().toString() + ('A'..'Z').shuffled().take(2).joinToString("")
+                                        step = 4
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().height(48.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = gatewayColor)
+                            ) {
+                                Text(text = if (language == AppLanguage.BAN) "পেমেন্ট নিশ্চিত করুন" else "Confirm Payment", fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        if (step == 4) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = Color(0xFF4CAF50),
+                                modifier = Modifier.size(64.dp)
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Text(
+                                text = if (language == AppLanguage.BAN) "পেমেন্ট সফল হয়েছে!" else "Payment Successful!",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp,
+                                color = Color(0xFF2E7D32)
+                              )
+
+                            Text(
+                                text = "${booking.commission.toInt()} BDT Paid to Alif Admin Wallet",
+                                fontSize = 12.sp,
+                                color = SecondaryText
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Surface(
+                                color = Color(0xFFF5F5F5),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text(text = "TxnID: $generatedTxnId", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = DarkText)
+                                    Text(text = "Method: $selectedMethod", fontSize = 12.sp, color = DarkText)
+                                    Text(text = "Sender: $walletNumber", fontSize = 12.sp, color = DarkText)
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Button(
+                                onClick = {
+                                    onPayCommission(selectedMethod, generatedTxnId, walletNumber)
+                                    showPaymentGatewayDialog = false
+                                },
+                                modifier = Modifier.fillMaxWidth().height(48.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+                            ) {
+                                val doneText = if (language == AppLanguage.BAN) "সম্পন্ন করুন" else "Done"
+                                Text(text = doneText, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {}
+        )
+    }
+}
+
+@Composable
+fun BookingDetailRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top
+    ) {
+        Icon(icon, contentDescription = null, tint = SecondaryText, modifier = Modifier.size(16.dp).padding(top = 2.dp))
+        Spacer(modifier = Modifier.width(8.dp))
+        Column {
+            Text(text = label, fontSize = 11.sp, color = SecondaryText)
+            Text(text = value, fontSize = 13.sp, color = DarkText, fontWeight = FontWeight.Medium)
         }
     }
 }

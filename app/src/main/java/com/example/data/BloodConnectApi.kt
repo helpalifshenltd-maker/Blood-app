@@ -16,20 +16,42 @@ interface BloodConnectApiService {
     @GET("donors")
     suspend fun getDonors(): List<BloodDonor>
 
+    @Headers("Prefer: resolution=merge-duplicates")
     @POST("donors")
     suspend fun registerDonor(@Body donor: BloodDonor): BloodDonor
+
+    @PATCH("donors")
+    suspend fun updateDonor(@Query("id") idFilter: String, @Body donor: BloodDonor): List<BloodDonor>
+
+    @DELETE("donors")
+    suspend fun deleteDonor(@Query("id") idFilter: String): List<BloodDonor>
 
     @GET("requests")
     suspend fun getRequests(): List<BloodRequest>
 
+    @Headers("Prefer: resolution=merge-duplicates")
     @POST("requests")
     suspend fun createRequest(@Body request: BloodRequest): BloodRequest
+
+    @PATCH("requests")
+    suspend fun updateRequest(@Query("id") idFilter: String, @Body request: BloodRequest): List<BloodRequest>
+
+    @DELETE("requests")
+    suspend fun deleteRequest(@Query("id") idFilter: String): List<BloodRequest>
 
     @GET("notifications")
     suspend fun getNotifications(): List<DonationNotification>
 
+    @Headers("Prefer: resolution=merge-duplicates")
     @POST("notifications")
     suspend fun sendNotification(@Body notification: DonationNotification): DonationNotification
+
+    @GET("app_config")
+    suspend fun getAppConfig(): List<AppConfig>
+
+    @Headers("Prefer: resolution=merge-duplicates")
+    @POST("app_config")
+    suspend fun updateAppConfig(@Body config: AppConfig): List<AppConfig>
 }
 
 // Client Manager for dynamically configuring Base URL and performing Retrofit network calls
@@ -142,6 +164,66 @@ object BloodConnectApiClient {
         val service = apiService ?: return Result.failure(Exception("API URL is not set. Action performed locally."))
         return try {
             val response = service.createRequest(request)
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateDonor(id: String, donor: BloodDonor): Result<List<BloodDonor>> {
+        val service = apiService ?: return Result.failure(Exception("API URL is not set."))
+        return try {
+            val response = service.updateDonor("eq.$id", donor)
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteDonor(id: String): Result<List<BloodDonor>> {
+        val service = apiService ?: return Result.failure(Exception("API URL is not set."))
+        return try {
+            val response = service.deleteDonor("eq.$id")
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateRequest(id: String, request: BloodRequest): Result<List<BloodRequest>> {
+        val service = apiService ?: return Result.failure(Exception("API URL is not set."))
+        return try {
+            val response = service.updateRequest("eq.$id", request)
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteRequest(id: String): Result<List<BloodRequest>> {
+        val service = apiService ?: return Result.failure(Exception("API URL is not set."))
+        return try {
+            val response = service.deleteRequest("eq.$id")
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun fetchAppConfig(): Result<AppConfig?> {
+        val service = apiService ?: return Result.failure(Exception("API URL is not set."))
+        return try {
+            val response = service.getAppConfig()
+            Result.success(response.firstOrNull())
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateAppConfig(config: AppConfig): Result<List<AppConfig>> {
+        val service = apiService ?: return Result.failure(Exception("API URL is not set."))
+        return try {
+            val response = service.updateAppConfig(config)
             Result.success(response)
         } catch (e: Exception) {
             Result.failure(e)

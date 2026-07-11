@@ -11,6 +11,20 @@ class MainViewModel(
     private val repository: BloodConnectRepository = BloodConnectRepository.getInstance()
 ) : ViewModel() {
 
+    init {
+        // Periodically sync with remote Supabase database every 15 seconds to fetch latest updates, requests, and donor profiles
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            while (true) {
+                try {
+                    repository.triggerRemoteSync()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                kotlinx.coroutines.delay(15000) // 15 seconds
+            }
+        }
+    }
+
     // --- NAVIGATION BACKSTACK ---
     private val _currentScreen = MutableStateFlow<AppScreen>(AppScreen.SPLASH)
     val currentScreen: StateFlow<AppScreen> = _currentScreen.asStateFlow()
@@ -199,6 +213,8 @@ class MainViewModel(
 
     val ambulances: StateFlow<List<Ambulance>> = repository.ambulances
 
+    val ambulanceBookings: StateFlow<List<AmbulanceBooking>> = repository.ambulanceBookings
+
     val messages: StateFlow<List<ChatMessage>> = repository.messages
 
     // --- REMOTE WEB API PROPERTIES ---
@@ -323,16 +339,10 @@ class MainViewModel(
         profileEditCountry = countryName
         
         if (isBD) {
-            _searchDistrict.value = "Dhaka"
             repository.setLanguage(AppLanguage.BAN)
         } else {
-            _searchDistrict.value = "All"
             repository.setLanguage(AppLanguage.ENG)
         }
-        _searchUpazila.value = "All"
-        _searchHospital.value = "All"
-        _searchAmbulanceType.value = "All"
-        _searchAmbulanceQuery.value = ""
     }
 
     // --- SELECTED DONOR FOR DETAILED PROFILE ---
@@ -396,13 +406,6 @@ class MainViewModel(
     private val _searchAmbulanceType = MutableStateFlow("All")
     val searchAmbulanceType: StateFlow<String> = _searchAmbulanceType.asStateFlow()
 
-    private val _searchAmbulanceQuery = MutableStateFlow("")
-    val searchAmbulanceQuery: StateFlow<String> = _searchAmbulanceQuery.asStateFlow()
-
-    fun updateAmbulanceQuery(query: String) {
-        _searchAmbulanceQuery.value = query
-    }
-
     fun updateFilters(bloodGroup: String, district: String, upazila: String, hospital: String = "All") {
         _searchBloodGroup.value = bloodGroup
         _searchDistrict.value = district
@@ -464,30 +467,14 @@ class MainViewModel(
         _searchDistrict,
         _searchUpazila,
         _searchAmbulanceType,
-        _searchAmbulanceQuery,
         detectedCountry
-    ) { flowsArray ->
-        @Suppress("UNCHECKED_CAST")
-        val list = flowsArray[0] as List<Ambulance>
-        val dist = flowsArray[1] as String
-        val upz = flowsArray[2] as String
-        val type = flowsArray[3] as String
-        val query = flowsArray[4] as String
-        val countryName = flowsArray[5] as String
-
+    ) { list, dist, upz, type, countryName ->
         list.filter { amb ->
             val matchCountry = amb.country.equals(countryName, ignoreCase = true)
             val matchDist = (dist == "All" || amb.district.equals(dist, ignoreCase = true))
             val matchUpz = (upz == "All" || amb.upazila.equals(upz, ignoreCase = true))
             val matchType = (type == "All" || amb.ambulanceType.equals(type, ignoreCase = true))
-            val matchQuery = query.isBlank() ||
-                    amb.serviceName.contains(query, ignoreCase = true) ||
-                    amb.ownerName.contains(query, ignoreCase = true) ||
-                    amb.phone.contains(query, ignoreCase = true) ||
-                    amb.description.contains(query, ignoreCase = true) ||
-                    amb.district.contains(query, ignoreCase = true) ||
-                    amb.upazila.contains(query, ignoreCase = true)
-            matchCountry && matchDist && matchUpz && matchType && matchQuery
+            matchCountry && matchDist && matchUpz && matchType
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -805,14 +792,6 @@ class MainViewModel(
         repository.deleteRequest(id)
     }
 
-    fun adminDeleteAmbulance(id: String) {
-        repository.deleteAmbulance(id)
-    }
-
-    fun adminDeleteScamReport(id: String) {
-        repository.deleteScamReport(id)
-    }
-
     fun adminToggleRequest(id: String) {
         repository.toggleRequestStatus(id)
     }
@@ -921,6 +900,48 @@ class MainViewModel(
         return true
     }
 
+    fun triggerSubmitAmbulanceBooking(
+        patientName: String,
+        contactPhone: String,
+        pickupAddress: String,
+        destinationAddress: String,
+        ambulanceType: String,
+        urgencyLevel: String,
+        dateTime: String,
+        notes: String
+    ) {
+        repository.submitAmbulanceBooking(
+            patientName = patientName,
+            contactPhone = contactPhone,
+            pickupAddress = pickupAddress,
+            destinationAddress = destinationAddress,
+            ambulanceType = ambulanceType,
+            urgencyLevel = urgencyLevel,
+            dateTime = dateTime,
+            notes = notes
+        )
+    }
+
+    fun triggerUpdateBookingStatus(
+        bookingId: String,
+        newStatus: String,
+        assignedName: String? = null,
+        assignedPhone: String? = null,
+        adminNotes: String? = null,
+        fare: Double? = null
+    ) {
+        repository.updateBookingStatus(bookingId, newStatus, assignedName, assignedPhone, adminNotes, fare)
+    }
+
+    fun triggerPayBookingCommission(
+        bookingId: String,
+        method: String,
+        txnId: String,
+        phone: String
+    ) {
+        repository.payBookingCommission(bookingId, method, txnId, phone)
+    }
+
     // POLICY STATE STREAMS
     val privacyPolicyEn: StateFlow<String> = repository.privacyPolicyEn
     val privacyPolicyBn: StateFlow<String> = repository.privacyPolicyBn
@@ -959,5 +980,7 @@ enum class AppScreen {
     REQUEST_DETAIL,
     AMBULANCE_LIST,
     ADD_AMBULANCE,
+    BOOK_AMBULANCE,
+    AMBULANCE_BOOKINGS,
     SUPPORT_CHAT
 }

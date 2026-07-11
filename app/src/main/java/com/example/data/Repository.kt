@@ -52,6 +52,9 @@ class BloodConnectRepository private constructor() {
     private val _ambulances = MutableStateFlow<List<Ambulance>>(MockData.initialAmbulances)
     val ambulances: StateFlow<List<Ambulance>> = _ambulances.asStateFlow()
 
+    private val _ambulanceBookings = MutableStateFlow<List<AmbulanceBooking>>(emptyList())
+    val ambulanceBookings: StateFlow<List<AmbulanceBooking>> = _ambulanceBookings.asStateFlow()
+
     private val _appName = MutableStateFlow("Alif Blood Bank")
     val appName: StateFlow<String> = _appName.asStateFlow()
 
@@ -60,6 +63,11 @@ class BloodConnectRepository private constructor() {
 
     fun updateAppName(newName: String) {
         _appName.value = newName
+        appContext?.let { ctx ->
+            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putString("app_name_pref", newName).apply()
+        }
+        pushAppConfigToRemote()
     }
 
     fun registerAmbulance(
@@ -101,6 +109,11 @@ class BloodConnectRepository private constructor() {
 
     fun updateHomeNotice(newNotice: String) {
         _homeNotice.value = newNotice
+        appContext?.let { ctx ->
+            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putString("home_notice", newNotice).apply()
+        }
+        pushAppConfigToRemote()
     }
 
     private val _popupNotice = MutableStateFlow("আমাদের অ্যাপটি নিয়মিত আপডেট করুন এবং রক্ত দানে উৎসাহিত হোন।")
@@ -108,6 +121,11 @@ class BloodConnectRepository private constructor() {
 
     fun updatePopupNotice(newNotice: String) {
         _popupNotice.value = newNotice
+        appContext?.let { ctx ->
+            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putString("popup_notice", newNotice).apply()
+        }
+        pushAppConfigToRemote()
     }
 
     private val _emailNotifyEnabled = MutableStateFlow(true)
@@ -224,6 +242,161 @@ class BloodConnectRepository private constructor() {
             _customAdBannerUrl.value = if (first.isVideo) first.videoUrl else first.bannerUrl
             _customAdTargetUrl.value = first.targetUrl
             _customAdTargetCountries.value = first.targetCountries
+        }
+    }
+
+    fun serializeBookings(list: List<AmbulanceBooking>): String {
+        return list.joinToString("||BOOK_SEP||") { booking ->
+            listOf(
+                booking.id,
+                booking.patientName,
+                booking.contactPhone,
+                booking.pickupAddress,
+                booking.destinationAddress,
+                booking.ambulanceType,
+                booking.urgencyLevel,
+                booking.dateTime,
+                booking.status,
+                booking.assignedAmbulanceId ?: "",
+                booking.assignedAmbulanceName ?: "",
+                booking.assignedAmbulancePhone ?: "",
+                booking.notes,
+                booking.timestamp,
+                booking.fare.toString(),
+                booking.commission.toString(),
+                booking.isCommissionPaid.toString(),
+                booking.paymentMethod ?: "",
+                booking.paymentTxnId ?: "",
+                booking.paymentPhone ?: ""
+            ).joinToString("||FIELD_SEP||")
+        }
+    }
+
+    fun deserializeBookings(serialized: String): List<AmbulanceBooking> {
+        if (serialized.isEmpty()) return emptyList()
+        val list = mutableListOf<AmbulanceBooking>()
+        val items = serialized.split("||BOOK_SEP||")
+        for (item in items) {
+            val parts = item.split("||FIELD_SEP||")
+            if (parts.size >= 8) {
+                list.add(
+                    AmbulanceBooking(
+                        id = parts[0],
+                        patientName = parts[1],
+                        contactPhone = parts[2],
+                        pickupAddress = parts[3],
+                        destinationAddress = parts[4],
+                        ambulanceType = parts[5],
+                        urgencyLevel = parts[6],
+                        dateTime = parts[7],
+                        status = parts.getOrNull(8) ?: "Pending",
+                        assignedAmbulanceId = parts.getOrNull(9)?.ifBlank { null },
+                        assignedAmbulanceName = parts.getOrNull(10)?.ifBlank { null },
+                        assignedAmbulancePhone = parts.getOrNull(11)?.ifBlank { null },
+                        notes = parts.getOrNull(12) ?: "",
+                        timestamp = parts.getOrNull(13) ?: "",
+                        fare = parts.getOrNull(14)?.toDoubleOrNull() ?: 0.0,
+                        commission = parts.getOrNull(15)?.toDoubleOrNull() ?: 0.0,
+                        isCommissionPaid = parts.getOrNull(16)?.toBoolean() ?: false,
+                        paymentMethod = parts.getOrNull(17)?.ifBlank { null },
+                        paymentTxnId = parts.getOrNull(18)?.ifBlank { null },
+                        paymentPhone = parts.getOrNull(19)?.ifBlank { null }
+                    )
+                )
+            }
+        }
+        return list
+    }
+
+    fun submitAmbulanceBooking(
+        patientName: String,
+        contactPhone: String,
+        pickupAddress: String,
+        destinationAddress: String,
+        ambulanceType: String,
+        urgencyLevel: String,
+        dateTime: String,
+        notes: String
+    ) {
+        val newBooking = AmbulanceBooking(
+            id = "book_${System.currentTimeMillis()}",
+            patientName = patientName,
+            contactPhone = contactPhone,
+            pickupAddress = pickupAddress,
+            destinationAddress = destinationAddress,
+            ambulanceType = ambulanceType,
+            urgencyLevel = urgencyLevel,
+            dateTime = dateTime,
+            status = "Pending",
+            notes = notes,
+            timestamp = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+        )
+        _ambulanceBookings.value = listOf(newBooking) + _ambulanceBookings.value
+        saveBookingsLocal()
+        
+        // Push notification
+        addNotification(
+            titleEn = "New Ambulance Booking Request",
+            titleBn = "নতুন অ্যাম্বুলেন্স বুকিং অনুরোধ",
+            messageEn = "Ambulance booking request received for $patientName. Contact: $contactPhone.",
+            messageBn = "$patientName এর জন্য একটি অ্যাম্বুলেন্স বুকিং অনুরোধ পাওয়া গেছে। যোগাযোগ: $contactPhone।",
+            type = "URGENT_REQUEST",
+            country = "Bangladesh"
+        )
+    }
+
+    fun updateBookingStatus(
+        bookingId: String,
+        newStatus: String,
+        assignedName: String? = null,
+        assignedPhone: String? = null,
+        adminNotes: String? = null,
+        fare: Double? = null
+    ) {
+        _ambulanceBookings.value = _ambulanceBookings.value.map {
+            if (it.id == bookingId) {
+                val finalFare = fare ?: it.fare
+                val finalCommission = finalFare * 0.05
+                it.copy(
+                    status = newStatus,
+                    assignedAmbulanceName = assignedName ?: it.assignedAmbulanceName,
+                    assignedAmbulancePhone = assignedPhone ?: it.assignedAmbulancePhone,
+                    notes = adminNotes ?: it.notes,
+                    fare = finalFare,
+                    commission = finalCommission
+                )
+            } else {
+                it
+            }
+        }
+        saveBookingsLocal()
+    }
+
+    fun payBookingCommission(
+        bookingId: String,
+        method: String,
+        txnId: String,
+        phone: String
+    ) {
+        _ambulanceBookings.value = _ambulanceBookings.value.map {
+            if (it.id == bookingId) {
+                it.copy(
+                    isCommissionPaid = true,
+                    paymentMethod = method,
+                    paymentTxnId = txnId,
+                    paymentPhone = phone
+                )
+            } else {
+                it
+            }
+        }
+        saveBookingsLocal()
+    }
+
+    fun saveBookingsLocal() {
+        appContext?.let { ctx ->
+            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putString("ambulance_bookings_list", serializeBookings(_ambulanceBookings.value)).apply()
         }
     }
 
@@ -489,15 +662,18 @@ class BloodConnectRepository private constructor() {
         var savedUrl = prefs.getString("remote_api_url", "") ?: ""
         var savedKey = prefs.getString("remote_api_key", "") ?: ""
 
-        if (savedUrl.isBlank()) {
-            savedUrl = com.example.BuildConfig.SUPABASE_URL
-            if (savedUrl.isBlank()) {
-                savedUrl = "https://hpturyhypcplydvtslpq.supabase.co"
-            }
+        val buildUrl = com.example.BuildConfig.SUPABASE_URL
+        val buildKey = com.example.BuildConfig.SUPABASE_PUBLISHABLE_KEY
+
+        val isBuildUrlValid = buildUrl.isNotBlank() && buildUrl != "https://your-supabase-url.supabase.co"
+        val isBuildKeyValid = buildKey.isNotBlank() && buildKey != "your-supabase-anon-key"
+
+        if (savedUrl.isBlank() || savedUrl == "https://your-supabase-url.supabase.co" || (isBuildUrlValid && savedUrl != buildUrl)) {
+            savedUrl = if (isBuildUrlValid) buildUrl else "https://hpturyhypcplydvtslpq.supabase.co"
             prefs.edit().putString("remote_api_url", savedUrl).apply()
         }
-        if (savedKey.isBlank()) {
-            savedKey = com.example.BuildConfig.SUPABASE_PUBLISHABLE_KEY
+        if (savedKey.isBlank() || savedKey == "your-supabase-anon-key" || (isBuildKeyValid && savedKey != buildKey)) {
+            savedKey = if (isBuildKeyValid) buildKey else ""
             prefs.edit().putString("remote_api_key", savedKey).apply()
         }
         _remoteApiKey.value = savedKey
@@ -559,6 +735,20 @@ class BloodConnectRepository private constructor() {
         }
         _customAdConfigs.value = loadedAdsList
 
+        _homeNotice.value = prefs.getString("home_notice", _homeNotice.value) ?: _homeNotice.value
+        _popupNotice.value = prefs.getString("popup_notice", _popupNotice.value) ?: _popupNotice.value
+        _appName.value = prefs.getString("app_name_pref", _appName.value) ?: _appName.value
+
+        _privacyPolicyEn.value = prefs.getString("policy_privacy_en", _privacyPolicyEn.value) ?: _privacyPolicyEn.value
+        _privacyPolicyBn.value = prefs.getString("policy_privacy_bn", _privacyPolicyBn.value) ?: _privacyPolicyBn.value
+        _termsConditionsEn.value = prefs.getString("policy_terms_en", _termsConditionsEn.value) ?: _termsConditionsEn.value
+        _termsConditionsBn.value = prefs.getString("policy_terms_bn", _termsConditionsBn.value) ?: _termsConditionsBn.value
+        _refundPolicyEn.value = prefs.getString("policy_refund_en", _refundPolicyEn.value) ?: _refundPolicyEn.value
+        _refundPolicyBn.value = prefs.getString("policy_refund_bn", _refundPolicyBn.value) ?: _refundPolicyBn.value
+
+        val bookingsStr = prefs.getString("ambulance_bookings_list", "") ?: ""
+        _ambulanceBookings.value = deserializeBookings(bookingsStr)
+
         prefsInitialized = true
     }
 
@@ -590,17 +780,16 @@ class BloodConnectRepository private constructor() {
             val donorsResult = BloodConnectApiClient.fetchDonors()
             if (donorsResult.isSuccess) {
                 val remoteDonors = donorsResult.getOrNull()
-                if (remoteDonors != null && remoteDonors.isNotEmpty()) {
-                    val local = _donors.value.toMutableList()
-                    remoteDonors.forEach { remote ->
-                        val existingIdx = local.indexOfFirst { it.phone == remote.phone }
-                        if (existingIdx != -1) {
-                            local[existingIdx] = remote
-                        } else {
-                            local.add(remote)
+                if (remoteDonors != null) {
+                    _donors.value = remoteDonors
+                    
+                    // Keep local current user state synchronized
+                    _currentUser.value?.let { current ->
+                        val remoteCurrent = remoteDonors.find { it.phone == current.phone }
+                        if (remoteCurrent != null) {
+                            _currentUser.value = remoteCurrent
                         }
                     }
-                    _donors.value = local
                 }
             } else {
                 _syncError.value = donorsResult.exceptionOrNull()?.message ?: "Donors Sync failed"
@@ -610,21 +799,46 @@ class BloodConnectRepository private constructor() {
             val requestsResult = BloodConnectApiClient.fetchRequests()
             if (requestsResult.isSuccess) {
                 val remoteRequests = requestsResult.getOrNull()
-                if (remoteRequests != null && remoteRequests.isNotEmpty()) {
-                    val local = _requests.value.toMutableList()
-                    remoteRequests.forEach { remote ->
-                        val existingIdx = local.indexOfFirst { it.id == remote.id }
-                        if (existingIdx != -1) {
-                            local[existingIdx] = remote
-                        } else {
-                            local.add(remote)
-                        }
-                    }
-                    _requests.value = local
+                if (remoteRequests != null) {
+                    _requests.value = remoteRequests
                 }
             } else {
                 val err = requestsResult.exceptionOrNull()?.message ?: "Requests Sync failed"
                 _syncError.value = if (_syncError.value == null) err else "${_syncError.value}\n$err"
+            }
+
+            // 3. Fetch AppConfig
+            val configResult = BloodConnectApiClient.fetchAppConfig()
+            if (configResult.isSuccess) {
+                val remoteConfig = configResult.getOrNull()
+                if (remoteConfig != null) {
+                    _appName.value = remoteConfig.app_name
+                    _homeNotice.value = remoteConfig.home_notice
+                    _popupNotice.value = remoteConfig.popup_notice
+                    _privacyPolicyEn.value = remoteConfig.privacy_policy_en
+                    _privacyPolicyBn.value = remoteConfig.privacy_policy_bn
+                    _termsConditionsEn.value = remoteConfig.terms_conditions_en
+                    _termsConditionsBn.value = remoteConfig.terms_conditions_bn
+                    _refundPolicyEn.value = remoteConfig.refund_policy_en
+                    _refundPolicyBn.value = remoteConfig.refund_policy_bn
+
+                    // Back up to local preferences
+                    appContext?.let { ctx ->
+                        val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+                        prefs.edit().apply {
+                            putString("app_name_pref", remoteConfig.app_name)
+                            putString("home_notice", remoteConfig.home_notice)
+                            putString("popup_notice", remoteConfig.popup_notice)
+                            putString("policy_privacy_en", remoteConfig.privacy_policy_en)
+                            putString("policy_privacy_bn", remoteConfig.privacy_policy_bn)
+                            putString("policy_terms_en", remoteConfig.terms_conditions_en)
+                            putString("policy_terms_bn", remoteConfig.terms_conditions_bn)
+                            putString("policy_refund_en", remoteConfig.refund_policy_en)
+                            putString("policy_refund_bn", remoteConfig.refund_policy_bn)
+                            apply()
+                        }
+                    }
+                }
             }
 
             _isSyncing.value = false
@@ -1014,11 +1228,23 @@ class BloodConnectRepository private constructor() {
         if (report != null && action == "Banned") {
             val cleanReportPhone = report.scammerDonorPhone.trim().replace("+88", "").replace(" ", "")
             // Unapprove and make the scammer unavailable in directories
+            var updatedDonor: BloodDonor? = null
             _donors.value = _donors.value.map {
                 val cleanDonorPhone = it.phone.trim().replace("+88", "").replace(" ", "")
                 if (it.id == report.scammerDonorId || cleanDonorPhone == cleanReportPhone || cleanDonorPhone.endsWith(cleanReportPhone) || cleanReportPhone.endsWith(cleanDonorPhone)) {
-                    it.copy(isApproved = false, isAvailable = false)
+                    val upd = it.copy(isApproved = false, isAvailable = false)
+                    updatedDonor = upd
+                    upd
                 } else it
+            }
+
+            // Post update to remote API
+            updatedDonor?.let { donor ->
+                appScope.launch {
+                    if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
+                        BloodConnectApiClient.updateDonor(donor.id, donor)
+                    }
+                }
             }
         }
     }
@@ -1044,12 +1270,24 @@ class BloodConnectRepository private constructor() {
         }
         if (status == "Banned") {
             val cleanReportPhone = scammerPhone.trim().replace("+88", "").replace(" ", "")
+            var updatedDonor: BloodDonor? = null
             _donors.value = _donors.value.map {
                 val cleanDonorPhone = it.phone.trim().replace("+88", "").replace(" ", "")
                 val scammerDonorId = _scamReports.value.find { rep -> rep.id == id }?.scammerDonorId ?: ""
                 if (it.id == scammerDonorId || cleanDonorPhone == cleanReportPhone || cleanDonorPhone.endsWith(cleanReportPhone) || cleanReportPhone.endsWith(cleanDonorPhone)) {
-                    it.copy(isApproved = false, isAvailable = false)
+                    val upd = it.copy(isApproved = false, isAvailable = false)
+                    updatedDonor = upd
+                    upd
                 } else it
+            }
+
+            // Post update to remote API
+            updatedDonor?.let { donor ->
+                appScope.launch {
+                    if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
+                        BloodConnectApiClient.updateDonor(donor.id, donor)
+                    }
+                }
             }
         }
     }
@@ -1132,43 +1370,89 @@ class BloodConnectRepository private constructor() {
 
     // ADMIN ACTIONS
     fun warnDonor(id: String, isWarning: Boolean, reason: String) {
+        var updatedDonor: BloodDonor? = null
         _donors.value = _donors.value.map {
-            if (it.id == id) it.copy(isWarning = isWarning, warningReason = reason) else it
+            if (it.id == id) {
+                val upd = it.copy(isWarning = isWarning, warningReason = reason)
+                updatedDonor = upd
+                upd
+            } else it
         }
         val current = _currentUser.value
         if (current != null && current.id == id) {
             setCurrentUser(current.copy(isWarning = isWarning, warningReason = reason))
         }
+
+        // Post to remote API
+        updatedDonor?.let { donor ->
+            appScope.launch {
+                if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
+                    BloodConnectApiClient.updateDonor(id, donor)
+                }
+            }
+        }
     }
 
     fun approveDonor(id: String) {
+        var updatedDonor: BloodDonor? = null
         _donors.value = _donors.value.map {
-            if (it.id == id) it.copy(isApproved = true) else it
+            if (it.id == id) {
+                val upd = it.copy(isApproved = true)
+                updatedDonor = upd
+                upd
+            } else it
+        }
+
+        // Post to remote API
+        updatedDonor?.let { donor ->
+            appScope.launch {
+                if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
+                    BloodConnectApiClient.updateDonor(id, donor)
+                }
+            }
         }
     }
 
     fun deleteDonor(id: String) {
         _donors.value = _donors.value.filterNot { it.id == id }
+
+        // Delete from remote API
+        appScope.launch {
+            if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
+                BloodConnectApiClient.deleteDonor(id)
+            }
+        }
     }
 
     fun deleteRequest(id: String) {
         _requests.value = _requests.value.filterNot { it.id == id }
-    }
 
-    fun deleteAmbulance(id: String) {
-        _ambulances.value = _ambulances.value.filterNot { it.id == id }
-    }
-
-    fun deleteScamReport(id: String) {
-        _scamReports.value = _scamReports.value.filterNot { it.id == id }
+        // Delete from remote API
+        appScope.launch {
+            if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
+                BloodConnectApiClient.deleteRequest(id)
+            }
+        }
     }
 
     fun toggleRequestStatus(id: String) {
+        var updatedReq: BloodRequest? = null
         _requests.value = _requests.value.map {
             if (it.id == id) {
                 val nextStatus = if (it.status == "Active") "Completed" else "Active"
-                it.copy(status = nextStatus)
+                val upd = it.copy(status = nextStatus)
+                updatedReq = upd
+                upd
             } else it
+        }
+
+        // Post to remote API
+        updatedReq?.let { req ->
+            appScope.launch {
+                if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
+                    BloodConnectApiClient.updateRequest(id, req)
+                }
+            }
         }
     }
 
@@ -1202,6 +1486,45 @@ class BloodConnectRepository private constructor() {
         _termsConditionsBn.value = termsBn
         _refundPolicyEn.value = refundEn
         _refundPolicyBn.value = refundBn
+
+        appContext?.let { ctx ->
+            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+            prefs.edit().apply {
+                putString("policy_privacy_en", privacyEn)
+                putString("policy_privacy_bn", privacyBn)
+                putString("policy_terms_en", termsEn)
+                putString("policy_terms_bn", termsBn)
+                putString("policy_refund_en", refundEn)
+                putString("policy_refund_bn", refundBn)
+                apply()
+            }
+        }
+        pushAppConfigToRemote()
+    }
+
+    fun pushAppConfigToRemote() {
+        appScope.launch {
+            if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
+                val config = AppConfig(
+                    id = "default",
+                    app_name = _appName.value,
+                    home_notice = _homeNotice.value,
+                    popup_notice = _popupNotice.value,
+                    privacy_policy_en = _privacyPolicyEn.value,
+                    privacy_policy_bn = _privacyPolicyBn.value,
+                    terms_conditions_en = _termsConditionsEn.value,
+                    terms_conditions_bn = _termsConditionsBn.value,
+                    refund_policy_en = _refundPolicyEn.value,
+                    refund_policy_bn = _refundPolicyBn.value
+                )
+                val result = BloodConnectApiClient.updateAppConfig(config)
+                if (result.isSuccess) {
+                    Log.d("BloodConnectRepo", "Successfully pushed app config to cloud!")
+                } else {
+                    Log.e("BloodConnectRepo", "Failed to push app config to cloud: ${result.exceptionOrNull()?.message}")
+                }
+            }
+        }
     }
 
     companion object {
