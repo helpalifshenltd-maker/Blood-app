@@ -61,10 +61,12 @@ fun MainAppContainer(viewModel: MainViewModel) {
     val language by viewModel.language.collectAsState()
     val appName by viewModel.appName.collectAsState()
     val userSession by viewModel.currentUser.collectAsState()
+    val isOnline by viewModel.isOnline.collectAsState()
     val context = LocalContext.current
     val currentUserSession = userSession
 
     androidx.compose.runtime.LaunchedEffect(Unit) {
+        viewModel.checkNetworkStatus(context)
         viewModel.detectUserLocation(context)
     }
 
@@ -442,6 +444,107 @@ fun MainAppContainer(viewModel: MainViewModel) {
                         }
                     }
                 )
+            }
+
+            if (!isOnline) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color(0xFFF9FAFB))
+                        .clickable(enabled = false) { }
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(100.dp)
+                                .background(Color(0xFFFFEBEE), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.WifiOff,
+                                contentDescription = "No Internet Icon",
+                                tint = BloodRed,
+                                modifier = Modifier.size(54.dp)
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(28.dp))
+                        
+                        Text(
+                            text = if (language == AppLanguage.ENG) "No Internet Connection" else "কোনো ইন্টারনেট সংযোগ নেই",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                            color = DarkText,
+                            fontSize = 22.sp,
+                            textAlign = TextAlign.Center
+                        )
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        Text(
+                            text = if (language == AppLanguage.ENG) 
+                                "Alif Blood Bank requires an active Mobile Data or Wi-Fi connection to function. Please turn on internet access and try again." 
+                            else 
+                                "আলিফ ব্লাড ব্যাংক অ্যাপটি ব্যবহার করতে সচল মোবাইল ডাটা অথবা ওয়াই-ফাই সংযোগ প্রয়োজন। অনুগ্রহ করে আপনার ইন্টারনেট সংযোগ সচল করে পুনরায় চেষ্টা করুন।",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.Gray,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 20.sp,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                        
+                        Spacer(modifier = Modifier.height(36.dp))
+                        
+                        Button(
+                            onClick = {
+                                viewModel.checkNetworkStatus(context)
+                                if (viewModel.isOnline.value) {
+                                    android.widget.Toast.makeText(
+                                        context, 
+                                        if (language == AppLanguage.ENG) "Internet connected successfully!" else "ইন্টারনেট সফলভাবে সংযুক্ত হয়েছে!", 
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                } else {
+                                    android.widget.Toast.makeText(
+                                        context, 
+                                        if (language == AppLanguage.ENG) "Still offline. Please check your network connection." else "এখনো কোনো সংযোগ পাওয়া যায়নি। অনুগ্রহ করে পুনরায় চেক করুন।", 
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp)
+                                .testTag("offline_retry_connection_button"),
+                            colors = ButtonDefaults.buttonColors(containerColor = BloodRed),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = "Retry Connection Icon",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (language == AppLanguage.ENG) "Try Again" else "পুনরায় চেষ্টা করুন",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -9068,7 +9171,7 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
         Triple("DASHBOARD", if (language == AppLanguage.ENG) "Dashboard" else "ড্যাশবোর্ড", Icons.Default.Dashboard),
         Triple("DONORS", if (language == AppLanguage.ENG) "Donors List" else "রক্তদাতা তালিকা", Icons.Default.Person),
         Triple("REQUESTS", if (language == AppLanguage.ENG) "Blood Requests" else "রক্তের অনুরোধসমূহ", Icons.Default.Favorite),
-        Triple("AMBULANCES", if (language == AppLanguage.ENG) "Ambulances List" else "অ্যাম্বুলেন্স তালিকা", Icons.Default.LocalHospital),
+        Triple("AMBULANCES", if (language == AppLanguage.ENG) "Ambulance Service" else "অ্যাম্বুলেন্স সার্ভিস", Icons.Default.LocalHospital),
         Triple("AMBULANCE_BOOKINGS", if (language == AppLanguage.ENG) "Ambulance Bookings" else "অ্যাম্বুলেন্স বুকিং সমূহ", Icons.Default.Book),
         Triple("SUPPORT", if (language == AppLanguage.ENG) "Live Support" else "লাইভ সাপোর্ট", Icons.Default.Chat),
         Triple("POLICIES", if (language == AppLanguage.ENG) "Page Policies" else "পৃষ্ঠা নীতিসমূহ", Icons.Default.List),

@@ -289,6 +289,51 @@ class MainViewModel(
         repository.toggleLanguage()
     }
 
+    private val _isOnline = MutableStateFlow(true)
+    val isOnline: StateFlow<Boolean> = _isOnline.asStateFlow()
+
+    fun checkNetworkStatus(context: android.content.Context) {
+        val connectivityManager = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+        if (connectivityManager == null) {
+            _isOnline.value = true
+            return
+        }
+        
+        _isOnline.value = isInternetCurrentlyAvailable(connectivityManager)
+
+        try {
+            val request = android.net.NetworkRequest.Builder()
+                .addCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+            
+            connectivityManager.registerNetworkCallback(request, object : android.net.ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: android.net.Network) {
+                    _isOnline.value = true
+                }
+                
+                override fun onLost(network: android.net.Network) {
+                    _isOnline.value = isInternetCurrentlyAvailable(connectivityManager)
+                }
+            })
+        } catch (e: Exception) {
+            e.printStackTrace()
+            _isOnline.value = true
+        }
+    }
+
+    private fun isInternetCurrentlyAvailable(connectivityManager: android.net.ConnectivityManager): Boolean {
+        try {
+            val network = connectivityManager.activeNetwork ?: return false
+            val activeNetwork = connectivityManager.getNetworkCapabilities(network) ?: return false
+            return activeNetwork.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                    (activeNetwork.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) ||
+                     activeNetwork.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                     activeNetwork.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET))
+        } catch (e: Exception) {
+            return true
+        }
+    }
+
     fun detectUserLocation(context: android.content.Context) {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
