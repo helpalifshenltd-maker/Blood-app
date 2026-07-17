@@ -1098,12 +1098,16 @@ class BloodConnectRepository private constructor() {
             if (donorsResult.isSuccess) {
                 val remoteDonors = donorsResult.getOrNull()
                 if (remoteDonors != null) {
-                    _donors.value = remoteDonors
+                    val currentLocal = _donors.value
+                    val mergedDonors = remoteDonors + currentLocal.filter { local ->
+                        remoteDonors.none { remote -> remote.id == local.id || remote.phone == local.phone }
+                    }
+                    _donors.value = mergedDonors
                     saveDonorsLocal()
                     
                     // Keep local current user state synchronized
                     _currentUser.value?.let { current ->
-                        val remoteCurrent = remoteDonors.find { it.phone == current.phone }
+                        val remoteCurrent = mergedDonors.find { it.phone == current.phone }
                         if (remoteCurrent != null) {
                             _currentUser.value = remoteCurrent
                         }
@@ -1129,7 +1133,11 @@ class BloodConnectRepository private constructor() {
                         }
                     }
 
-                    _requests.value = remoteRequests
+                    val currentLocal = _requests.value
+                    val mergedRequests = remoteRequests + currentLocal.filter { local ->
+                        remoteRequests.none { remote -> remote.id == local.id }
+                    }
+                    _requests.value = mergedRequests
                     saveRequestsLocal()
                 }
             } else {
