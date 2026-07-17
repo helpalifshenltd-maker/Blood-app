@@ -522,3 +522,29 @@ data class AppConfig(
     val refund_policy_bn: String = ""
 )
 
+@com.squareup.moshi.JsonClass(generateAdapter = true)
+data class V9SubscriptionPlan(
+    val id: String,
+    val nameEn: String,
+    val nameBn: String,
+    val price: Double,
+    val durationDays: Int,
+    val descriptionEn: String,
+    val descriptionBn: String
+)
+
+@com.squareup.moshi.JsonClass(generateAdapter = true)
+data class UserSubscription(
+    val userPhone: String,
+    val planId: String,
+    val planNameEn: String,
+    val planNameBn: String,
+    val pricePaid: Double,
+    val startDate: String,
+    val endDate: String,
+    val isExpired: Boolean = false,
+    val transactionId: String = "",
+    val paymentMethod: String = ""
+)
+
+

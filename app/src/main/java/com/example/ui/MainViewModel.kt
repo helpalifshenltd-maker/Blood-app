@@ -23,6 +23,41 @@ class MainViewModel(
                 kotlinx.coroutines.delay(15000) // 15 seconds
             }
         }
+
+        // Periodically check for expired pending ambulance bookings (older than 20 minutes)
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            while (true) {
+                try {
+                    val now = System.currentTimeMillis()
+                    val bookingsList = repository.ambulanceBookings.value
+                    bookingsList.forEach { booking ->
+                        if (booking.status == "Pending" && booking.id.startsWith("book_")) {
+                            val creationTime = booking.id.substringAfter("book_").toLongOrNull() ?: 0L
+                            if (creationTime > 0L && (now - creationTime) > 20 * 60 * 1000) {
+                                // Cancel the booking automatically
+                                repository.updateBookingStatus(
+                                    bookingId = booking.id,
+                                    newStatus = "Cancelled",
+                                    adminNotes = "Auto-cancelled: No reply within 20 minutes."
+                                )
+                                // Add a system notification about this cancellation
+                                repository.addNotification(
+                                    titleEn = "Booking Auto-Cancelled",
+                                    titleBn = "বুকিং স্বয়ংক্রিয়ভাবে বাতিল",
+                                    messageEn = "Ambulance booking for ${booking.patientName} was automatically cancelled due to no response in 20 minutes.",
+                                    messageBn = "২০ মিনিটের মধ্যে কোনো সাড়া না দেওয়ায় ${booking.patientName} এর অ্যাম্বুলেন্স বুকিংটি স্বয়ংক্রিয়ভাবে বাতিল করা হয়েছে।",
+                                    type = "GENERAL_INFO",
+                                    country = "Bangladesh"
+                                )
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                kotlinx.coroutines.delay(10000) // Check every 10 seconds
+            }
+        }
     }
 
     // --- NAVIGATION BACKSTACK ---
@@ -113,6 +148,13 @@ class MainViewModel(
     val donationClaims: StateFlow<List<com.example.data.DonationClaim>> = repository.donationClaims
     val homeNotice: StateFlow<String> = repository.homeNotice
     val popupNotice: StateFlow<String> = repository.popupNotice
+
+    // --- DIRECT AMBULANCE BOOKING ---
+    val selectedAmbulanceForBooking = MutableStateFlow<Ambulance?>(null)
+
+    fun selectAmbulanceForBooking(ambulance: Ambulance?) {
+        selectedAmbulanceForBooking.value = ambulance
+    }
 
     val emailNotifyEnabled: StateFlow<Boolean> = repository.emailNotifyEnabled
     val smtpHost: StateFlow<String> = repository.smtpHost
@@ -217,6 +259,9 @@ class MainViewModel(
 
     val messages: StateFlow<List<ChatMessage>> = repository.messages
 
+    val subscriptionPlans: StateFlow<List<V9SubscriptionPlan>> = repository.subscriptionPlans
+    val userSubscriptions: StateFlow<List<UserSubscription>> = repository.userSubscriptions
+
     // --- REMOTE WEB API PROPERTIES ---
     val isSyncing: StateFlow<Boolean> = repository.isSyncing
     val syncError: StateFlow<String?> = repository.syncError
@@ -301,6 +346,10 @@ class MainViewModel(
                         profileEditCountry = "Bangladesh"
                         regDistrict = "Dhaka"
                         reqDistrict = "Dhaka"
+                        _searchDistrict.value = "Dhaka"
+                        _searchUpazila.value = "All"
+                        _searchHospital.value = "All"
+                        _searchAmbulanceType.value = "All"
                         repository.setLanguage(AppLanguage.BAN)
                     } else {
                         val countryName = detectedCountryFromIp ?: if (systemCountryCode.isNotBlank()) locale.displayCountry else "International"
@@ -310,6 +359,10 @@ class MainViewModel(
                         regCountry = countryName
                         reqCountry = countryName
                         profileEditCountry = countryName
+                        _searchDistrict.value = "All"
+                        _searchUpazila.value = "All"
+                        _searchHospital.value = "All"
+                        _searchAmbulanceType.value = "All"
                         repository.setLanguage(AppLanguage.ENG)
                     }
                 } catch (e: Exception) {
@@ -322,6 +375,10 @@ class MainViewModel(
                     profileEditCountry = "Bangladesh"
                     regDistrict = "Dhaka"
                     reqDistrict = "Dhaka"
+                    _searchDistrict.value = "Dhaka"
+                    _searchUpazila.value = "All"
+                    _searchHospital.value = "All"
+                    _searchAmbulanceType.value = "All"
                     repository.setLanguage(AppLanguage.BAN)
                 }
             }
@@ -339,8 +396,16 @@ class MainViewModel(
         profileEditCountry = countryName
         
         if (isBD) {
+            _searchDistrict.value = "Dhaka"
+            _searchUpazila.value = "All"
+            _searchHospital.value = "All"
+            _searchAmbulanceType.value = "All"
             repository.setLanguage(AppLanguage.BAN)
         } else {
+            _searchDistrict.value = "All"
+            _searchUpazila.value = "All"
+            _searchHospital.value = "All"
+            _searchAmbulanceType.value = "All"
             repository.setLanguage(AppLanguage.ENG)
         }
     }
@@ -900,6 +965,10 @@ class MainViewModel(
         return true
     }
 
+    fun triggerToggleAmbulanceAvailability(ambulanceId: String) {
+        repository.toggleAmbulanceAvailability(ambulanceId)
+    }
+
     fun triggerSubmitAmbulanceBooking(
         patientName: String,
         contactPhone: String,
@@ -908,7 +977,10 @@ class MainViewModel(
         ambulanceType: String,
         urgencyLevel: String,
         dateTime: String,
-        notes: String
+        notes: String,
+        assignedAmbulanceId: String? = null,
+        assignedAmbulanceName: String? = null,
+        assignedAmbulancePhone: String? = null
     ) {
         repository.submitAmbulanceBooking(
             patientName = patientName,
@@ -918,7 +990,10 @@ class MainViewModel(
             ambulanceType = ambulanceType,
             urgencyLevel = urgencyLevel,
             dateTime = dateTime,
-            notes = notes
+            notes = notes,
+            assignedAmbulanceId = assignedAmbulanceId,
+            assignedAmbulanceName = assignedAmbulanceName,
+            assignedAmbulancePhone = assignedAmbulancePhone
         )
     }
 
@@ -959,6 +1034,19 @@ class MainViewModel(
     ) {
         repository.updatePolicies(privacyEn, privacyBn, termsEn, termsBn, refundEn, refundBn)
     }
+
+    // --- V9 SUBSCRIPTION OPERATIONS ---
+    fun triggerAddOrUpdateSubscriptionPlan(plan: V9SubscriptionPlan) {
+        repository.addOrUpdateSubscriptionPlan(plan)
+    }
+
+    fun triggerDeleteSubscriptionPlan(planId: String) {
+        repository.deleteSubscriptionPlan(planId)
+    }
+
+    fun triggerAddUserSubscription(sub: UserSubscription) {
+        repository.addUserSubscription(sub)
+    }
 }
 
 enum class AppScreen {
@@ -982,5 +1070,6 @@ enum class AppScreen {
     ADD_AMBULANCE,
     BOOK_AMBULANCE,
     AMBULANCE_BOOKINGS,
+    AMBULANCE_DASHBOARD,
     SUPPORT_CHAT
 }

@@ -61,6 +61,12 @@ class BloodConnectRepository private constructor() {
     private val _donationClaims = MutableStateFlow<List<DonationClaim>>(emptyList())
     val donationClaims: StateFlow<List<DonationClaim>> = _donationClaims.asStateFlow()
 
+    private val _subscriptionPlans = MutableStateFlow<List<V9SubscriptionPlan>>(emptyList())
+    val subscriptionPlans: StateFlow<List<V9SubscriptionPlan>> = _subscriptionPlans.asStateFlow()
+
+    private val _userSubscriptions = MutableStateFlow<List<UserSubscription>>(emptyList())
+    val userSubscriptions: StateFlow<List<UserSubscription>> = _userSubscriptions.asStateFlow()
+
     fun updateAppName(newName: String) {
         _appName.value = newName
         appContext?.let { ctx ->
@@ -102,6 +108,16 @@ class BloodConnectRepository private constructor() {
             type = "SUCCESS",
             country = country
         )
+    }
+
+    fun toggleAmbulanceAvailability(ambulanceId: String) {
+        _ambulances.value = _ambulances.value.map {
+            if (it.id == ambulanceId) {
+                it.copy(isAvailable = !it.isAvailable)
+            } else {
+                it
+            }
+        }
     }
 
     private val _homeNotice = MutableStateFlow("স্বাগতম আলিফ ব্লাড ব্যাংকে! জরুরি প্রয়োজনে চ্যাট বা কল করুন।")
@@ -316,7 +332,10 @@ class BloodConnectRepository private constructor() {
         ambulanceType: String,
         urgencyLevel: String,
         dateTime: String,
-        notes: String
+        notes: String,
+        assignedAmbulanceId: String? = null,
+        assignedAmbulanceName: String? = null,
+        assignedAmbulancePhone: String? = null
     ) {
         val newBooking = AmbulanceBooking(
             id = "book_${System.currentTimeMillis()}",
@@ -327,7 +346,10 @@ class BloodConnectRepository private constructor() {
             ambulanceType = ambulanceType,
             urgencyLevel = urgencyLevel,
             dateTime = dateTime,
-            status = "Pending",
+            status = if (assignedAmbulanceId != null) "Approved" else "Pending",
+            assignedAmbulanceId = assignedAmbulanceId,
+            assignedAmbulanceName = assignedAmbulanceName,
+            assignedAmbulancePhone = assignedAmbulancePhone,
             notes = notes,
             timestamp = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
         )
@@ -748,6 +770,22 @@ class BloodConnectRepository private constructor() {
 
         val bookingsStr = prefs.getString("ambulance_bookings_list", "") ?: ""
         _ambulanceBookings.value = deserializeBookings(bookingsStr)
+
+        // Load Subscriptions
+        val subscriptionPlansStr = prefs.getString("v9_subscription_plans_list", "") ?: ""
+        var loadedPlans = deserializeSubscriptionPlans(subscriptionPlansStr)
+        if (loadedPlans.isEmpty()) {
+            loadedPlans = listOf(
+                V9SubscriptionPlan("plan_basic", "V9 Starter Pack", "ভি৯ স্টার্টার প্যাক", 150.0, 30, "Get basic access & priority support", "বেসিক অ্যাক্সেস এবং অগ্রাধিকার সাপোর্ট"),
+                V9SubscriptionPlan("plan_standard", "V9 Pro Pack", "ভি৯ প্রো প্যাক", 350.0, 90, "Get full system premium access", "সম্পূর্ণ সিস্টেম প্রিমিয়াম অ্যাক্সেস"),
+                V9SubscriptionPlan("plan_premium", "V9 Ultimate VIP Pack", "ভি৯ আল্টিমেট ভিআইপি প্যাক", 999.0, 365, "Lifetime special badge and VIP status", "আজীবন বিশেষ ব্যাজ এবং ভিআইপি স্ট্যাটাস")
+            )
+            prefs.edit().putString("v9_subscription_plans_list", serializeSubscriptionPlans(loadedPlans)).apply()
+        }
+        _subscriptionPlans.value = loadedPlans
+
+        val userSubsStr = prefs.getString("v9_user_subscriptions_list", "") ?: ""
+        _userSubscriptions.value = deserializeUserSubscriptions(userSubsStr)
 
         prefsInitialized = true
     }
@@ -1524,6 +1562,121 @@ class BloodConnectRepository private constructor() {
                     Log.e("BloodConnectRepo", "Failed to push app config to cloud: ${result.exceptionOrNull()?.message}")
                 }
             }
+        }
+    }
+
+    // --- V9 SUBSCRIPTION HELPERS ---
+    fun serializeSubscriptionPlans(plans: List<V9SubscriptionPlan>): String {
+        return plans.joinToString("||PLAN_SEP||") { plan ->
+            listOf(
+                plan.id,
+                plan.nameEn,
+                plan.nameBn,
+                plan.price.toString(),
+                plan.durationDays.toString(),
+                plan.descriptionEn,
+                plan.descriptionBn
+            ).joinToString("||FIELD_SEP||")
+        }
+    }
+
+    fun deserializeSubscriptionPlans(serialized: String): List<V9SubscriptionPlan> {
+        if (serialized.isEmpty()) return emptyList()
+        val list = mutableListOf<V9SubscriptionPlan>()
+        val items = serialized.split("||PLAN_SEP||")
+        for (item in items) {
+            val parts = item.split("||FIELD_SEP||")
+            if (parts.size >= 7) {
+                list.add(
+                    V9SubscriptionPlan(
+                        id = parts[0],
+                        nameEn = parts[1],
+                        nameBn = parts[2],
+                        price = parts[3].toDoubleOrNull() ?: 0.0,
+                        durationDays = parts[4].toIntOrNull() ?: 30,
+                        descriptionEn = parts[5],
+                        descriptionBn = parts[6]
+                    )
+                )
+            }
+        }
+        return list
+    }
+
+    fun serializeUserSubscriptions(subs: List<UserSubscription>): String {
+        return subs.joinToString("||SUB_SEP||") { sub ->
+            listOf(
+                sub.userPhone,
+                sub.planId,
+                sub.planNameEn,
+                sub.planNameBn,
+                sub.pricePaid.toString(),
+                sub.startDate,
+                sub.endDate,
+                sub.isExpired.toString(),
+                sub.transactionId,
+                sub.paymentMethod
+            ).joinToString("||FIELD_SEP||")
+        }
+    }
+
+    fun deserializeUserSubscriptions(serialized: String): List<UserSubscription> {
+        if (serialized.isEmpty()) return emptyList()
+        val list = mutableListOf<UserSubscription>()
+        val items = serialized.split("||SUB_SEP||")
+        for (item in items) {
+            val parts = item.split("||FIELD_SEP||")
+            if (parts.size >= 10) {
+                list.add(
+                    UserSubscription(
+                        userPhone = parts[0],
+                        planId = parts[1],
+                        planNameEn = parts[2],
+                        planNameBn = parts[3],
+                        pricePaid = parts[4].toDoubleOrNull() ?: 0.0,
+                        startDate = parts[5],
+                        endDate = parts[6],
+                        isExpired = parts[7].toBoolean(),
+                        transactionId = parts[8],
+                        paymentMethod = parts[9]
+                    )
+                )
+            }
+        }
+        return list
+    }
+
+    fun addOrUpdateSubscriptionPlan(plan: V9SubscriptionPlan) {
+        val current = _subscriptionPlans.value.toMutableList()
+        val index = current.indexOfFirst { it.id == plan.id }
+        if (index >= 0) {
+            current[index] = plan
+        } else {
+            current.add(plan)
+        }
+        _subscriptionPlans.value = current
+        appContext?.let { ctx ->
+            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putString("v9_subscription_plans_list", serializeSubscriptionPlans(current)).apply()
+        }
+    }
+
+    fun deleteSubscriptionPlan(planId: String) {
+        val current = _subscriptionPlans.value.filter { it.id != planId }
+        _subscriptionPlans.value = current
+        appContext?.let { ctx ->
+            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putString("v9_subscription_plans_list", serializeSubscriptionPlans(current)).apply()
+        }
+    }
+
+    fun addUserSubscription(sub: UserSubscription) {
+        val current = _userSubscriptions.value.toMutableList()
+        current.add(sub)
+        _userSubscriptions.value = current
+        appContext?.let { ctx ->
+            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putString("v9_user_subscriptions_list", serializeUserSubscriptions(current)).apply()
         }
     }
 
