@@ -3398,3 +3398,279 @@ fun AdminSupportTab(viewModel: MainViewModel, language: AppLanguage) {
         }
     }
 }
+
+@Composable
+fun AdminAmbulancesTab(
+    ambulances: List<com.example.data.Ambulance>,
+    language: AppLanguage,
+    onToggleAvailability: (String) -> Unit,
+    onDelete: (String) -> Unit
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(bottom = 20.dp)
+    ) {
+        if (ambulances.isEmpty()) {
+            item {
+                Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
+                    Text(
+                        if (language == AppLanguage.ENG) "No ambulances registered yet." else "এখনও কোনো অ্যাম্বুলেন্স নিবন্ধিত হয়নি।",
+                        color = AdminTextMuted,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+        }
+        
+        items(ambulances) { amb ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+                border = BorderStroke(1.dp, AdminBorder),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(amb.serviceName, color = AdminTextWhite, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text("${amb.ownerName} (${amb.phone})", color = AdminTextMuted, fontSize = 12.sp)
+                        }
+                        
+                        // Availability Status Indicator Badge
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    if (amb.isAvailable) Color(0xFF1B5E20) else Color(0xFFB71C1C),
+                                    RoundedCornerShape(6.dp)
+                                )
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = if (amb.isAvailable) {
+                                    if (language == AppLanguage.ENG) "Available" else "সক্রিয়"
+                                } else {
+                                    if (language == AppLanguage.ENG) "Busy" else "ব্যস্ত"
+                                },
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    HorizontalDivider(color = AdminBorder)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Column {
+                            Text(if (language == AppLanguage.ENG) "LOCATION" else "ঠিকানা", color = AdminTextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            Text("${amb.upazila}, ${amb.district}", color = AdminTextWhite, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        }
+                        Column {
+                            Text(if (language == AppLanguage.ENG) "VEHICLE TYPE" else "গাড়ির ধরন", color = AdminTextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            Text(amb.ambulanceType, color = AdminTextWhite, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                    
+                    if (amb.description.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(amb.description, color = AdminTextMuted, fontSize = 11.sp)
+                    }
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    // Admin actions
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Toggle Availability Action Button
+                        Button(
+                            onClick = { onToggleAvailability(amb.id) },
+                            colors = ButtonDefaults.buttonColors(containerColor = AdminPrimaryBlue),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(if (language == AppLanguage.ENG) "Toggle Status" else "অবস্থা পরিবর্তন", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                        
+                        // Direct call Action Button
+                        IconButton(
+                            onClick = {
+                                try {
+                                    val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
+                                        data = android.net.Uri.parse("tel:${amb.phone}")
+                                    }
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Cannot launch dialer", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier.background(AdminAccGreen, RoundedCornerShape(8.dp)).size(40.dp)
+                        ) {
+                            Icon(Icons.Default.Phone, "Call Owner", tint = Color.White, modifier = Modifier.size(16.dp))
+                        }
+                        
+                        // Delete Registry Button
+                        IconButton(
+                            onClick = { onDelete(amb.id) },
+                            modifier = Modifier.background(Color(0xFFD32F2F), RoundedCornerShape(8.dp)).size(40.dp)
+                        ) {
+                            Icon(Icons.Default.Delete, "Delete Ambulance", tint = Color.White, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AdminBookingsTab(
+    bookings: List<com.example.data.AmbulanceBooking>,
+    language: AppLanguage,
+    onDelete: (String) -> Unit
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(bottom = 20.dp)
+    ) {
+        if (bookings.isEmpty()) {
+            item {
+                Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
+                    Text(
+                        if (language == AppLanguage.ENG) "No booking requests yet." else "এখনও কোনো বুকিং অনুরোধ আসেনি।",
+                        color = AdminTextMuted,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+        }
+        
+        items(bookings) { book ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+                border = BorderStroke(1.dp, AdminBorder),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(book.pickupAddress, color = AdminTextWhite, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Text("${book.patientName} (${book.contactPhone})", color = AdminTextMuted, fontSize = 12.sp)
+                        }
+                        
+                        // Booking status badge
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    when (book.status.lowercase()) {
+                                        "confirmed" -> Color(0xFF1B5E20)
+                                        "cancelled" -> Color(0xFFB71C1C)
+                                        else -> Color(0xFFE65100)
+                                    },
+                                    RoundedCornerShape(6.dp)
+                                )
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = book.status,
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    HorizontalDivider(color = AdminBorder)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row {
+                            Text(
+                                text = (if (language == AppLanguage.ENG) "Destination: " else "গন্তব্য: "),
+                                color = AdminTextMuted,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(book.destinationAddress, color = AdminTextWhite, fontSize = 11.sp)
+                        }
+                        Row {
+                            Text(
+                                text = (if (language == AppLanguage.ENG) "Urgency: " else "জরুরি অবস্থা: "),
+                                color = AdminTextMuted,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(book.urgencyLevel, color = AdminTextWhite, fontSize = 11.sp)
+                        }
+                        Row {
+                            Text(
+                                text = (if (language == AppLanguage.ENG) "Booking Date: " else "বুকিং তারিখ: "),
+                                color = AdminTextMuted,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(book.dateTime, color = AdminTextWhite, fontSize = 11.sp)
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    // Action Buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                try {
+                                    val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
+                                        data = android.net.Uri.parse("tel:${book.contactPhone}")
+                                    }
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Cannot launch dialer", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = AdminAccGreen),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Phone, null, modifier = Modifier.size(14.dp), tint = Color.White)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(if (language == AppLanguage.ENG) "Call Booker" else "বুককারীকে কল", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                        
+                        IconButton(
+                            onClick = { onDelete(book.id) },
+                            modifier = Modifier.background(Color(0xFFD32F2F), RoundedCornerShape(8.dp)).size(36.dp)
+                        ) {
+                            Icon(Icons.Default.Delete, "Delete Booking", tint = Color.White, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -159,6 +159,36 @@ class BloodConnectRepository private constructor() {
     private val _smtpPassword = MutableStateFlow("")
     val smtpPassword: StateFlow<String> = _smtpPassword.asStateFlow()
 
+    private val _bkashNumber = MutableStateFlow("+8801700000000")
+    val bkashNumber: StateFlow<String> = _bkashNumber.asStateFlow()
+
+    private val _nagadNumber = MutableStateFlow("+8801700000000")
+    val nagadNumber: StateFlow<String> = _nagadNumber.asStateFlow()
+
+    private val _rocketNumber = MutableStateFlow("+8801700000000")
+    val rocketNumber: StateFlow<String> = _rocketNumber.asStateFlow()
+
+    private val _googlePlayMerchant = MutableStateFlow("play_v9_premium_active")
+    val googlePlayMerchant: StateFlow<String> = _googlePlayMerchant.asStateFlow()
+
+    fun updatePaymentConfig(bkash: String, nagad: String, rocket: String, googlePlay: String) {
+        _bkashNumber.value = bkash
+        _nagadNumber.value = nagad
+        _rocketNumber.value = rocket
+        _googlePlayMerchant.value = googlePlay
+        appContext?.let { ctx ->
+            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+            prefs.edit().apply {
+                putString("payment_bkash", bkash)
+                putString("payment_nagad", nagad)
+                putString("payment_rocket", rocket)
+                putString("payment_googleplay", googlePlay)
+                apply()
+            }
+        }
+        pushAppConfigToRemote()
+    }
+
     private val _emailSubjectTemplate = MutableStateFlow("New Blood Inquiry: \$senderName")
     val emailSubjectTemplate: StateFlow<String> = _emailSubjectTemplate.asStateFlow()
 
@@ -332,10 +362,7 @@ class BloodConnectRepository private constructor() {
         ambulanceType: String,
         urgencyLevel: String,
         dateTime: String,
-        notes: String,
-        assignedAmbulanceId: String? = null,
-        assignedAmbulanceName: String? = null,
-        assignedAmbulancePhone: String? = null
+        notes: String
     ) {
         val newBooking = AmbulanceBooking(
             id = "book_${System.currentTimeMillis()}",
@@ -346,10 +373,7 @@ class BloodConnectRepository private constructor() {
             ambulanceType = ambulanceType,
             urgencyLevel = urgencyLevel,
             dateTime = dateTime,
-            status = if (assignedAmbulanceId != null) "Approved" else "Pending",
-            assignedAmbulanceId = assignedAmbulanceId,
-            assignedAmbulanceName = assignedAmbulanceName,
-            assignedAmbulancePhone = assignedAmbulancePhone,
+            status = "Pending",
             notes = notes,
             timestamp = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
         )
@@ -645,6 +669,230 @@ class BloodConnectRepository private constructor() {
         }
     }
 
+    // Seen request IDs for notification deduplication
+    private val seenRequestIds = mutableSetOf<String>()
+
+    // Local Persistence and Helper Methods
+    fun serializeDonors(donors: List<BloodDonor>): String {
+        return donors.joinToString("||DONOR_SEP||") { donor ->
+            listOf(
+                donor.id,
+                donor.name,
+                donor.bloodGroup,
+                donor.phone,
+                donor.email,
+                donor.district,
+                donor.upazila,
+                donor.lastDonationDate,
+                donor.isAvailable.toString(),
+                donor.isApproved.toString(),
+                donor.donationCount.toString(),
+                donor.isGoogleUser.toString(),
+                donor.country,
+                donor.userId,
+                donor.isWarning.toString(),
+                donor.warningReason,
+                donor.role
+            ).joinToString("||FIELD_SEP||")
+        }
+    }
+
+    fun deserializeDonors(serialized: String): List<BloodDonor> {
+        if (serialized.isEmpty()) return emptyList()
+        val list = mutableListOf<BloodDonor>()
+        val items = serialized.split("||DONOR_SEP||")
+        for (item in items) {
+            val parts = item.split("||FIELD_SEP||")
+            if (parts.size >= 8) {
+                list.add(
+                    BloodDonor(
+                        id = parts[0],
+                        name = parts[1],
+                        bloodGroup = parts[2],
+                        phone = parts[3],
+                        email = parts[4],
+                        district = parts[5],
+                        upazila = parts[6],
+                        lastDonationDate = parts[7],
+                        isAvailable = parts.getOrNull(8)?.toBoolean() ?: true,
+                        isApproved = parts.getOrNull(9)?.toBoolean() ?: true,
+                        donationCount = parts.getOrNull(10)?.toIntOrNull() ?: 0,
+                        isGoogleUser = parts.getOrNull(11)?.toBoolean() ?: false,
+                        country = parts.getOrNull(12) ?: "Bangladesh",
+                        userId = parts.getOrNull(13) ?: "",
+                        isWarning = parts.getOrNull(14)?.toBoolean() ?: false,
+                        warningReason = parts.getOrNull(15) ?: "",
+                        role = parts.getOrNull(16) ?: "Donor"
+                    )
+                )
+            }
+        }
+        return list
+    }
+
+    fun saveDonorsLocal() {
+        appContext?.let { ctx ->
+            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putString("local_donors_list", serializeDonors(_donors.value)).apply()
+        }
+    }
+
+    fun serializeRequests(requests: List<BloodRequest>): String {
+        return requests.joinToString("||REQ_SEP||") { req ->
+            listOf(
+                req.id,
+                req.patientName,
+                req.bloodGroup,
+                req.bloodAmount,
+                req.hospitalName,
+                req.district,
+                req.upazila,
+                req.contactNumber,
+                req.details,
+                req.isEmergency.toString(),
+                req.isApproved.toString(),
+                req.dateRequested,
+                req.status,
+                req.country,
+                req.patientGender,
+                req.medicalCondition
+            ).joinToString("||FIELD_SEP||")
+        }
+    }
+
+    fun deserializeRequests(serialized: String): List<BloodRequest> {
+        if (serialized.isEmpty()) return emptyList()
+        val list = mutableListOf<BloodRequest>()
+        val items = serialized.split("||REQ_SEP||")
+        for (item in items) {
+            val parts = item.split("||FIELD_SEP||")
+            if (parts.size >= 8) {
+                list.add(
+                    BloodRequest(
+                        id = parts[0],
+                        patientName = parts[1],
+                        bloodGroup = parts[2],
+                        bloodAmount = parts[3],
+                        hospitalName = parts[4],
+                        district = parts[5],
+                        upazila = parts[6],
+                        contactNumber = parts[7],
+                        details = parts.getOrNull(8) ?: "Urgent blood needed, please contact immediately.",
+                        isEmergency = parts.getOrNull(9)?.toBoolean() ?: true,
+                        isApproved = parts.getOrNull(10)?.toBoolean() ?: true,
+                        dateRequested = parts.getOrNull(11) ?: "2026-06-12",
+                        status = parts.getOrNull(12) ?: "Active",
+                        country = parts.getOrNull(13) ?: "Bangladesh",
+                        patientGender = parts.getOrNull(14) ?: "Male",
+                        medicalCondition = parts.getOrNull(15) ?: ""
+                    )
+                )
+            }
+        }
+        return list
+    }
+
+    fun saveRequestsLocal() {
+        appContext?.let { ctx ->
+            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putString("local_requests_list", serializeRequests(_requests.value)).apply()
+        }
+    }
+
+    fun serializeAmbulances(ambulances: List<Ambulance>): String {
+        return ambulances.joinToString("||AMB_SEP||") { amb ->
+            listOf(
+                amb.id,
+                amb.ownerName,
+                amb.serviceName,
+                amb.phone,
+                amb.district,
+                amb.upazila,
+                amb.ambulanceType,
+                amb.isAvailable.toString(),
+                amb.description,
+                amb.country
+            ).joinToString("||FIELD_SEP||")
+        }
+    }
+
+    fun deserializeAmbulances(serialized: String): List<Ambulance> {
+        if (serialized.isEmpty()) return emptyList()
+        val list = mutableListOf<Ambulance>()
+        val items = serialized.split("||AMB_SEP||")
+        for (item in items) {
+            val parts = item.split("||FIELD_SEP||")
+            if (parts.size >= 7) {
+                list.add(
+                    Ambulance(
+                        id = parts[0],
+                        ownerName = parts[1],
+                        serviceName = parts[2],
+                        phone = parts[3],
+                        district = parts[4],
+                        upazila = parts[5],
+                        ambulanceType = parts[6],
+                        isAvailable = parts.getOrNull(7)?.toBoolean() ?: true,
+                        description = parts.getOrNull(8) ?: "",
+                        country = parts.getOrNull(9) ?: "Bangladesh"
+                    )
+                )
+            }
+        }
+        return list
+    }
+
+    fun saveAmbulancesLocal() {
+        appContext?.let { ctx ->
+            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putString("ambulances_list", serializeAmbulances(_ambulances.value)).apply()
+        }
+    }
+
+    fun deleteAmbulance(ambulanceId: String) {
+        _ambulances.value = _ambulances.value.filter { it.id != ambulanceId }
+        saveAmbulancesLocal()
+    }
+
+    fun deleteAmbulanceBooking(bookingId: String) {
+        _ambulanceBookings.value = _ambulanceBookings.value.filter { it.id != bookingId }
+        saveBookingsLocal()
+    }
+
+    fun showSystemStatusBarNotification(title: String, message: String) {
+        val ctx = appContext ?: return
+        try {
+            val notificationManager = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+            
+            // Create channel for API 26+
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                val channelId = "blood_connect_alerts"
+                val channelName = "Blood Connect Alerts"
+                val channel = android.app.NotificationChannel(channelId, channelName, android.app.NotificationManager.IMPORTANCE_HIGH).apply {
+                    description = "Alerts for urgent blood requests and notifications"
+                    enableLights(true)
+                    enableVibration(true)
+                }
+                notificationManager.createNotificationChannel(channel)
+            }
+
+            // Build notification
+            val builder = androidx.core.app.NotificationCompat.Builder(ctx, "blood_connect_alerts")
+                .setSmallIcon(android.R.drawable.stat_notify_chat) // default system icon, always available
+                .setContentTitle(title)
+                .setContentText(message)
+                .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .setDefaults(androidx.core.app.NotificationCompat.DEFAULT_ALL)
+
+            // Show it
+            val notificationId = System.currentTimeMillis().toInt()
+            notificationManager.notify(notificationId, builder.build())
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     fun initRemoteConfig(context: Context) {
         appContext = context.applicationContext
         if (prefsInitialized) return
@@ -681,33 +929,34 @@ class BloodConnectRepository private constructor() {
             }
         }
 
-        var savedUrl = prefs.getString("remote_api_url", "") ?: ""
-        var savedKey = prefs.getString("remote_api_key", "") ?: ""
-
-        val buildUrl = com.example.BuildConfig.SUPABASE_URL
-        val buildKey = com.example.BuildConfig.SUPABASE_PUBLISHABLE_KEY
-
-        val isBuildUrlValid = buildUrl.isNotBlank() && buildUrl != "https://your-supabase-url.supabase.co"
-        val isBuildKeyValid = buildKey.isNotBlank() && buildKey != "your-supabase-anon-key"
-
-        if (savedUrl.isBlank() || savedUrl == "https://your-supabase-url.supabase.co" || (isBuildUrlValid && savedUrl != buildUrl)) {
-            savedUrl = if (isBuildUrlValid) buildUrl else "https://hpturyhypcplydvtslpq.supabase.co"
-            prefs.edit().putString("remote_api_url", savedUrl).apply()
-        }
-        if (savedKey.isBlank() || savedKey == "your-supabase-anon-key" || (isBuildKeyValid && savedKey != buildKey)) {
-            savedKey = if (isBuildKeyValid) buildKey else ""
-            prefs.edit().putString("remote_api_key", savedKey).apply()
-        }
-        _remoteApiKey.value = savedKey
-
-        if (savedUrl.isNotBlank()) {
-            BloodConnectApiClient.updateBaseUrl(savedUrl, savedKey)
-            triggerRemoteSync()
+        // 1. Load Local Offline Donors, Requests, and Ambulances first
+        val donorsStr = prefs.getString("local_donors_list", "") ?: ""
+        if (donorsStr.isNotBlank()) {
+            _donors.value = deserializeDonors(donorsStr)
+        } else {
+            _donors.value = MockData.initialDonors
         }
 
-        val serialized = prefs.getString("custom_countries_list", "") ?: ""
-        if (serialized.isNotBlank()) {
-            val loaded = serialized.split(";").mapNotNull {
+        val requestsStr = prefs.getString("local_requests_list", "") ?: ""
+        if (requestsStr.isNotBlank()) {
+            _requests.value = deserializeRequests(requestsStr)
+        } else {
+            _requests.value = MockData.initialRequests
+        }
+
+        // Initialize seenRequestIds so we don't duplicate notifications for already loaded requests
+        _requests.value.forEach { seenRequestIds.add(it.id) }
+
+        val ambulancesStr = prefs.getString("ambulances_list", "") ?: ""
+        if (ambulancesStr.isNotBlank()) {
+            _ambulances.value = deserializeAmbulances(ambulancesStr)
+        } else {
+            _ambulances.value = MockData.initialAmbulances
+        }
+
+        val customCountriesSerialized = prefs.getString("custom_countries_list", "") ?: ""
+        if (customCountriesSerialized.isNotBlank()) {
+            val loaded = customCountriesSerialized.split(";").mapNotNull {
                 val parts = it.split(":")
                 if (parts.size == 2) Pair(parts[0], parts[1]) else null
             }
@@ -761,6 +1010,11 @@ class BloodConnectRepository private constructor() {
         _popupNotice.value = prefs.getString("popup_notice", _popupNotice.value) ?: _popupNotice.value
         _appName.value = prefs.getString("app_name_pref", _appName.value) ?: _appName.value
 
+        _bkashNumber.value = prefs.getString("payment_bkash", _bkashNumber.value) ?: _bkashNumber.value
+        _nagadNumber.value = prefs.getString("payment_nagad", _nagadNumber.value) ?: _nagadNumber.value
+        _rocketNumber.value = prefs.getString("payment_rocket", _rocketNumber.value) ?: _rocketNumber.value
+        _googlePlayMerchant.value = prefs.getString("payment_googleplay", _googlePlayMerchant.value) ?: _googlePlayMerchant.value
+
         _privacyPolicyEn.value = prefs.getString("policy_privacy_en", _privacyPolicyEn.value) ?: _privacyPolicyEn.value
         _privacyPolicyBn.value = prefs.getString("policy_privacy_bn", _privacyPolicyBn.value) ?: _privacyPolicyBn.value
         _termsConditionsEn.value = prefs.getString("policy_terms_en", _termsConditionsEn.value) ?: _termsConditionsEn.value
@@ -788,6 +1042,31 @@ class BloodConnectRepository private constructor() {
         _userSubscriptions.value = deserializeUserSubscriptions(userSubsStr)
 
         prefsInitialized = true
+
+        // 2. NOW setup remote base URL and trigger async sync securely
+        var savedUrl = prefs.getString("remote_api_url", "") ?: ""
+        var savedKey = prefs.getString("remote_api_key", "") ?: ""
+
+        val buildUrl = com.example.BuildConfig.SUPABASE_URL
+        val buildKey = com.example.BuildConfig.SUPABASE_PUBLISHABLE_KEY
+
+        val isBuildUrlValid = buildUrl.isNotBlank() && buildUrl != "https://your-supabase-url.supabase.co"
+        val isBuildKeyValid = buildKey.isNotBlank() && buildKey != "your-supabase-anon-key"
+
+        if (savedUrl.isBlank() || savedUrl == "https://your-supabase-url.supabase.co" || (isBuildUrlValid && savedUrl != buildUrl)) {
+            savedUrl = if (isBuildUrlValid) buildUrl else "https://hpturyhypcplydvtslpq.supabase.co"
+            prefs.edit().putString("remote_api_url", savedUrl).apply()
+        }
+        if (savedKey.isBlank() || savedKey == "your-supabase-anon-key" || (isBuildKeyValid && savedKey != buildKey)) {
+            savedKey = if (isBuildKeyValid) buildKey else "sb_publishable_vNUUU1OamY9SExJb78MoCQ_CwmyEu5e"
+            prefs.edit().putString("remote_api_key", savedKey).apply()
+        }
+        _remoteApiKey.value = savedKey
+
+        if (savedUrl.isNotBlank()) {
+            BloodConnectApiClient.updateBaseUrl(savedUrl, savedKey)
+            triggerRemoteSync()
+        }
     }
 
     fun updateRemoteApiUrl(context: Context, url: String, apiKey: String): Boolean {
@@ -820,6 +1099,7 @@ class BloodConnectRepository private constructor() {
                 val remoteDonors = donorsResult.getOrNull()
                 if (remoteDonors != null) {
                     _donors.value = remoteDonors
+                    saveDonorsLocal()
                     
                     // Keep local current user state synchronized
                     _currentUser.value?.let { current ->
@@ -838,7 +1118,19 @@ class BloodConnectRepository private constructor() {
             if (requestsResult.isSuccess) {
                 val remoteRequests = requestsResult.getOrNull()
                 if (remoteRequests != null) {
+                    // Trigger real system notifications for any new requests fetched from the cloud
+                    val currentLang = language.value
+                    remoteRequests.forEach { req ->
+                        if (!seenRequestIds.contains(req.id)) {
+                            seenRequestIds.add(req.id)
+                            val title = if (currentLang == AppLanguage.BAN) "জরুরি রক্তের অনুরোধ: ${req.bloodGroup}" else "URGENT request for ${req.bloodGroup}"
+                            val msg = if (currentLang == AppLanguage.BAN) "${req.patientName} এর ${req.hospitalName}-এ ${req.bloodGroup} রক্তের প্রয়োজন।" else "${req.patientName} needs ${req.bloodGroup} blood at ${req.hospitalName}."
+                            showSystemStatusBarNotification(title, msg)
+                        }
+                    }
+
                     _requests.value = remoteRequests
+                    saveRequestsLocal()
                 }
             } else {
                 val err = requestsResult.exceptionOrNull()?.message ?: "Requests Sync failed"
@@ -1001,6 +1293,7 @@ class BloodConnectRepository private constructor() {
         )
         setCurrentUser(newUser)
         _donors.value = _donors.value + newUser
+        saveDonorsLocal()
 
         // Post to remote API if configured
         appScope.launch {
@@ -1168,6 +1461,8 @@ class BloodConnectRepository private constructor() {
             medicalCondition = medicalCondition
         )
         _requests.value = listOf(newReq) + _requests.value
+        seenRequestIds.add(newReq.id)
+        saveRequestsLocal()
 
         // Post request to remote API in background if configured
         appScope.launch {
@@ -1214,6 +1509,12 @@ class BloodConnectRepository private constructor() {
             country = country
         )
         _notifications.value = listOf(newNotification) + _notifications.value
+        
+        // Trigger OS Status Bar Notification
+        val currentLang = language.value
+        val displayTitle = if (currentLang == AppLanguage.BAN) titleBn else titleEn
+        val displayMessage = if (currentLang == AppLanguage.BAN) messageBn else messageEn
+        showSystemStatusBarNotification(displayTitle, displayMessage)
     }
 
     fun markAllNotificationsAsRead() {

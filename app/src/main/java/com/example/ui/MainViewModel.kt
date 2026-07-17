@@ -145,16 +145,15 @@ class MainViewModel(
 
     val language: StateFlow<AppLanguage> = repository.language
     val appName: StateFlow<String> = repository.appName
+
+    val bkashNumber: StateFlow<String> = repository.bkashNumber
+    val nagadNumber: StateFlow<String> = repository.nagadNumber
+    val rocketNumber: StateFlow<String> = repository.rocketNumber
+    val googlePlayMerchant: StateFlow<String> = repository.googlePlayMerchant
+
     val donationClaims: StateFlow<List<com.example.data.DonationClaim>> = repository.donationClaims
     val homeNotice: StateFlow<String> = repository.homeNotice
     val popupNotice: StateFlow<String> = repository.popupNotice
-
-    // --- DIRECT AMBULANCE BOOKING ---
-    val selectedAmbulanceForBooking = MutableStateFlow<Ambulance?>(null)
-
-    fun selectAmbulanceForBooking(ambulance: Ambulance?) {
-        selectedAmbulanceForBooking.value = ambulance
-    }
 
     val emailNotifyEnabled: StateFlow<Boolean> = repository.emailNotifyEnabled
     val smtpHost: StateFlow<String> = repository.smtpHost
@@ -217,6 +216,10 @@ class MainViewModel(
 
     fun updatePopupNotice(newNotice: String) {
         repository.updatePopupNotice(newNotice)
+    }
+
+    fun updatePaymentConfig(bkash: String, nagad: String, rocket: String, googlePlay: String) {
+        repository.updatePaymentConfig(bkash, nagad, rocket, googlePlay)
     }
 
     val customCountries: StateFlow<List<Pair<String, String>>> = repository.customCountries
@@ -701,15 +704,25 @@ class MainViewModel(
 
     // --- ACTION DISPATCHERS ---
 
-    fun triggerLogin(isGoogle: Boolean = false): Boolean {
+    fun triggerLogin(isGoogle: Boolean = false): Int {
         val emailToUse = if (isGoogle) "help.alifshen.ltd@gmail.com" else loginEmail
         val phoneToUse = if (isGoogle) "01781223344" else loginPhone
         
+        // Find if user exists in the system (either by email or phone)
+        val userExists = repository.donors.value.any {
+            (emailToUse.isNotBlank() && it.email.equals(emailToUse, ignoreCase = true)) ||
+            (phoneToUse.isNotBlank() && it.phone == phoneToUse)
+        } || emailToUse.equals("Alifsheenshopping@gmail.com", ignoreCase = true) || emailToUse.equals("help.alifshen.ltd@gmail.com", ignoreCase = true)
+
+        if (!userExists && !isGoogle) {
+            return -2 // Account not found
+        }
+
         // Enforce password verification from local passwords map for non-Google login
         if (!isGoogle) {
             val expectedPassword = _userPasswords.value[emailToUse.lowercase()] ?: _userPasswords.value[phoneToUse]
             if (expectedPassword != null && loginPassword != expectedPassword) {
-                return false
+                return -1 // Incorrect password
             }
         }
 
@@ -726,8 +739,9 @@ class MainViewModel(
                     setAdminMode(true)
                 }
             }
+            return 1 // Success
         }
-        return success
+        return -2 // Default error
     }
 
     fun triggerSignup(): Boolean {
@@ -861,6 +875,14 @@ class MainViewModel(
         repository.toggleRequestStatus(id)
     }
 
+    fun adminDeleteAmbulance(id: String) {
+        repository.deleteAmbulance(id)
+    }
+
+    fun adminDeleteAmbulanceBooking(id: String) {
+        repository.deleteAmbulanceBooking(id)
+    }
+
     fun triggerSubmitScamReport(
         reporterName: String,
         reporterPhone: String,
@@ -977,10 +999,7 @@ class MainViewModel(
         ambulanceType: String,
         urgencyLevel: String,
         dateTime: String,
-        notes: String,
-        assignedAmbulanceId: String? = null,
-        assignedAmbulanceName: String? = null,
-        assignedAmbulancePhone: String? = null
+        notes: String
     ) {
         repository.submitAmbulanceBooking(
             patientName = patientName,
@@ -990,10 +1009,7 @@ class MainViewModel(
             ambulanceType = ambulanceType,
             urgencyLevel = urgencyLevel,
             dateTime = dateTime,
-            notes = notes,
-            assignedAmbulanceId = assignedAmbulanceId,
-            assignedAmbulanceName = assignedAmbulanceName,
-            assignedAmbulancePhone = assignedAmbulancePhone
+            notes = notes
         )
     }
 

@@ -49,6 +49,15 @@ android {
     buildConfig = true
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
+  packaging {
+    resources {
+      excludes += "/META-INF/{AL2.0,LGPL2.1}"
+      excludes += "META-INF/NOTICE.md"
+      excludes += "META-INF/LICENSE.md"
+      excludes += "META-INF/LICENSE.txt"
+      excludes += "META-INF/NOTICE.txt"
+    }
+  }
 }
 
 // Configure the Secrets Gradle Plugin to use .env and .env.example files
@@ -113,6 +122,8 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.tooling)
   "ksp"(libs.androidx.room.compiler)
   "ksp"(libs.moshi.kotlin.codegen)
+  implementation("com.sun.mail:android-mail:1.6.7")
+  implementation("com.sun.mail:android-activation:1.6.7")
 }
 
 // Decode debug.keystore from debug.keystore.base64 if it does not exist
