@@ -150,6 +150,8 @@ class MainViewModel(
     val nagadNumber: StateFlow<String> = repository.nagadNumber
     val rocketNumber: StateFlow<String> = repository.rocketNumber
     val googlePlayMerchant: StateFlow<String> = repository.googlePlayMerchant
+    val ambulanceCommission: StateFlow<Double> = repository.ambulanceCommission
+    val userHideAdsPreference: StateFlow<Boolean> = repository.userHideAdsPreference
 
     val donationClaims: StateFlow<List<com.example.data.DonationClaim>> = repository.donationClaims
     val homeNotice: StateFlow<String> = repository.homeNotice
@@ -220,6 +222,14 @@ class MainViewModel(
 
     fun updatePaymentConfig(bkash: String, nagad: String, rocket: String, googlePlay: String) {
         repository.updatePaymentConfig(bkash, nagad, rocket, googlePlay)
+    }
+
+    fun updateAmbulanceCommission(newRate: Double) {
+        repository.updateAmbulanceCommission(newRate)
+    }
+
+    fun updateUserHideAdsPreference(hide: Boolean) {
+        repository.updateUserHideAdsPreference(hide)
     }
 
     val customCountries: StateFlow<List<Pair<String, String>>> = repository.customCountries

@@ -215,6 +215,14 @@ class BloodConnectRepository private constructor() {
     private val _customAdsEnabled = MutableStateFlow(true)
     val customAdsEnabled: StateFlow<Boolean> = _customAdsEnabled.asStateFlow()
 
+    // --- AMBULANCE COMMISSION CONFIG ---
+    private val _ambulanceCommission = MutableStateFlow(0.05)
+    val ambulanceCommission: StateFlow<Double> = _ambulanceCommission.asStateFlow()
+
+    // --- USER AD HIDING PREFERENCE ---
+    private val _userHideAdsPreference = MutableStateFlow(false)
+    val userHideAdsPreference: StateFlow<Boolean> = _userHideAdsPreference.asStateFlow()
+
     private val _customAdNetworkName = MutableStateFlow("Affmine")
     val customAdNetworkName: StateFlow<String> = _customAdNetworkName.asStateFlow()
 
@@ -402,7 +410,7 @@ class BloodConnectRepository private constructor() {
         _ambulanceBookings.value = _ambulanceBookings.value.map {
             if (it.id == bookingId) {
                 val finalFare = fare ?: it.fare
-                val finalCommission = finalFare * 0.05
+                val finalCommission = finalFare * _ambulanceCommission.value
                 it.copy(
                     status = newStatus,
                     assignedAmbulanceName = assignedName ?: it.assignedAmbulanceName,
@@ -496,6 +504,23 @@ class BloodConnectRepository private constructor() {
             putString("admob_interstitial_id", interstitialId)
             putString("admob_native_id", nativeId)
             apply()
+        }
+    }
+
+    fun updateAmbulanceCommission(newRate: Double) {
+        _ambulanceCommission.value = newRate
+        appContext?.let { ctx ->
+            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putFloat("ambulance_commission_pref", newRate.toFloat()).apply()
+        }
+        pushAppConfigToRemote()
+    }
+
+    fun updateUserHideAdsPreference(hide: Boolean) {
+        _userHideAdsPreference.value = hide
+        appContext?.let { ctx ->
+            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putBoolean("user_hide_ads_pref", hide).apply()
         }
     }
 
@@ -1014,6 +1039,9 @@ class BloodConnectRepository private constructor() {
         _nagadNumber.value = prefs.getString("payment_nagad", _nagadNumber.value) ?: _nagadNumber.value
         _rocketNumber.value = prefs.getString("payment_rocket", _rocketNumber.value) ?: _rocketNumber.value
         _googlePlayMerchant.value = prefs.getString("payment_googleplay", _googlePlayMerchant.value) ?: _googlePlayMerchant.value
+
+        _ambulanceCommission.value = prefs.getFloat("ambulance_commission_pref", 0.05f).toDouble()
+        _userHideAdsPreference.value = prefs.getBoolean("user_hide_ads_pref", false)
 
         _privacyPolicyEn.value = prefs.getString("policy_privacy_en", _privacyPolicyEn.value) ?: _privacyPolicyEn.value
         _privacyPolicyBn.value = prefs.getString("policy_privacy_bn", _privacyPolicyBn.value) ?: _privacyPolicyBn.value

@@ -646,6 +646,42 @@ fun V9SubscriptionDialog(
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )
+
+                            val userHideAdsPref by viewModel.userHideAdsPreference.collectAsState()
+
+                            Spacer(modifier = Modifier.height(10.dp))
+                            HorizontalDivider(color = Color(0xFFFFD54F).copy(alpha = 0.5f))
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = if (language == AppLanguage.ENG) "Ad-Free Mode" else "বিজ্ঞাপন-মুক্ত মোড",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        color = Color(0xFFF57F17)
+                                    )
+                                    Text(
+                                        text = if (language == AppLanguage.ENG) "Hide all banner ads" else "সব ব্যানার বিজ্ঞাপন লুকিয়ে রাখুন",
+                                        fontSize = 11.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+                                Switch(
+                                    checked = userHideAdsPref,
+                                    onCheckedChange = { viewModel.updateUserHideAdsPreference(it) },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = Color.White,
+                                        checkedTrackColor = Color(0xFFF57F17),
+                                        uncheckedThumbColor = Color.LightGray,
+                                        uncheckedTrackColor = Color.Gray.copy(alpha = 0.3f)
+                                    )
+                                )
+                            }
                         }
                     }
                 }
@@ -4337,6 +4373,18 @@ fun HomeScreen(viewModel: MainViewModel) {
         val customAdsEnabled by viewModel.customAdsEnabled.collectAsState()
         val customAdConfigs by viewModel.customAdConfigs.collectAsState()
 
+        val currentUser by viewModel.currentUser.collectAsState()
+        val subscriptions by viewModel.userSubscriptions.collectAsState()
+        val userHideAdsPref by viewModel.userHideAdsPreference.collectAsState()
+
+        val activeSub = remember(subscriptions, currentUser) {
+            val user = currentUser
+            if (user == null) null
+            else subscriptions.find { it.userPhone == user.phone && !it.isExpired }
+        }
+
+        val showAds = activeSub == null || !userHideAdsPref
+
         val activeAdsForCountry = remember(customAdConfigs, detectedCountry) {
             customAdConfigs.filter { ad ->
                 val countries = ad.targetCountries.split(",").map { it.trim() }
@@ -4344,7 +4392,7 @@ fun HomeScreen(viewModel: MainViewModel) {
             }
         }
 
-        if (customAdsEnabled && activeAdsForCountry.isNotEmpty()) {
+        if (showAds && customAdsEnabled && activeAdsForCountry.isNotEmpty()) {
             // Select one ad based on weights (using a random selection weighted by ad.weight)
             val selectedAd = remember(activeAdsForCountry) {
                 val totalWeight = activeAdsForCountry.sumOf { it.weight.coerceAtLeast(1) }
@@ -9177,7 +9225,7 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
         Triple("POLICIES", if (language == AppLanguage.ENG) "Page Policies" else "পৃষ্ঠা নীতিসমূহ", Icons.Default.List),
         Triple("REPORTS", if (language == AppLanguage.ENG) "Fraud Reports" else "প্রতারণা রিপোর্ট", Icons.Default.Warning),
         Triple("V9_SUBSCRIPTIONS", if (language == AppLanguage.ENG) "V9 Subscriptions" else "ভি৯ সাবস্ক্রিপশন", Icons.Default.Star),
-        Triple("SETTINGS", if (language == AppLanguage.ENG) "App Settings" else "অ্যাপ সেটিংস", Icons.Default.Settings)
+        Triple("SETTINGS", if (language == AppLanguage.ENG) "Settings" else "সেটিংস", Icons.Default.Settings)
     )
 
     val currentMenu = adminMenus.find { it.first == activeTab } ?: adminMenus[0]
@@ -13069,8 +13117,10 @@ fun AmbulanceBookingsScreen(viewModel: MainViewModel) {
                                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                             ) {
                                 Column(modifier = Modifier.padding(10.dp)) {
+                                    val commissionRate by viewModel.ambulanceCommission.collectAsState()
+                                    val pctText = (commissionRate * 100).toInt().toString()
                                     Text(
-                                        text = strings["amb_commission_label"] ?: "Commission (5%)",
+                                        text = strings["amb_commission_label"]?.replace("5%", "$pctText%") ?: "Commission ($pctText%)",
                                         fontSize = 11.sp,
                                         color = Color(0xFF2E7D32)
                                     )
@@ -13236,9 +13286,11 @@ fun BookingCard(
                         label = strings["amb_fare_label"] ?: "Ambulance Fare (BDT)",
                         value = "${booking.fare.toInt()} BDT"
                     )
+                    val commissionRate by viewModel.ambulanceCommission.collectAsState()
+                    val pctText = (commissionRate * 100).toInt().toString()
                     BookingDetailRow(
                         icon = Icons.Default.AccountBalanceWallet,
-                        label = strings["amb_commission_label"] ?: "Commission (5%)",
+                        label = strings["amb_commission_label"]?.replace("5%", "$pctText%") ?: "Commission ($pctText%)",
                         value = "${booking.commission.toInt()} BDT"
                     )
 
@@ -13310,10 +13362,12 @@ fun BookingCard(
                                     )
                                 }
                                 Spacer(modifier = Modifier.height(4.dp))
+                                val commissionRate by viewModel.ambulanceCommission.collectAsState()
+                                val pctText = (commissionRate * 100).toInt().toString()
                                 Text(
                                     text = if (language == AppLanguage.BAN) 
-                                        "অ্যাপ থেকে অনলাইনে বিকাশ, নগদ বা রকেট গেটওয়ের মাধ্যমে সরাসরি ৫% কমিশন পরিশোধ করুন।" 
-                                        else "Pay the 5% commission instantly online using bKash, Nagad or Rocket.",
+                                        "অ্যাপ থেকে অনলাইনে বিকাশ, নগদ বা রকেট গেটওয়ের মাধ্যমে সরাসরি $pctText% কমিশন পরিশোধ করুন।" 
+                                        else "Pay the $pctText% commission instantly online using bKash, Nagad or Rocket.",
                                     fontSize = 11.sp,
                                     color = Color(0xFFE65100)
                                 )
@@ -13328,7 +13382,7 @@ fun BookingCard(
                                     Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = strings["amb_pay_now_btn"] ?: "Pay Now (5% Commission)",
+                                        text = (strings["amb_pay_now_btn"] ?: "Pay Now (5% Commission)").replace("5%", "$pctText%"),
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -13560,14 +13614,16 @@ fun BookingCard(
 
                     val enteredFare = tempFare.toDoubleOrNull() ?: 0.0
                     if (enteredFare > 0.0) {
-                        val calcCommission = enteredFare * 0.05
+                        val commissionRate by viewModel.ambulanceCommission.collectAsState()
+                        val calcCommission = enteredFare * commissionRate
+                        val pctText = (commissionRate * 100).toInt().toString()
                         Surface(
                             color = Color(0xFFFFF8E1),
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = "${strings["amb_commission_label"] ?: "Commission (5%)"}: ${calcCommission.toInt()} BDT",
+                                text = "${strings["amb_commission_label"] ?: "Commission ($pctText%)"}: ${calcCommission.toInt()} BDT",
                                 modifier = Modifier.padding(10.dp),
                                 color = Color(0xFFE65100),
                                 style = MaterialTheme.typography.bodySmall,
@@ -14444,6 +14500,7 @@ fun AmbulanceDashboardContent(
                         PastTripCard(
                             booking = booking,
                             language = language,
+                            commissionRate = viewModel.ambulanceCommission.collectAsState().value,
                             onPayCommission = {
                                 showPaymentDialog = booking
                             }
@@ -14536,14 +14593,32 @@ fun AmbulanceDashboardContent(
 
                     val finalFare = tempFare.toDoubleOrNull() ?: 0.0
                     if (finalFare > 0.0) {
-                        val calcCommission = finalFare * 0.05
+                        val commissionRate by viewModel.ambulanceCommission.collectAsState()
+                        val calcCommission = finalFare * commissionRate
+                        val pctText = (commissionRate * 100).toInt().toString()
+                        val pctTextBn = when (pctText) {
+                            "1" -> "১"
+                            "2" -> "২"
+                            "3" -> "৩"
+                            "4" -> "৪"
+                            "5" -> "৫"
+                            "6" -> "৬"
+                            "7" -> "৭"
+                            "8" -> "৮"
+                            "9" -> "৯"
+                            "10" -> "১০"
+                            "12" -> "১২"
+                            "15" -> "১৫"
+                            "20" -> "২০"
+                            else -> pctText
+                        }
                         Surface(
                             color = Color(0xFFFFF8E1),
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = "${if (isBn) "সিস্টেম কমিশন (৫%)" else "Commission (5%)"}: ${calcCommission.toInt()} BDT",
+                                text = "${if (isBn) "সিস্টেম কমিশন ($pctTextBn%)" else "Commission ($pctText%)"}: ${calcCommission.toInt()} BDT",
                                 modifier = Modifier.padding(10.dp),
                                 color = Color(0xFFE65100),
                                 fontSize = 11.sp,
@@ -14660,19 +14735,43 @@ fun AmbulanceDashboardContent(
                                     modifier = Modifier.padding(12.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
+                                    val commissionRate by viewModel.ambulanceCommission.collectAsState()
+                                    val pctText = (commissionRate * 100).toInt().toString()
+                                    val pctTextBn = when (pctText) {
+                                        "1" -> "১"
+                                        "2" -> "২"
+                                        "3" -> "৩"
+                                        "4" -> "৪"
+                                        "5" -> "৫"
+                                        "6" -> "৬"
+                                        "7" -> "৭"
+                                        "8" -> "৮"
+                                        "9" -> "৯"
+                                        "10" -> "১০"
+                                        "12" -> "১২"
+                                        "15" -> "১৫"
+                                        "20" -> "২০"
+                                        else -> pctText
+                                    }
+                                    val walletNum = when (selectedMethod) {
+                                        "bKash" -> viewModel.bkashNumber.collectAsState().value.ifBlank { "01700-000001" }
+                                        "Nagad" -> viewModel.nagadNumber.collectAsState().value.ifBlank { "01700-000001" }
+                                        "Rocket" -> viewModel.rocketNumber.collectAsState().value.ifBlank { "01700-000001" }
+                                        else -> "01700-000001"
+                                    }
                                     Text(
-                                        text = if (isBn) "পরিশোধের কমিশন পরিমাণ (৫%)" else "Commission to Pay (5%)",
+                                        text = if (isBn) "পরিশোধের কমিশন পরিমাণ ($pctTextBn%)" else "Commission to Pay ($pctText%)",
                                         fontSize = 11.sp,
                                         color = SecondaryText
                                     )
                                     Text(
-                                        text = "${(booking.fare * 0.05).toInt()} BDT",
+                                        text = "${(booking.fare * commissionRate).toInt()} BDT",
                                         fontSize = 22.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = gatewayColor
                                     )
                                     Text(
-                                        text = if (isBn) "আলিফ মার্চেন্ট হিসাব নম্বর: ০১৭০০-০০০০০১" else "Merchant Wallet: 01700-000001",
+                                        text = if (isBn) "$selectedMethod মার্চেন্ট নম্বর: $walletNum" else "Merchant $selectedMethod: $walletNum",
                                         fontSize = 11.sp,
                                         color = SecondaryText
                                     )
@@ -15113,6 +15212,7 @@ fun ActiveTripCard(
 fun PastTripCard(
     booking: AmbulanceBooking,
     language: AppLanguage,
+    commissionRate: Double = 0.05,
     onPayCommission: () -> Unit
 ) {
     val isBn = language == AppLanguage.BAN
@@ -15190,6 +15290,23 @@ fun PastTripCard(
                             )
                         }
                     } else {
+                        val pctText = (commissionRate * 100).toInt().toString()
+                        val pctTextBn = when (pctText) {
+                            "1" -> "১"
+                            "2" -> "২"
+                            "3" -> "৩"
+                            "4" -> "৪"
+                            "5" -> "৫"
+                            "6" -> "৬"
+                            "7" -> "৭"
+                            "8" -> "৮"
+                            "9" -> "৯"
+                            "10" -> "১০"
+                            "12" -> "১২"
+                            "15" -> "১৫"
+                            "20" -> "২০"
+                            else -> pctText
+                        }
                         Button(
                             onClick = onPayCommission,
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE65100)),
@@ -15197,7 +15314,7 @@ fun PastTripCard(
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                         ) {
                             Text(
-                                text = if (isBn) "৫% কমিশন পরিশোধ করুন" else "Pay 5% Commission",
+                                text = if (isBn) "$pctTextBn% কমিশন পরিশোধ করুন" else "Pay $pctText% Commission",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White

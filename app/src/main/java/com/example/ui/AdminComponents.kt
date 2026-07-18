@@ -3164,6 +3164,155 @@ fun AdminSettingsTab(
             }
         }
 
+        // --- AMBULANCE COMMISSION CONFIGURATION CARD ---
+        val currentCommission by viewModel.ambulanceCommission.collectAsState()
+        var draftCommission by remember(currentCommission) { mutableStateOf((currentCommission * 100).toInt().toString()) }
+
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+            border = BorderStroke(1.dp, AdminBorder),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Text(
+                    text = if (language == AppLanguage.ENG) "Ambulance Commission Settings" else "অ্যাম্বুলেন্স কমিশন সেটিংস",
+                    fontWeight = FontWeight.Bold,
+                    color = AdminAccGreen,
+                    fontSize = 15.sp
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = if (language == AppLanguage.ENG) "Adjust the default booking commission percentage." else "অ্যাম্বুলেন্স ট্রিপ ভাড়ার উপর সিস্টেম কমিশন (%) নির্ধারণ করুন।",
+                    fontSize = 11.sp,
+                    color = AdminTextMuted
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+
+                OutlinedTextField(
+                    value = draftCommission,
+                    onValueChange = { draftCommission = it },
+                    label = { Text(if (language == AppLanguage.ENG) "Commission Percentage (%)" else "কমিশন শতকরা হার (%)", color = AdminTextMuted, fontSize = 11.sp) },
+                    modifier = Modifier.fillMaxWidth(),
+                    textStyle = androidx.compose.ui.text.TextStyle(color = AdminTextWhite),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AdminPrimaryBlue,
+                        unfocusedBorderColor = AdminBorder,
+                        focusedContainerColor = AdminDarkBg,
+                        unfocusedContainerColor = AdminDarkBg
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Button(
+                    onClick = {
+                        val pct = draftCommission.toDoubleOrNull() ?: 5.0
+                        viewModel.updateAmbulanceCommission(pct / 100.0)
+                        Toast.makeText(context, if (language == AppLanguage.ENG) "Commission settings saved!" else "কমিশন সেটিংস সংরক্ষণ করা হয়েছে!", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.fillMaxWidth().height(42.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = AdminAccGreen),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = if (language == AppLanguage.ENG) "Save Commission" else "কমিশন সংরক্ষণ করুন",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        }
+
+        // --- GLOBAL PAYMENT GATEWAY CONFIGURATION CARD ---
+        val currentBkash by viewModel.bkashNumber.collectAsState()
+        val currentNagad by viewModel.nagadNumber.collectAsState()
+        val currentRocket by viewModel.rocketNumber.collectAsState()
+        val currentGooglePlay by viewModel.googlePlayMerchant.collectAsState()
+
+        var editBkash by remember(currentBkash) { mutableStateOf(currentBkash) }
+        var editNagad by remember(currentNagad) { mutableStateOf(currentNagad) }
+        var editRocket by remember(currentRocket) { mutableStateOf(currentRocket) }
+        var editGooglePlay by remember(currentGooglePlay) { mutableStateOf(currentGooglePlay) }
+
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+            border = BorderStroke(1.dp, AdminBorder),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Text(
+                    text = if (language == AppLanguage.ENG) "Global Payment Configs" else "গ্লোবাল পেমেন্ট কনফিগারেশন",
+                    fontWeight = FontWeight.Bold,
+                    color = AdminAccRed,
+                    fontSize = 15.sp
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = if (language == AppLanguage.ENG) "Configure mobile banking numbers for BD & Google Play ID for outside." else "বাংলাদেশী ব্যবহারকারীদের জন্য অফিশিয়াল মোবাইল ব্যাংকিং এবং বাইরের জন্য গুগল প্লে সেট করুন।",
+                    fontSize = 11.sp,
+                    color = AdminTextMuted
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+
+                OutlinedTextField(
+                    value = editBkash,
+                    onValueChange = { editBkash = it },
+                    label = { Text(if (language == AppLanguage.ENG) "bKash Number" else "বিকাশ নম্বর", color = AdminTextMuted) },
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    textStyle = androidx.compose.ui.text.TextStyle(color = AdminTextWhite),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AdminPrimaryBlue, unfocusedBorderColor = AdminBorder, focusedContainerColor = AdminDarkBg, unfocusedContainerColor = AdminDarkBg)
+                )
+
+                OutlinedTextField(
+                    value = editNagad,
+                    onValueChange = { editNagad = it },
+                    label = { Text(if (language == AppLanguage.ENG) "Nagad Number" else "নগদ নম্বর", color = AdminTextMuted) },
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    textStyle = androidx.compose.ui.text.TextStyle(color = AdminTextWhite),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AdminPrimaryBlue, unfocusedBorderColor = AdminBorder, focusedContainerColor = AdminDarkBg, unfocusedContainerColor = AdminDarkBg)
+                )
+
+                OutlinedTextField(
+                    value = editRocket,
+                    onValueChange = { editRocket = it },
+                    label = { Text(if (language == AppLanguage.ENG) "Rocket Number" else "রকেট নম্বর", color = AdminTextMuted) },
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    textStyle = androidx.compose.ui.text.TextStyle(color = AdminTextWhite),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AdminPrimaryBlue, unfocusedBorderColor = AdminBorder, focusedContainerColor = AdminDarkBg, unfocusedContainerColor = AdminDarkBg)
+                )
+
+                OutlinedTextField(
+                    value = editGooglePlay,
+                    onValueChange = { editGooglePlay = it },
+                    label = { Text(if (language == AppLanguage.ENG) "Google Play Billing Merchant ID" else "গুগল প্লে বিলিং মার্চেন্ট আইডি", color = AdminTextMuted) },
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                    textStyle = androidx.compose.ui.text.TextStyle(color = AdminTextWhite),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AdminPrimaryBlue, unfocusedBorderColor = AdminBorder, focusedContainerColor = AdminDarkBg, unfocusedContainerColor = AdminDarkBg)
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Button(
+                    onClick = {
+                        viewModel.updatePaymentConfig(editBkash, editNagad, editRocket, editGooglePlay)
+                        Toast.makeText(context, if (language == AppLanguage.ENG) "Payment configs saved successfully!" else "পেমেন্ট কনফিগারেশন সফলভাবে সংরক্ষিত হয়েছে!", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.fillMaxWidth().height(42.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = AdminAccRed),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = if (language == AppLanguage.ENG) "Save Payment Configs" else "পেমেন্ট গেটওয়ে সংরক্ষণ করুন",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        }
+
         // Country Management Section (নতুন কার্ড দেশসমূহ পরিচালনা করার জন্য)
         val customCountriesList by viewModel.customCountries.collectAsState()
         var newCountryName by remember { mutableStateOf("") }
