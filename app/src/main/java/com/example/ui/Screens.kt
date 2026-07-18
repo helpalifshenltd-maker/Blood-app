@@ -9176,7 +9176,8 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
         Triple("SUPPORT", if (language == AppLanguage.ENG) "Live Support" else "লাইভ সাপোর্ট", Icons.Default.Chat),
         Triple("POLICIES", if (language == AppLanguage.ENG) "Page Policies" else "পৃষ্ঠা নীতিসমূহ", Icons.Default.List),
         Triple("REPORTS", if (language == AppLanguage.ENG) "Fraud Reports" else "প্রতারণা রিপোর্ট", Icons.Default.Warning),
-        Triple("V9_SUBSCRIPTIONS", if (language == AppLanguage.ENG) "V9 Subscriptions" else "ভি৯ সাবস্ক্রিপশন", Icons.Default.Star)
+        Triple("V9_SUBSCRIPTIONS", if (language == AppLanguage.ENG) "V9 Subscriptions" else "ভি৯ সাবস্ক্রিপশন", Icons.Default.Star),
+        Triple("SETTINGS", if (language == AppLanguage.ENG) "App Settings" else "অ্যাপ সেটিংস", Icons.Default.Settings)
     )
 
     val currentMenu = adminMenus.find { it.first == activeTab } ?: adminMenus[0]
@@ -10672,7 +10673,7 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                                 "V9_SUBSCRIPTIONS" -> {
                                     AdminSubscriptionsTab(viewModel = viewModel, language = language)
                                 }
-                                "DUMMY_SETTINGS_DELETED" -> {
+                                "SETTINGS" -> {
                                     val appNameState by viewModel.appName.collectAsState()
                                     val homeNoticeState by viewModel.homeNotice.collectAsState()
                                     val popupNoticeState by viewModel.popupNotice.collectAsState()
