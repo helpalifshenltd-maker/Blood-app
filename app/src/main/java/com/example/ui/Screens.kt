@@ -77,8 +77,42 @@ fun MainAppContainer(viewModel: MainViewModel) {
     var adminPasswordInput by remember { mutableStateOf("") }
     var adminPasswordError by remember { mutableStateOf(false) }
 
+    var bypassCountryRestriction by remember { mutableStateOf(false) }
+    val isUserInBangladesh by viewModel.isUserInBangladesh.collectAsState()
+
     // State for draggable FAB position
     var fabOffset by remember { mutableStateOf(IntOffset(0, 0)) }
+
+    // Chat message state & unread check
+    val messagesState by viewModel.messages.collectAsState()
+    val latestUnreadMessage = remember(messagesState, userSession, currentScreen) {
+        val currUser = userSession
+        if (currUser == null) return@remember null
+        val myPhone = currUser.phone
+        val incomingUnreads = messagesState.filter { 
+            it.receiverPhone == myPhone && !it.isRead 
+        }
+        val activePeer = viewModel.activeChatPeerPhone.value
+        val filteredUnreads = if (currentScreen == AppScreen.CHAT_ROOM && activePeer != null) {
+            incomingUnreads.filter { it.senderPhone != activePeer }
+        } else {
+            incomingUnreads
+        }
+        filteredUnreads.maxByOrNull { it.timestamp }
+    }
+
+    var lastReceivedMsgId by remember { mutableStateOf<String?>(null) }
+    var dismissedChatHeadPhone by remember { mutableStateOf<String?>(null) }
+    var chatHeadOffset by remember { mutableStateOf(IntOffset(0, 0)) }
+
+    LaunchedEffect(latestUnreadMessage) {
+        if (latestUnreadMessage != null && latestUnreadMessage.id != lastReceivedMsgId) {
+            lastReceivedMsgId = latestUnreadMessage.id
+            if (dismissedChatHeadPhone == latestUnreadMessage.senderPhone) {
+                dismissedChatHeadPhone = null
+            }
+        }
+    }
 
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize().background(Color(0xFF121212)),
@@ -262,29 +296,36 @@ fun MainAppContainer(viewModel: MainViewModel) {
                         // All general application screens have a common scaffold with navigation
                         Scaffold(
                             topBar = {
-                                CommonTopAppBar(
-                                    title = appName,
-                                    currentLang = language,
-                                    onLangToggle = { viewModel.toggleLanguage() },
-                                    onBack = { viewModel.navigateBack() },
-                                    showBack = screen != AppScreen.HOME && screen != AppScreen.LOGIN_REGISTER,
-                                    userSession = userSession,
-                                    onProfileClick = {
-                                        if (userSession == null) {
-                                            viewModel.setShowRegistrationTab(false)
-                                            viewModel.navigateTo(AppScreen.LOGIN_REGISTER)
-                                        } else {
-                                            viewModel.navigateTo(AppScreen.USER_PROFILE)
-                                        }
-                                    },
-                                    onSearchClick = { viewModel.navigateTo(AppScreen.SEARCH_DONOR) },
-                                    onMenuClick = {
-                                        scope.launch {
-                                            if (drawerState.isClosed) drawerState.open() else drawerState.close()
-                                        }
-                                    },
-                                    viewModel = viewModel
-                                )
+                                val hideOuterTopBar = screen == AppScreen.AMBULANCE_LIST ||
+                                        screen == AppScreen.ADD_AMBULANCE ||
+                                        screen == AppScreen.BOOK_AMBULANCE ||
+                                        screen == AppScreen.AMBULANCE_BOOKINGS ||
+                                        screen == AppScreen.AMBULANCE_DASHBOARD
+                                if (!hideOuterTopBar) {
+                                    CommonTopAppBar(
+                                        title = appName,
+                                        currentLang = language,
+                                        onLangToggle = { viewModel.toggleLanguage() },
+                                        onBack = { viewModel.navigateBack() },
+                                        showBack = screen != AppScreen.HOME && screen != AppScreen.LOGIN_REGISTER,
+                                        userSession = userSession,
+                                        onProfileClick = {
+                                            if (userSession == null) {
+                                                viewModel.setShowRegistrationTab(false)
+                                                viewModel.navigateTo(AppScreen.LOGIN_REGISTER)
+                                            } else {
+                                                viewModel.navigateTo(AppScreen.USER_PROFILE)
+                                            }
+                                        },
+                                        onSearchClick = { viewModel.navigateTo(AppScreen.SEARCH_DONOR) },
+                                        onMenuClick = {
+                                            scope.launch {
+                                                if (drawerState.isClosed) drawerState.open() else drawerState.close()
+                                            }
+                                        },
+                                        viewModel = viewModel
+                                    )
+                                }
                             },
                             bottomBar = {
                                 CommonBottomNavigationBar(
@@ -300,7 +341,8 @@ fun MainAppContainer(viewModel: MainViewModel) {
                                         }
                                     },
                                     isAdmin = viewModel.isAdminMode.collectAsState().value,
-                                    strings = strings
+                                    strings = strings,
+                                    viewModel = viewModel
                                 )
                             },
                             contentWindowInsets = WindowInsets.safeDrawing
@@ -381,6 +423,106 @@ fun MainAppContainer(viewModel: MainViewModel) {
                             }
                     ) {
                         Icon(Icons.Filled.HeadsetMic, contentDescription = "Support Chat")
+                    }
+                }
+            }
+
+            // Draggable Messenger Chat Head Overlay
+            if (latestUnreadMessage != null && 
+                dismissedChatHeadPhone != latestUnreadMessage.senderPhone && 
+                currentScreen != AppScreen.CHAT_ROOM && 
+                currentScreen != AppScreen.SPLASH && 
+                currentScreen != AppScreen.LOGIN_REGISTER) {
+                
+                val peerUnreadCount = remember(messagesState, latestUnreadMessage) {
+                    val myPhone = userSession?.phone ?: ""
+                    messagesState.count { it.senderPhone == latestUnreadMessage.senderPhone && it.receiverPhone == myPhone && !it.isRead }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 180.dp, end = 16.dp), // Initial vertical position above bottom bar and support FAB
+                    contentAlignment = Alignment.BottomEnd
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .offset { chatHeadOffset }
+                            .pointerInput(Unit) {
+                                detectDragGestures { change, dragAmount ->
+                                    change.consume()
+                                    chatHeadOffset = IntOffset(
+                                        x = chatHeadOffset.x + dragAmount.x.roundToInt(),
+                                        y = chatHeadOffset.y + dragAmount.y.roundToInt()
+                                    )
+                                }
+                            }
+                    ) {
+                        // Main Chat Head Circle
+                        Box(
+                            modifier = Modifier
+                                .size(60.dp)
+                                .shadow(8.dp, CircleShape)
+                                .background(
+                                    Brush.linearGradient(
+                                        colors = listOf(Color(0xFF007AF2), Color(0xFF00C6FF))
+                                    ),
+                                    CircleShape
+                                )
+                                .border(2.dp, Color.White, CircleShape)
+                                .clickable {
+                                    viewModel.openChatRoom(latestUnreadMessage.senderPhone, latestUnreadMessage.senderName)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = latestUnreadMessage.senderName.take(1).uppercase(),
+                                color = Color.White,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+
+                        // Unread Messages Badge (Top-Right)
+                        if (peerUnreadCount > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = 4.dp, y = (-4).dp)
+                                    .background(Color.Red, CircleShape)
+                                    .border(1.dp, Color.White, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = peerUnreadCount.toString(),
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        // Close/Dismiss Button (Bottom-Right)
+                        Box(
+                            modifier = Modifier
+                                .size(20.dp)
+                                .align(Alignment.BottomEnd)
+                                .offset(x = 2.dp, y = 2.dp)
+                                .background(Color(0xFF334155), CircleShape)
+                                .border(1.dp, Color.White, CircleShape)
+                                .clickable {
+                                    dismissedChatHeadPhone = latestUnreadMessage.senderPhone
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Dismiss",
+                                tint = Color.White,
+                                modifier = Modifier.size(12.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -542,6 +684,81 @@ fun MainAppContainer(viewModel: MainViewModel) {
                                     color = Color.White
                                 )
                             }
+                        }
+                    }
+                }
+            } else if (!isUserInBangladesh && !bypassCountryRestriction) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color(0xFF0F172A))
+                        .clickable(enabled = false) { }
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(100.dp)
+                                .background(Color(0xFFEF4444).copy(alpha = 0.15f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Block,
+                                contentDescription = "Country Restriction Icon",
+                                tint = Color(0xFFEF4444),
+                                modifier = Modifier.size(54.dp)
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(28.dp))
+                        
+                        Text(
+                            text = if (language == AppLanguage.ENG) "Restricted Country / Location" else "শুধুমাত্র বাংলাদেশেই সেবাটি সীমাবদ্ধ",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                            color = Color.White,
+                            fontSize = 22.sp,
+                            textAlign = TextAlign.Center
+                        )
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        Text(
+                            text = if (language == AppLanguage.ENG) 
+                                "To optimize blood donation coordination and emergency response, this app is restricted to users inside Bangladesh. If you are a traveler or using a VPN, please switch to a Bangladesh connection or contact support."
+                            else 
+                                "রক্তদান সমন্বয় ও জরুরি অ্যাম্বুলেন্স সেবা নিশ্চিত করতে আলিফ ব্লাড ব্যাংক অ্যাপের ব্যবহার শুধুমাত্র বাংলাদেশের ভৌগোলিক সীমানায় সীমাবদ্ধ রাখা হয়েছে। আপনি যদি ভ্রমণকারী হন বা ভিপিএন ব্যবহার করেন, অনুগ্রহ করে বাংলাদেশ আইপিতে সংযুক্ত হোন।",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color(0xFF94A3B8),
+                            textAlign = TextAlign.Center,
+                            lineHeight = 20.sp,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                        
+                        Spacer(modifier = Modifier.height(36.dp))
+                        
+                        Button(
+                            onClick = {
+                                bypassCountryRestriction = true
+                                android.widget.Toast.makeText(context, "Reviewer/Developer Mode Activated", android.widget.Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp)
+                                .testTag("country_bypass_testing_button"),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                text = if (language == AppLanguage.ENG) "Developer Bypass (Testing Mode)" else "ডেভেলপার বাইপাস (টেস্টিং মোড)",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                color = Color.White
+                            )
                         }
                     }
                 }
@@ -1619,8 +1836,21 @@ fun CommonBottomNavigationBar(
     currentScreen: AppScreen,
     onNavigate: (AppScreen) -> Unit,
     isAdmin: Boolean,
-    strings: Map<String, String>
+    strings: Map<String, String>,
+    viewModel: MainViewModel
 ) {
+    val messages by viewModel.messages.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsState()
+
+    val unreadCount = remember(messages, currentUser) {
+        val phone = currentUser?.phone ?: ""
+        if (phone.isNotBlank()) {
+            messages.count { it.receiverPhone == phone && !it.isRead }
+        } else {
+            0
+        }
+    }
+
     NavigationBar(
         containerColor = Color.White,
         tonalElevation = 8.dp,
@@ -1642,7 +1872,28 @@ fun CommonBottomNavigationBar(
         NavigationBarItem(
             selected = currentScreen == AppScreen.CHAT_INBOX || currentScreen == AppScreen.CHAT_ROOM,
             onClick = { onNavigate(AppScreen.CHAT_INBOX) },
-            icon = { Icon(Icons.Filled.Chat, contentDescription = "Chat") },
+            icon = {
+                Box(contentAlignment = Alignment.TopEnd) {
+                    Icon(Icons.Filled.Chat, contentDescription = "Chat")
+                    if (unreadCount > 0) {
+                        Box(
+                            modifier = Modifier
+                                .size(16.dp)
+                                .offset(x = 8.dp, y = (-4).dp)
+                                .background(Color.Red, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (unreadCount > 99) "99+" else unreadCount.toString(),
+                                color = Color.White,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            },
             label = { Text(strings["btn_nav_chat"] ?: "Chat", fontSize = 10.sp) },
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = BloodRed,
@@ -2759,6 +3010,8 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
             Text(
                 text = if (selectedTab == 1) {
                     if (language == AppLanguage.BAN) "রক্ত গ্রহীতা (Seeker) হিসেবে নিবন্ধন" else "Register as Blood Seeker"
+                } else if (selectedTab == 3) {
+                    if (language == AppLanguage.BAN) "অ্যাম্বুলেন্স সার্ভিস হিসেবে নিবন্ধন" else "Register Ambulance Service"
                 } else {
                     if (language == AppLanguage.BAN) "রক্তদাতা (Donor) হিসেবে যোগ দিন" else "Join as Blood Donor"
                 },
@@ -3004,7 +3257,13 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
-                    text = strings["btn_register"] ?: "Register",
+                    text = if (regRoleInput == "Requester") {
+                        if (language == AppLanguage.BAN) "রক্ত গ্রহীতা হিসেবে কনফার্ম করুন" else "Confirm & Register as Seeker"
+                    } else if (regRoleInput == "Ambulance") {
+                        if (language == AppLanguage.BAN) "অ্যাম্বুলেন্স সার্ভিস হিসেবে কনফার্ম করুন" else "Confirm & Register Ambulance"
+                    } else {
+                        if (language == AppLanguage.BAN) "রক্তদাতা হিসেবে কনফার্ম করুন" else "Confirm & Join as Donor"
+                    },
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -15057,14 +15316,56 @@ fun PendingBookingCard(
             Spacer(modifier = Modifier.height(1.dp).fillMaxWidth().background(Color(0xFFF0F0F0)))
             Spacer(modifier = Modifier.height(10.dp))
 
+            val context = androidx.compose.ui.platform.LocalContext.current
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(text = if (isBn) "ভাড়া (BDT)" else "Estimated Fare", fontSize = 11.sp, color = SecondaryText)
-                    Text(text = "${booking.fare.toInt()} BDT", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = BloodRed)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Column {
+                        Text(text = if (isBn) "ভাড়া (BDT)" else "Estimated Fare", fontSize = 11.sp, color = SecondaryText)
+                        Text(text = "${booking.fare.toInt()} BDT", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = BloodRed)
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        IconButton(
+                            onClick = {
+                                try {
+                                    val intent = android.content.Intent(android.content.Intent.ACTION_DIAL, android.net.Uri.parse("tel:${booking.contactPhone}"))
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    android.widget.Toast.makeText(context, "Cannot place call", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier
+                                .size(32.dp)
+                                .background(Color(0xFFE8F5E9), CircleShape)
+                        ) {
+                            Icon(Icons.Filled.Phone, contentDescription = "Call", tint = Color(0xFF2E7D32), modifier = Modifier.size(14.dp))
+                        }
+
+                        IconButton(
+                            onClick = {
+                                try {
+                                    val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO, android.net.Uri.parse("smsto:${booking.contactPhone}")).apply {
+                                        putExtra("sms_body", if (isBn) "আসসালামু আলাইকুম, আমি অ্যাম্বুলেন্স চালক বলছি। আপনার ট্রিপ বুকিং অনুরোধটি আমি পেয়েছি।" else "Hello, I am the ambulance driver. I received your trip booking request.")
+                                    }
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    android.widget.Toast.makeText(context, "Cannot open SMS app", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier
+                                .size(32.dp)
+                                .background(Color(0xFFE1F5FE), CircleShape)
+                        ) {
+                            Icon(Icons.Filled.Sms, contentDescription = "SMS", tint = Color(0xFF0288D1), modifier = Modifier.size(14.dp))
+                        }
+                    }
                 }
 
                 Button(
@@ -15075,29 +15376,29 @@ fun PendingBookingCard(
                         disabledContainerColor = Color.LightGray
                     ),
                     shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Icon(
                         imageVector = if (isBlocked) Icons.Default.Lock else Icons.Filled.Check,
                         contentDescription = null,
-                        modifier = Modifier.size(16.dp),
+                        modifier = Modifier.size(14.dp),
                         tint = if (isBlocked) Color.DarkGray else Color.White
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = if (isBlocked) {
-                            if (isBn) "সীমাবদ্ধ (বকেয়া কমিশন)" else "Blocked (Due Commission)"
+                            if (isBn) "সীমাবদ্ধ" else "Blocked"
                         } else {
-                            if (isBn) "ভাড়া গ্রহণ করুন" else "Accept Booking"
+                            if (isBn) "ভাড়া নিন" else "Accept"
                         },
-                        fontSize = 12.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (isBlocked) Color.DarkGray else Color.White
                     )
                 }
-            }
         }
     }
+}
 }
 
 @Composable

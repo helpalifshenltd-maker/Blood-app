@@ -98,6 +98,19 @@ class BloodConnectRepository private constructor() {
             country = country
         )
         _ambulances.value = listOf(newAmbulance) + _ambulances.value
+        saveAmbulancesLocal()
+
+        // Push to remote API if configured
+        appScope.launch {
+            if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
+                val result = BloodConnectApiClient.createAmbulance(newAmbulance)
+                if (result.isSuccess) {
+                    Log.d("BloodConnectRepo", "Successfully registered ambulance in cloud!")
+                } else {
+                    Log.e("BloodConnectRepo", "Failed to register ambulance in cloud: ${result.exceptionOrNull()?.message}")
+                }
+            }
+        }
         
         // Notification
         addNotification(
@@ -387,6 +400,18 @@ class BloodConnectRepository private constructor() {
         )
         _ambulanceBookings.value = listOf(newBooking) + _ambulanceBookings.value
         saveBookingsLocal()
+
+        // Push to remote API if configured
+        appScope.launch {
+            if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
+                val result = BloodConnectApiClient.createBooking(newBooking)
+                if (result.isSuccess) {
+                    Log.d("BloodConnectRepo", "Successfully created ambulance booking in cloud!")
+                } else {
+                    Log.e("BloodConnectRepo", "Failed to create ambulance booking in cloud: ${result.exceptionOrNull()?.message}")
+                }
+            }
+        }
         
         // Push notification
         addNotification(
@@ -424,6 +449,14 @@ class BloodConnectRepository private constructor() {
             }
         }
         saveBookingsLocal()
+
+        _ambulanceBookings.value.find { it.id == bookingId }?.let { updated ->
+            appScope.launch {
+                if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
+                    BloodConnectApiClient.updateBooking(bookingId, updated)
+                }
+            }
+        }
     }
 
     fun payBookingCommission(
@@ -445,6 +478,14 @@ class BloodConnectRepository private constructor() {
             }
         }
         saveBookingsLocal()
+
+        _ambulanceBookings.value.find { it.id == bookingId }?.let { updated ->
+            appScope.launch {
+                if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
+                    BloodConnectApiClient.updateBooking(bookingId, updated)
+                }
+            }
+        }
     }
 
     fun saveBookingsLocal() {
@@ -1204,6 +1245,34 @@ class BloodConnectRepository private constructor() {
                             apply()
                         }
                     }
+                }
+            }
+
+            // 4. Fetch Ambulances
+            val ambulancesResult = BloodConnectApiClient.fetchAmbulances()
+            if (ambulancesResult.isSuccess) {
+                val remoteAmbs = ambulancesResult.getOrNull()
+                if (remoteAmbs != null) {
+                    val currentLocal = _ambulances.value
+                    val mergedAmbs = remoteAmbs + currentLocal.filter { local ->
+                        remoteAmbs.none { remote -> remote.id == local.id }
+                    }
+                    _ambulances.value = mergedAmbs
+                    saveAmbulancesLocal()
+                }
+            }
+
+            // 5. Fetch Ambulance Bookings
+            val bookingsResult = BloodConnectApiClient.fetchBookings()
+            if (bookingsResult.isSuccess) {
+                val remoteBookings = bookingsResult.getOrNull()
+                if (remoteBookings != null) {
+                    val currentLocal = _ambulanceBookings.value
+                    val mergedBookings = remoteBookings + currentLocal.filter { local ->
+                        remoteBookings.none { remote -> remote.id == local.id }
+                    }
+                    _ambulanceBookings.value = mergedBookings
+                    saveBookingsLocal()
                 }
             }
 

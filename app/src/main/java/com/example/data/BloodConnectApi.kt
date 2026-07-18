@@ -52,6 +52,29 @@ interface BloodConnectApiService {
     @Headers("Prefer: resolution=merge-duplicates")
     @POST("app_config")
     suspend fun updateAppConfig(@Body config: AppConfig): List<AppConfig>
+
+    @GET("ambulances")
+    suspend fun getAmbulances(): List<Ambulance>
+
+    @Headers("Prefer: resolution=merge-duplicates")
+    @POST("ambulances")
+    suspend fun createAmbulance(@Body ambulance: Ambulance): Ambulance
+
+    @DELETE("ambulances")
+    suspend fun deleteAmbulance(@Query("id") idFilter: String): List<Ambulance>
+
+    @GET("bookings")
+    suspend fun getBookings(): List<AmbulanceBooking>
+
+    @Headers("Prefer: resolution=merge-duplicates")
+    @POST("bookings")
+    suspend fun createBooking(@Body booking: AmbulanceBooking): AmbulanceBooking
+
+    @PATCH("bookings")
+    suspend fun updateBooking(@Query("id") idFilter: String, @Body booking: AmbulanceBooking): List<AmbulanceBooking>
+
+    @DELETE("bookings")
+    suspend fun deleteBooking(@Query("id") idFilter: String): List<AmbulanceBooking>
 }
 
 // Client Manager for dynamically configuring Base URL and performing Retrofit network calls
@@ -224,6 +247,76 @@ object BloodConnectApiClient {
         val service = apiService ?: return Result.failure(Exception("API URL is not set."))
         return try {
             val response = service.updateAppConfig(config)
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun fetchAmbulances(): Result<List<Ambulance>> {
+        val service = apiService ?: return Result.failure(Exception("API URL is not set."))
+        return try {
+            val list = service.getAmbulances()
+            Result.success(list)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createAmbulance(ambulance: Ambulance): Result<Ambulance> {
+        val service = apiService ?: return Result.failure(Exception("API URL is not set."))
+        return try {
+            val response = service.createAmbulance(ambulance)
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteAmbulance(id: String): Result<List<Ambulance>> {
+        val service = apiService ?: return Result.failure(Exception("API URL is not set."))
+        return try {
+            val response = service.deleteAmbulance("eq.$id")
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun fetchBookings(): Result<List<AmbulanceBooking>> {
+        val service = apiService ?: return Result.failure(Exception("API URL is not set."))
+        return try {
+            val list = service.getBookings()
+            Result.success(list)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createBooking(booking: AmbulanceBooking): Result<AmbulanceBooking> {
+        val service = apiService ?: return Result.failure(Exception("API URL is not set."))
+        return try {
+            val response = service.createBooking(booking)
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateBooking(id: String, booking: AmbulanceBooking): Result<List<AmbulanceBooking>> {
+        val service = apiService ?: return Result.failure(Exception("API URL is not set."))
+        return try {
+            val response = service.updateBooking("eq.$id", booking)
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteBooking(id: String): Result<List<AmbulanceBooking>> {
+        val service = apiService ?: return Result.failure(Exception("API URL is not set."))
+        return try {
+            val response = service.deleteBooking("eq.$id")
             Result.success(response)
         } catch (e: Exception) {
             Result.failure(e)
