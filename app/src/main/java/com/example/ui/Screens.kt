@@ -77,42 +77,8 @@ fun MainAppContainer(viewModel: MainViewModel) {
     var adminPasswordInput by remember { mutableStateOf("") }
     var adminPasswordError by remember { mutableStateOf(false) }
 
-    var bypassCountryRestriction by remember { mutableStateOf(false) }
-    val isUserInBangladesh by viewModel.isUserInBangladesh.collectAsState()
-
     // State for draggable FAB position
     var fabOffset by remember { mutableStateOf(IntOffset(0, 0)) }
-
-    // Chat message state & unread check
-    val messagesState by viewModel.messages.collectAsState()
-    val latestUnreadMessage = remember(messagesState, userSession, currentScreen) {
-        val currUser = userSession
-        if (currUser == null) return@remember null
-        val myPhone = currUser.phone
-        val incomingUnreads = messagesState.filter { 
-            it.receiverPhone == myPhone && !it.isRead 
-        }
-        val activePeer = viewModel.activeChatPeerPhone.value
-        val filteredUnreads = if (currentScreen == AppScreen.CHAT_ROOM && activePeer != null) {
-            incomingUnreads.filter { it.senderPhone != activePeer }
-        } else {
-            incomingUnreads
-        }
-        filteredUnreads.maxByOrNull { it.timestamp }
-    }
-
-    var lastReceivedMsgId by remember { mutableStateOf<String?>(null) }
-    var dismissedChatHeadPhone by remember { mutableStateOf<String?>(null) }
-    var chatHeadOffset by remember { mutableStateOf(IntOffset(0, 0)) }
-
-    LaunchedEffect(latestUnreadMessage) {
-        if (latestUnreadMessage != null && latestUnreadMessage.id != lastReceivedMsgId) {
-            lastReceivedMsgId = latestUnreadMessage.id
-            if (dismissedChatHeadPhone == latestUnreadMessage.senderPhone) {
-                dismissedChatHeadPhone = null
-            }
-        }
-    }
 
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize().background(Color(0xFF121212)),
@@ -296,36 +262,29 @@ fun MainAppContainer(viewModel: MainViewModel) {
                         // All general application screens have a common scaffold with navigation
                         Scaffold(
                             topBar = {
-                                val hideOuterTopBar = screen == AppScreen.AMBULANCE_LIST ||
-                                        screen == AppScreen.ADD_AMBULANCE ||
-                                        screen == AppScreen.BOOK_AMBULANCE ||
-                                        screen == AppScreen.AMBULANCE_BOOKINGS ||
-                                        screen == AppScreen.AMBULANCE_DASHBOARD
-                                if (!hideOuterTopBar) {
-                                    CommonTopAppBar(
-                                        title = appName,
-                                        currentLang = language,
-                                        onLangToggle = { viewModel.toggleLanguage() },
-                                        onBack = { viewModel.navigateBack() },
-                                        showBack = screen != AppScreen.HOME && screen != AppScreen.LOGIN_REGISTER,
-                                        userSession = userSession,
-                                        onProfileClick = {
-                                            if (userSession == null) {
-                                                viewModel.setShowRegistrationTab(false)
-                                                viewModel.navigateTo(AppScreen.LOGIN_REGISTER)
-                                            } else {
-                                                viewModel.navigateTo(AppScreen.USER_PROFILE)
-                                            }
-                                        },
-                                        onSearchClick = { viewModel.navigateTo(AppScreen.SEARCH_DONOR) },
-                                        onMenuClick = {
-                                            scope.launch {
-                                                if (drawerState.isClosed) drawerState.open() else drawerState.close()
-                                            }
-                                        },
-                                        viewModel = viewModel
-                                    )
-                                }
+                                CommonTopAppBar(
+                                    title = appName,
+                                    currentLang = language,
+                                    onLangToggle = { viewModel.toggleLanguage() },
+                                    onBack = { viewModel.navigateBack() },
+                                    showBack = screen != AppScreen.HOME && screen != AppScreen.LOGIN_REGISTER,
+                                    userSession = userSession,
+                                    onProfileClick = {
+                                        if (userSession == null) {
+                                            viewModel.setShowRegistrationTab(false)
+                                            viewModel.navigateTo(AppScreen.LOGIN_REGISTER)
+                                        } else {
+                                            viewModel.navigateTo(AppScreen.USER_PROFILE)
+                                        }
+                                    },
+                                    onSearchClick = { viewModel.navigateTo(AppScreen.SEARCH_DONOR) },
+                                    onMenuClick = {
+                                        scope.launch {
+                                            if (drawerState.isClosed) drawerState.open() else drawerState.close()
+                                        }
+                                    },
+                                    viewModel = viewModel
+                                )
                             },
                             bottomBar = {
                                 CommonBottomNavigationBar(
@@ -341,8 +300,7 @@ fun MainAppContainer(viewModel: MainViewModel) {
                                         }
                                     },
                                     isAdmin = viewModel.isAdminMode.collectAsState().value,
-                                    strings = strings,
-                                    viewModel = viewModel
+                                    strings = strings
                                 )
                             },
                             contentWindowInsets = WindowInsets.safeDrawing
@@ -423,106 +381,6 @@ fun MainAppContainer(viewModel: MainViewModel) {
                             }
                     ) {
                         Icon(Icons.Filled.HeadsetMic, contentDescription = "Support Chat")
-                    }
-                }
-            }
-
-            // Draggable Messenger Chat Head Overlay
-            if (latestUnreadMessage != null && 
-                dismissedChatHeadPhone != latestUnreadMessage.senderPhone && 
-                currentScreen != AppScreen.CHAT_ROOM && 
-                currentScreen != AppScreen.SPLASH && 
-                currentScreen != AppScreen.LOGIN_REGISTER) {
-                
-                val peerUnreadCount = remember(messagesState, latestUnreadMessage) {
-                    val myPhone = userSession?.phone ?: ""
-                    messagesState.count { it.senderPhone == latestUnreadMessage.senderPhone && it.receiverPhone == myPhone && !it.isRead }
-                }
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = 180.dp, end = 16.dp), // Initial vertical position above bottom bar and support FAB
-                    contentAlignment = Alignment.BottomEnd
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .offset { chatHeadOffset }
-                            .pointerInput(Unit) {
-                                detectDragGestures { change, dragAmount ->
-                                    change.consume()
-                                    chatHeadOffset = IntOffset(
-                                        x = chatHeadOffset.x + dragAmount.x.roundToInt(),
-                                        y = chatHeadOffset.y + dragAmount.y.roundToInt()
-                                    )
-                                }
-                            }
-                    ) {
-                        // Main Chat Head Circle
-                        Box(
-                            modifier = Modifier
-                                .size(60.dp)
-                                .shadow(8.dp, CircleShape)
-                                .background(
-                                    Brush.linearGradient(
-                                        colors = listOf(Color(0xFF007AF2), Color(0xFF00C6FF))
-                                    ),
-                                    CircleShape
-                                )
-                                .border(2.dp, Color.White, CircleShape)
-                                .clickable {
-                                    viewModel.openChatRoom(latestUnreadMessage.senderPhone, latestUnreadMessage.senderName)
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = latestUnreadMessage.senderName.take(1).uppercase(),
-                                color = Color.White,
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        }
-
-                        // Unread Messages Badge (Top-Right)
-                        if (peerUnreadCount > 0) {
-                            Box(
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .align(Alignment.TopEnd)
-                                    .offset(x = 4.dp, y = (-4).dp)
-                                    .background(Color.Red, CircleShape)
-                                    .border(1.dp, Color.White, CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = peerUnreadCount.toString(),
-                                    color = Color.White,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-
-                        // Close/Dismiss Button (Bottom-Right)
-                        Box(
-                            modifier = Modifier
-                                .size(20.dp)
-                                .align(Alignment.BottomEnd)
-                                .offset(x = 2.dp, y = 2.dp)
-                                .background(Color(0xFF334155), CircleShape)
-                                .border(1.dp, Color.White, CircleShape)
-                                .clickable {
-                                    dismissedChatHeadPhone = latestUnreadMessage.senderPhone
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Dismiss",
-                                tint = Color.White,
-                                modifier = Modifier.size(12.dp)
-                            )
-                        }
                     }
                 }
             }
@@ -687,81 +545,6 @@ fun MainAppContainer(viewModel: MainViewModel) {
                         }
                     }
                 }
-            } else if (!isUserInBangladesh && !bypassCountryRestriction) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color(0xFF0F172A))
-                        .clickable(enabled = false) { }
-                        .padding(24.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(100.dp)
-                                .background(Color(0xFFEF4444).copy(alpha = 0.15f), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Block,
-                                contentDescription = "Country Restriction Icon",
-                                tint = Color(0xFFEF4444),
-                                modifier = Modifier.size(54.dp)
-                            )
-                        }
-                        
-                        Spacer(modifier = Modifier.height(28.dp))
-                        
-                        Text(
-                            text = if (language == AppLanguage.ENG) "Restricted Country / Location" else "শুধুমাত্র বাংলাদেশেই সেবাটি সীমাবদ্ধ",
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                            color = Color.White,
-                            fontSize = 22.sp,
-                            textAlign = TextAlign.Center
-                        )
-                        
-                        Spacer(modifier = Modifier.height(12.dp))
-                        
-                        Text(
-                            text = if (language == AppLanguage.ENG) 
-                                "To optimize blood donation coordination and emergency response, this app is restricted to users inside Bangladesh. If you are a traveler or using a VPN, please switch to a Bangladesh connection or contact support."
-                            else 
-                                "রক্তদান সমন্বয় ও জরুরি অ্যাম্বুলেন্স সেবা নিশ্চিত করতে আলিফ ব্লাড ব্যাংক অ্যাপের ব্যবহার শুধুমাত্র বাংলাদেশের ভৌগোলিক সীমানায় সীমাবদ্ধ রাখা হয়েছে। আপনি যদি ভ্রমণকারী হন বা ভিপিএন ব্যবহার করেন, অনুগ্রহ করে বাংলাদেশ আইপিতে সংযুক্ত হোন।",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color(0xFF94A3B8),
-                            textAlign = TextAlign.Center,
-                            lineHeight = 20.sp,
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
-                        
-                        Spacer(modifier = Modifier.height(36.dp))
-                        
-                        Button(
-                            onClick = {
-                                bypassCountryRestriction = true
-                                android.widget.Toast.makeText(context, "Reviewer/Developer Mode Activated", android.widget.Toast.LENGTH_SHORT).show()
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(52.dp)
-                                .testTag("country_bypass_testing_button"),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text(
-                                text = if (language == AppLanguage.ENG) "Developer Bypass (Testing Mode)" else "ডেভেলপার বাইপাস (টেস্টিং মোড)",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp,
-                                color = Color.White
-                            )
-                        }
-                    }
-                }
             }
         }
     }
@@ -863,42 +646,6 @@ fun V9SubscriptionDialog(
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )
-
-                            val userHideAdsPref by viewModel.userHideAdsPreference.collectAsState()
-
-                            Spacer(modifier = Modifier.height(10.dp))
-                            HorizontalDivider(color = Color(0xFFFFD54F).copy(alpha = 0.5f))
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = if (language == AppLanguage.ENG) "Ad-Free Mode" else "বিজ্ঞাপন-মুক্ত মোড",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp,
-                                        color = Color(0xFFF57F17)
-                                    )
-                                    Text(
-                                        text = if (language == AppLanguage.ENG) "Hide all banner ads" else "সব ব্যানার বিজ্ঞাপন লুকিয়ে রাখুন",
-                                        fontSize = 11.sp,
-                                        color = Color.Gray
-                                    )
-                                }
-                                Switch(
-                                    checked = userHideAdsPref,
-                                    onCheckedChange = { viewModel.updateUserHideAdsPreference(it) },
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = Color.White,
-                                        checkedTrackColor = Color(0xFFF57F17),
-                                        uncheckedThumbColor = Color.LightGray,
-                                        uncheckedTrackColor = Color.Gray.copy(alpha = 0.3f)
-                                    )
-                                )
-                            }
                         }
                     }
                 }
@@ -1836,21 +1583,8 @@ fun CommonBottomNavigationBar(
     currentScreen: AppScreen,
     onNavigate: (AppScreen) -> Unit,
     isAdmin: Boolean,
-    strings: Map<String, String>,
-    viewModel: MainViewModel
+    strings: Map<String, String>
 ) {
-    val messages by viewModel.messages.collectAsState()
-    val currentUser by viewModel.currentUser.collectAsState()
-
-    val unreadCount = remember(messages, currentUser) {
-        val phone = currentUser?.phone ?: ""
-        if (phone.isNotBlank()) {
-            messages.count { it.receiverPhone == phone && !it.isRead }
-        } else {
-            0
-        }
-    }
-
     NavigationBar(
         containerColor = Color.White,
         tonalElevation = 8.dp,
@@ -1872,28 +1606,7 @@ fun CommonBottomNavigationBar(
         NavigationBarItem(
             selected = currentScreen == AppScreen.CHAT_INBOX || currentScreen == AppScreen.CHAT_ROOM,
             onClick = { onNavigate(AppScreen.CHAT_INBOX) },
-            icon = {
-                Box(contentAlignment = Alignment.TopEnd) {
-                    Icon(Icons.Filled.Chat, contentDescription = "Chat")
-                    if (unreadCount > 0) {
-                        Box(
-                            modifier = Modifier
-                                .size(16.dp)
-                                .offset(x = 8.dp, y = (-4).dp)
-                                .background(Color.Red, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = if (unreadCount > 99) "99+" else unreadCount.toString(),
-                                color = Color.White,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
-                }
-            },
+            icon = { Icon(Icons.Filled.Chat, contentDescription = "Chat") },
             label = { Text(strings["btn_nav_chat"] ?: "Chat", fontSize = 10.sp) },
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = BloodRed,
@@ -3010,8 +2723,6 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
             Text(
                 text = if (selectedTab == 1) {
                     if (language == AppLanguage.BAN) "রক্ত গ্রহীতা (Seeker) হিসেবে নিবন্ধন" else "Register as Blood Seeker"
-                } else if (selectedTab == 3) {
-                    if (language == AppLanguage.BAN) "অ্যাম্বুলেন্স সার্ভিস হিসেবে নিবন্ধন" else "Register Ambulance Service"
                 } else {
                     if (language == AppLanguage.BAN) "রক্তদাতা (Donor) হিসেবে যোগ দিন" else "Join as Blood Donor"
                 },
@@ -3257,13 +2968,7 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
-                    text = if (regRoleInput == "Requester") {
-                        if (language == AppLanguage.BAN) "রক্ত গ্রহীতা হিসেবে কনফার্ম করুন" else "Confirm & Register as Seeker"
-                    } else if (regRoleInput == "Ambulance") {
-                        if (language == AppLanguage.BAN) "অ্যাম্বুলেন্স সার্ভিস হিসেবে কনফার্ম করুন" else "Confirm & Register Ambulance"
-                    } else {
-                        if (language == AppLanguage.BAN) "রক্তদাতা হিসেবে কনফার্ম করুন" else "Confirm & Join as Donor"
-                    },
+                    text = strings["btn_register"] ?: "Register",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -4632,18 +4337,6 @@ fun HomeScreen(viewModel: MainViewModel) {
         val customAdsEnabled by viewModel.customAdsEnabled.collectAsState()
         val customAdConfigs by viewModel.customAdConfigs.collectAsState()
 
-        val currentUser by viewModel.currentUser.collectAsState()
-        val subscriptions by viewModel.userSubscriptions.collectAsState()
-        val userHideAdsPref by viewModel.userHideAdsPreference.collectAsState()
-
-        val activeSub = remember(subscriptions, currentUser) {
-            val user = currentUser
-            if (user == null) null
-            else subscriptions.find { it.userPhone == user.phone && !it.isExpired }
-        }
-
-        val showAds = activeSub == null || !userHideAdsPref
-
         val activeAdsForCountry = remember(customAdConfigs, detectedCountry) {
             customAdConfigs.filter { ad ->
                 val countries = ad.targetCountries.split(",").map { it.trim() }
@@ -4651,7 +4344,7 @@ fun HomeScreen(viewModel: MainViewModel) {
             }
         }
 
-        if (showAds && customAdsEnabled && activeAdsForCountry.isNotEmpty()) {
+        if (customAdsEnabled && activeAdsForCountry.isNotEmpty()) {
             // Select one ad based on weights (using a random selection weighted by ad.weight)
             val selectedAd = remember(activeAdsForCountry) {
                 val totalWeight = activeAdsForCountry.sumOf { it.weight.coerceAtLeast(1) }
@@ -9484,7 +9177,7 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
         Triple("POLICIES", if (language == AppLanguage.ENG) "Page Policies" else "পৃষ্ঠা নীতিসমূহ", Icons.Default.List),
         Triple("REPORTS", if (language == AppLanguage.ENG) "Fraud Reports" else "প্রতারণা রিপোর্ট", Icons.Default.Warning),
         Triple("V9_SUBSCRIPTIONS", if (language == AppLanguage.ENG) "V9 Subscriptions" else "ভি৯ সাবস্ক্রিপশন", Icons.Default.Star),
-        Triple("SETTINGS", if (language == AppLanguage.ENG) "Settings" else "সেটিংস", Icons.Default.Settings)
+        Triple("SETTINGS", if (language == AppLanguage.ENG) "App Settings" else "অ্যাপ সেটিংস", Icons.Default.Settings)
     )
 
     val currentMenu = adminMenus.find { it.first == activeTab } ?: adminMenus[0]
@@ -11816,9 +11509,9 @@ fun ChatRoomScreen(viewModel: MainViewModel) {
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = if (language == AppLanguage.BAN) {
-                            "বকেয়া ৫% কমিশন অপরিশোধিত থাকায় এসএমএস পাঠানো লক করা হয়েছে।"
+                            "বকেয়া কমিশন অপরিশোধিত থাকায় এসএমএস পাঠানো লক করা হয়েছে।"
                         } else {
-                            "Sending messages is locked due to outstanding 5% commission dues."
+                            "Sending messages is locked due to outstanding commission dues."
                         },
                         fontSize = 11.sp,
                         color = Color(0xFFC62828),
@@ -13376,10 +13069,8 @@ fun AmbulanceBookingsScreen(viewModel: MainViewModel) {
                                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                             ) {
                                 Column(modifier = Modifier.padding(10.dp)) {
-                                    val commissionRate by viewModel.ambulanceCommission.collectAsState()
-                                    val pctText = (commissionRate * 100).toInt().toString()
                                     Text(
-                                        text = strings["amb_commission_label"]?.replace("5%", "$pctText%") ?: "Commission ($pctText%)",
+                                        text = strings["amb_commission_label"] ?: "Commission (5%)",
                                         fontSize = 11.sp,
                                         color = Color(0xFF2E7D32)
                                     )
@@ -13545,11 +13236,9 @@ fun BookingCard(
                         label = strings["amb_fare_label"] ?: "Ambulance Fare (BDT)",
                         value = "${booking.fare.toInt()} BDT"
                     )
-                    val commissionRate by viewModel.ambulanceCommission.collectAsState()
-                    val pctText = (commissionRate * 100).toInt().toString()
                     BookingDetailRow(
                         icon = Icons.Default.AccountBalanceWallet,
-                        label = strings["amb_commission_label"]?.replace("5%", "$pctText%") ?: "Commission ($pctText%)",
+                        label = strings["amb_commission_label"] ?: "Commission (5%)",
                         value = "${booking.commission.toInt()} BDT"
                     )
 
@@ -13621,12 +13310,15 @@ fun BookingCard(
                                     )
                                 }
                                 Spacer(modifier = Modifier.height(4.dp))
-                                val commissionRate by viewModel.ambulanceCommission.collectAsState()
-                                val pctText = (commissionRate * 100).toInt().toString()
+                                val isMPlus = booking.assignedAmbulanceName?.contains("M Plus", ignoreCase = true) == true ||
+                                              booking.assignedAmbulanceName?.contains("এম প্লাস") == true
+                                val standardRate by viewModel.standardCommissionRate.collectAsState()
+                                val mPlusRate by viewModel.mPlusCommissionRate.collectAsState()
+                                val ratePct = if (isMPlus) mPlusRate.toInt() else standardRate.toInt()
                                 Text(
                                     text = if (language == AppLanguage.BAN) 
-                                        "অ্যাপ থেকে অনলাইনে বিকাশ, নগদ বা রকেট গেটওয়ের মাধ্যমে সরাসরি $pctText% কমিশন পরিশোধ করুন।" 
-                                        else "Pay the $pctText% commission instantly online using bKash, Nagad or Rocket.",
+                                        "অ্যাপ থেকে অনলাইনে বিকাশ, নগদ বা রকেট গেটওয়ের মাধ্যমে সরাসরি $ratePct% কমিশন পরিশোধ করুন।" 
+                                        else "Pay the $ratePct% commission instantly online using bKash, Nagad or Rocket.",
                                     fontSize = 11.sp,
                                     color = Color(0xFFE65100)
                                 )
@@ -13641,7 +13333,7 @@ fun BookingCard(
                                     Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = (strings["amb_pay_now_btn"] ?: "Pay Now (5% Commission)").replace("5%", "$pctText%"),
+                                        text = strings["amb_pay_now_btn"] ?: "Pay Now (5% Commission)",
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -13873,16 +13565,24 @@ fun BookingCard(
 
                     val enteredFare = tempFare.toDoubleOrNull() ?: 0.0
                     if (enteredFare > 0.0) {
-                        val commissionRate by viewModel.ambulanceCommission.collectAsState()
-                        val calcCommission = enteredFare * commissionRate
-                        val pctText = (commissionRate * 100).toInt().toString()
+                        val isMPlus = tempDriverName.contains("M Plus", ignoreCase = true) ||
+                                      tempDriverName.contains("এম প্লাস")
+                        val standardRate by viewModel.standardCommissionRate.collectAsState()
+                        val mPlusRate by viewModel.mPlusCommissionRate.collectAsState()
+                        val currentRate = if (isMPlus) mPlusRate else standardRate
+                        val calcCommission = enteredFare * (currentRate / 100.0)
+                        val commissionLabel = if (isMPlus) {
+                            if (language == AppLanguage.BAN) "এম প্লাস কমিশন (${mPlusRate.toInt()}%)" else "M Plus Commission (${mPlusRate.toInt()}%)"
+                        } else {
+                            if (language == AppLanguage.BAN) "সিস্টেম কমিশন (${standardRate.toInt()}%)" else "System Commission (${standardRate.toInt()}%)"
+                        }
                         Surface(
                             color = Color(0xFFFFF8E1),
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = "${strings["amb_commission_label"] ?: "Commission ($pctText%)"}: ${calcCommission.toInt()} BDT",
+                                text = "$commissionLabel: ${calcCommission.toInt()} BDT",
                                 modifier = Modifier.padding(10.dp),
                                 color = Color(0xFFE65100),
                                 style = MaterialTheme.typography.bodySmall,
@@ -14617,9 +14317,9 @@ fun AmbulanceDashboardContent(
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = if (isBn) {
-                                "আপনার একটি সম্পন্ন ট্রিপের ৫% বকেয়া কমিশন পরিশোধ করা হয়নি। কমিশন পরিশোধ না করা পর্যন্ত আপনি নতুন ট্রিপ বুকিং গ্রহণ করতে পারবেন না। অনুগ্রহ করে নিচে 'ইতিহাস' ট্যাব থেকে বকেয়াটি পরিশোধ করুন।"
+                                "আপনার একটি সম্পন্ন ট্রিপের বকেয়া কমিশন পরিশোধ করা হয়নি। কমিশন পরিশোধ না করা পর্যন্ত আপনি নতুন ট্রিপ বুকিং গ্রহণ করতে পারবেন না। অনুগ্রহ করে নিচে 'ইতিহাস' ট্যাব থেকে বকেয়াটি পরিশোধ করুন।"
                             } else {
-                                "You have a completed trip with unpaid 5% commission. You cannot accept new bookings until the commission is paid. Please pay from the 'History' tab."
+                                "You have a completed trip with unpaid commission. You cannot accept new bookings until the commission is paid. Please pay from the 'History' tab."
                             },
                             fontSize = 11.sp,
                             color = Color(0xFFB71C1C),
@@ -14759,7 +14459,6 @@ fun AmbulanceDashboardContent(
                         PastTripCard(
                             booking = booking,
                             language = language,
-                            commissionRate = viewModel.ambulanceCommission.collectAsState().value,
                             onPayCommission = {
                                 showPaymentDialog = booking
                             }
@@ -14852,24 +14551,16 @@ fun AmbulanceDashboardContent(
 
                     val finalFare = tempFare.toDoubleOrNull() ?: 0.0
                     if (finalFare > 0.0) {
-                        val commissionRate by viewModel.ambulanceCommission.collectAsState()
-                        val calcCommission = finalFare * commissionRate
-                        val pctText = (commissionRate * 100).toInt().toString()
-                        val pctTextBn = when (pctText) {
-                            "1" -> "১"
-                            "2" -> "২"
-                            "3" -> "৩"
-                            "4" -> "৪"
-                            "5" -> "৫"
-                            "6" -> "৬"
-                            "7" -> "৭"
-                            "8" -> "৮"
-                            "9" -> "৯"
-                            "10" -> "১০"
-                            "12" -> "১২"
-                            "15" -> "১৫"
-                            "20" -> "২০"
-                            else -> pctText
+                        val isMPlus = booking.assignedAmbulanceName?.contains("M Plus", ignoreCase = true) == true ||
+                                      booking.assignedAmbulanceName?.contains("এম প্লাস") == true
+                        val standardRate by viewModel.standardCommissionRate.collectAsState()
+                        val mPlusRate by viewModel.mPlusCommissionRate.collectAsState()
+                        val currentRate = if (isMPlus) mPlusRate else standardRate
+                        val calcCommission = finalFare * (currentRate / 100.0)
+                        val commissionLabel = if (isMPlus) {
+                            if (isBn) "এম প্লাস কমিশন (${mPlusRate.toInt()}%)" else "M Plus Commission (${mPlusRate.toInt()}%)"
+                        } else {
+                            if (isBn) "সিস্টেম কমিশন (${standardRate.toInt()}%)" else "System Commission (${standardRate.toInt()}%)"
                         }
                         Surface(
                             color = Color(0xFFFFF8E1),
@@ -14877,7 +14568,7 @@ fun AmbulanceDashboardContent(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = "${if (isBn) "সিস্টেম কমিশন ($pctTextBn%)" else "Commission ($pctText%)"}: ${calcCommission.toInt()} BDT",
+                                text = "$commissionLabel: ${calcCommission.toInt()} BDT",
                                 modifier = Modifier.padding(10.dp),
                                 color = Color(0xFFE65100),
                                 fontSize = 11.sp,
@@ -14994,43 +14685,24 @@ fun AmbulanceDashboardContent(
                                     modifier = Modifier.padding(12.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    val commissionRate by viewModel.ambulanceCommission.collectAsState()
-                                    val pctText = (commissionRate * 100).toInt().toString()
-                                    val pctTextBn = when (pctText) {
-                                        "1" -> "১"
-                                        "2" -> "২"
-                                        "3" -> "৩"
-                                        "4" -> "৪"
-                                        "5" -> "৫"
-                                        "6" -> "৬"
-                                        "7" -> "৭"
-                                        "8" -> "৮"
-                                        "9" -> "৯"
-                                        "10" -> "১০"
-                                        "12" -> "১২"
-                                        "15" -> "১৫"
-                                        "20" -> "২০"
-                                        else -> pctText
-                                    }
-                                    val walletNum = when (selectedMethod) {
-                                        "bKash" -> viewModel.bkashNumber.collectAsState().value.ifBlank { "01700-000001" }
-                                        "Nagad" -> viewModel.nagadNumber.collectAsState().value.ifBlank { "01700-000001" }
-                                        "Rocket" -> viewModel.rocketNumber.collectAsState().value.ifBlank { "01700-000001" }
-                                        else -> "01700-000001"
-                                    }
+                                    val isMPlus = booking.assignedAmbulanceName?.contains("M Plus", ignoreCase = true) == true ||
+                                                  booking.assignedAmbulanceName?.contains("এম প্লাস") == true
+                                    val standardRate by viewModel.standardCommissionRate.collectAsState()
+                                    val mPlusRate by viewModel.mPlusCommissionRate.collectAsState()
+                                    val ratePct = if (isMPlus) mPlusRate.toInt() else standardRate.toInt()
                                     Text(
-                                        text = if (isBn) "পরিশোধের কমিশন পরিমাণ ($pctTextBn%)" else "Commission to Pay ($pctText%)",
+                                        text = if (isBn) "পরিশোধের কমিশন পরিমাণ ($ratePct%)" else "Commission to Pay ($ratePct%)",
                                         fontSize = 11.sp,
                                         color = SecondaryText
                                     )
                                     Text(
-                                        text = "${(booking.fare * commissionRate).toInt()} BDT",
+                                        text = "${booking.commission.toInt()} BDT",
                                         fontSize = 22.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = gatewayColor
                                     )
                                     Text(
-                                        text = if (isBn) "$selectedMethod মার্চেন্ট নম্বর: $walletNum" else "Merchant $selectedMethod: $walletNum",
+                                        text = if (isBn) "আলিফ মার্চেন্ট হিসাব নম্বর: ০১৭০০-০০০০০১" else "Merchant Wallet: 01700-000001",
                                         fontSize = 11.sp,
                                         color = SecondaryText
                                     )
@@ -15316,56 +14988,14 @@ fun PendingBookingCard(
             Spacer(modifier = Modifier.height(1.dp).fillMaxWidth().background(Color(0xFFF0F0F0)))
             Spacer(modifier = Modifier.height(10.dp))
 
-            val context = androidx.compose.ui.platform.LocalContext.current
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Column {
-                        Text(text = if (isBn) "ভাড়া (BDT)" else "Estimated Fare", fontSize = 11.sp, color = SecondaryText)
-                        Text(text = "${booking.fare.toInt()} BDT", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = BloodRed)
-                    }
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        IconButton(
-                            onClick = {
-                                try {
-                                    val intent = android.content.Intent(android.content.Intent.ACTION_DIAL, android.net.Uri.parse("tel:${booking.contactPhone}"))
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    android.widget.Toast.makeText(context, "Cannot place call", android.widget.Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            modifier = Modifier
-                                .size(32.dp)
-                                .background(Color(0xFFE8F5E9), CircleShape)
-                        ) {
-                            Icon(Icons.Filled.Phone, contentDescription = "Call", tint = Color(0xFF2E7D32), modifier = Modifier.size(14.dp))
-                        }
-
-                        IconButton(
-                            onClick = {
-                                try {
-                                    val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO, android.net.Uri.parse("smsto:${booking.contactPhone}")).apply {
-                                        putExtra("sms_body", if (isBn) "আসসালামু আলাইকুম, আমি অ্যাম্বুলেন্স চালক বলছি। আপনার ট্রিপ বুকিং অনুরোধটি আমি পেয়েছি।" else "Hello, I am the ambulance driver. I received your trip booking request.")
-                                    }
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    android.widget.Toast.makeText(context, "Cannot open SMS app", android.widget.Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            modifier = Modifier
-                                .size(32.dp)
-                                .background(Color(0xFFE1F5FE), CircleShape)
-                        ) {
-                            Icon(Icons.Filled.Sms, contentDescription = "SMS", tint = Color(0xFF0288D1), modifier = Modifier.size(14.dp))
-                        }
-                    }
+                Column {
+                    Text(text = if (isBn) "ভাড়া (BDT)" else "Estimated Fare", fontSize = 11.sp, color = SecondaryText)
+                    Text(text = "${booking.fare.toInt()} BDT", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = BloodRed)
                 }
 
                 Button(
@@ -15376,29 +15006,29 @@ fun PendingBookingCard(
                         disabledContainerColor = Color.LightGray
                     ),
                     shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
                 ) {
                     Icon(
                         imageVector = if (isBlocked) Icons.Default.Lock else Icons.Filled.Check,
                         contentDescription = null,
-                        modifier = Modifier.size(14.dp),
+                        modifier = Modifier.size(16.dp),
                         tint = if (isBlocked) Color.DarkGray else Color.White
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = if (isBlocked) {
-                            if (isBn) "সীমাবদ্ধ" else "Blocked"
+                            if (isBn) "সীমাবদ্ধ (বকেয়া কমিশন)" else "Blocked (Due Commission)"
                         } else {
-                            if (isBn) "ভাড়া নিন" else "Accept"
+                            if (isBn) "ভাড়া গ্রহণ করুন" else "Accept Booking"
                         },
-                        fontSize = 11.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (isBlocked) Color.DarkGray else Color.White
                     )
                 }
+            }
         }
     }
-}
 }
 
 @Composable
@@ -15513,7 +15143,6 @@ fun ActiveTripCard(
 fun PastTripCard(
     booking: AmbulanceBooking,
     language: AppLanguage,
-    commissionRate: Double = 0.05,
     onPayCommission: () -> Unit
 ) {
     val isBn = language == AppLanguage.BAN
@@ -15591,31 +15220,19 @@ fun PastTripCard(
                             )
                         }
                     } else {
-                        val pctText = (commissionRate * 100).toInt().toString()
-                        val pctTextBn = when (pctText) {
-                            "1" -> "১"
-                            "2" -> "২"
-                            "3" -> "৩"
-                            "4" -> "৪"
-                            "5" -> "৫"
-                            "6" -> "৬"
-                            "7" -> "৭"
-                            "8" -> "৮"
-                            "9" -> "৯"
-                            "10" -> "১০"
-                            "12" -> "১২"
-                            "15" -> "১৫"
-                            "20" -> "২০"
-                            else -> pctText
-                        }
                         Button(
                             onClick = onPayCommission,
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE65100)),
                             shape = RoundedCornerShape(8.dp),
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                         ) {
+                            val ratePct = if (booking.fare > 0.0) {
+                                ((booking.commission / booking.fare) * 100.0).toInt()
+                            } else {
+                                5
+                            }
                             Text(
-                                text = if (isBn) "$pctTextBn% কমিশন পরিশোধ করুন" else "Pay $pctText% Commission",
+                                text = if (isBn) "$ratePct% কমিশন পরিশোধ করুন" else "Pay $ratePct% Commission",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White

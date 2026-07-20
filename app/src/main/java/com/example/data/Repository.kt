@@ -98,19 +98,6 @@ class BloodConnectRepository private constructor() {
             country = country
         )
         _ambulances.value = listOf(newAmbulance) + _ambulances.value
-        saveAmbulancesLocal()
-
-        // Push to remote API if configured
-        appScope.launch {
-            if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
-                val result = BloodConnectApiClient.createAmbulance(newAmbulance)
-                if (result.isSuccess) {
-                    Log.d("BloodConnectRepo", "Successfully registered ambulance in cloud!")
-                } else {
-                    Log.e("BloodConnectRepo", "Failed to register ambulance in cloud: ${result.exceptionOrNull()?.message}")
-                }
-            }
-        }
         
         // Notification
         addNotification(
@@ -135,6 +122,25 @@ class BloodConnectRepository private constructor() {
 
     private val _homeNotice = MutableStateFlow("স্বাগতম আলিফ ব্লাড ব্যাংকে! জরুরি প্রয়োজনে চ্যাট বা কল করুন।")
     val homeNotice: StateFlow<String> = _homeNotice.asStateFlow()
+
+    private val _standardCommissionRate = MutableStateFlow(5.0)
+    val standardCommissionRate: StateFlow<Double> = _standardCommissionRate.asStateFlow()
+
+    private val _mPlusCommissionRate = MutableStateFlow(10.0)
+    val mPlusCommissionRate: StateFlow<Double> = _mPlusCommissionRate.asStateFlow()
+
+    fun updateCommissionRates(standardRate: Double, mPlusRate: Double) {
+        _standardCommissionRate.value = standardRate
+        _mPlusCommissionRate.value = mPlusRate
+        appContext?.let { ctx ->
+            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+            prefs.edit().apply {
+                putFloat("standard_commission_rate", standardRate.toFloat())
+                putFloat("mplus_commission_rate", mPlusRate.toFloat())
+                apply()
+            }
+        }
+    }
 
     fun updateHomeNotice(newNotice: String) {
         _homeNotice.value = newNotice
@@ -227,14 +233,6 @@ class BloodConnectRepository private constructor() {
     // --- CUSTOM CPA/AFFILIATE AD NETWORK CONFIG (e.g. Affmine, CPA networks) ---
     private val _customAdsEnabled = MutableStateFlow(true)
     val customAdsEnabled: StateFlow<Boolean> = _customAdsEnabled.asStateFlow()
-
-    // --- AMBULANCE COMMISSION CONFIG ---
-    private val _ambulanceCommission = MutableStateFlow(0.05)
-    val ambulanceCommission: StateFlow<Double> = _ambulanceCommission.asStateFlow()
-
-    // --- USER AD HIDING PREFERENCE ---
-    private val _userHideAdsPreference = MutableStateFlow(false)
-    val userHideAdsPreference: StateFlow<Boolean> = _userHideAdsPreference.asStateFlow()
 
     private val _customAdNetworkName = MutableStateFlow("Affmine")
     val customAdNetworkName: StateFlow<String> = _customAdNetworkName.asStateFlow()
@@ -400,18 +398,6 @@ class BloodConnectRepository private constructor() {
         )
         _ambulanceBookings.value = listOf(newBooking) + _ambulanceBookings.value
         saveBookingsLocal()
-
-        // Push to remote API if configured
-        appScope.launch {
-            if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
-                val result = BloodConnectApiClient.createBooking(newBooking)
-                if (result.isSuccess) {
-                    Log.d("BloodConnectRepo", "Successfully created ambulance booking in cloud!")
-                } else {
-                    Log.e("BloodConnectRepo", "Failed to create ambulance booking in cloud: ${result.exceptionOrNull()?.message}")
-                }
-            }
-        }
         
         // Push notification
         addNotification(
@@ -435,10 +421,14 @@ class BloodConnectRepository private constructor() {
         _ambulanceBookings.value = _ambulanceBookings.value.map {
             if (it.id == bookingId) {
                 val finalFare = fare ?: it.fare
-                val finalCommission = finalFare * _ambulanceCommission.value
+                val resolvedName = assignedName ?: it.assignedAmbulanceName
+                val isMPlus = resolvedName?.contains("M Plus", ignoreCase = true) == true ||
+                              resolvedName?.contains("এম প্লাস") == true
+                val rate = if (isMPlus) _mPlusCommissionRate.value else _standardCommissionRate.value
+                val finalCommission = finalFare * (rate / 100.0)
                 it.copy(
                     status = newStatus,
-                    assignedAmbulanceName = assignedName ?: it.assignedAmbulanceName,
+                    assignedAmbulanceName = resolvedName,
                     assignedAmbulancePhone = assignedPhone ?: it.assignedAmbulancePhone,
                     notes = adminNotes ?: it.notes,
                     fare = finalFare,
@@ -449,14 +439,6 @@ class BloodConnectRepository private constructor() {
             }
         }
         saveBookingsLocal()
-
-        _ambulanceBookings.value.find { it.id == bookingId }?.let { updated ->
-            appScope.launch {
-                if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
-                    BloodConnectApiClient.updateBooking(bookingId, updated)
-                }
-            }
-        }
     }
 
     fun payBookingCommission(
@@ -478,14 +460,6 @@ class BloodConnectRepository private constructor() {
             }
         }
         saveBookingsLocal()
-
-        _ambulanceBookings.value.find { it.id == bookingId }?.let { updated ->
-            appScope.launch {
-                if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
-                    BloodConnectApiClient.updateBooking(bookingId, updated)
-                }
-            }
-        }
     }
 
     fun saveBookingsLocal() {
@@ -545,23 +519,6 @@ class BloodConnectRepository private constructor() {
             putString("admob_interstitial_id", interstitialId)
             putString("admob_native_id", nativeId)
             apply()
-        }
-    }
-
-    fun updateAmbulanceCommission(newRate: Double) {
-        _ambulanceCommission.value = newRate
-        appContext?.let { ctx ->
-            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
-            prefs.edit().putFloat("ambulance_commission_pref", newRate.toFloat()).apply()
-        }
-        pushAppConfigToRemote()
-    }
-
-    fun updateUserHideAdsPreference(hide: Boolean) {
-        _userHideAdsPreference.value = hide
-        appContext?.let { ctx ->
-            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
-            prefs.edit().putBoolean("user_hide_ads_pref", hide).apply()
         }
     }
 
@@ -1076,13 +1033,13 @@ class BloodConnectRepository private constructor() {
         _popupNotice.value = prefs.getString("popup_notice", _popupNotice.value) ?: _popupNotice.value
         _appName.value = prefs.getString("app_name_pref", _appName.value) ?: _appName.value
 
+        _standardCommissionRate.value = prefs.getFloat("standard_commission_rate", 5.0f).toDouble()
+        _mPlusCommissionRate.value = prefs.getFloat("mplus_commission_rate", 10.0f).toDouble()
+
         _bkashNumber.value = prefs.getString("payment_bkash", _bkashNumber.value) ?: _bkashNumber.value
         _nagadNumber.value = prefs.getString("payment_nagad", _nagadNumber.value) ?: _nagadNumber.value
         _rocketNumber.value = prefs.getString("payment_rocket", _rocketNumber.value) ?: _rocketNumber.value
         _googlePlayMerchant.value = prefs.getString("payment_googleplay", _googlePlayMerchant.value) ?: _googlePlayMerchant.value
-
-        _ambulanceCommission.value = prefs.getFloat("ambulance_commission_pref", 0.05f).toDouble()
-        _userHideAdsPreference.value = prefs.getBoolean("user_hide_ads_pref", false)
 
         _privacyPolicyEn.value = prefs.getString("policy_privacy_en", _privacyPolicyEn.value) ?: _privacyPolicyEn.value
         _privacyPolicyBn.value = prefs.getString("policy_privacy_bn", _privacyPolicyBn.value) ?: _privacyPolicyBn.value
@@ -1245,34 +1202,6 @@ class BloodConnectRepository private constructor() {
                             apply()
                         }
                     }
-                }
-            }
-
-            // 4. Fetch Ambulances
-            val ambulancesResult = BloodConnectApiClient.fetchAmbulances()
-            if (ambulancesResult.isSuccess) {
-                val remoteAmbs = ambulancesResult.getOrNull()
-                if (remoteAmbs != null) {
-                    val currentLocal = _ambulances.value
-                    val mergedAmbs = remoteAmbs + currentLocal.filter { local ->
-                        remoteAmbs.none { remote -> remote.id == local.id }
-                    }
-                    _ambulances.value = mergedAmbs
-                    saveAmbulancesLocal()
-                }
-            }
-
-            // 5. Fetch Ambulance Bookings
-            val bookingsResult = BloodConnectApiClient.fetchBookings()
-            if (bookingsResult.isSuccess) {
-                val remoteBookings = bookingsResult.getOrNull()
-                if (remoteBookings != null) {
-                    val currentLocal = _ambulanceBookings.value
-                    val mergedBookings = remoteBookings + currentLocal.filter { local ->
-                        remoteBookings.none { remote -> remote.id == local.id }
-                    }
-                    _ambulanceBookings.value = mergedBookings
-                    saveBookingsLocal()
                 }
             }
 

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - Alif Blood Bank</title>
+    <style>
+        :root {
+            --primary-color: #D32F2F;
+            --primary-dark: #C2185B;
+            --bg-color: #F9FAFB;
+            --card-bg: #FFFFFF;
+            --text-color: #1F2937;
+            --text-muted: #4B5563;
+            --border-color: #E5E7EB;
+            --accent-bg: #FFEBEE;
+            --accent-border: #FFCDD2;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+            color: white;
+            text-align: center;
+            padding: 3rem 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+        }
+
+        .header p {
+            margin: 0.5rem 0 0 0;
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: -2rem auto 3rem auto;
+            padding: 0 1.5rem;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 1rem;
+            padding: 2.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border-color);
+        }
+
+        .language-switcher {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .lang-btn {
+            background-color: #E5E7EB;
+            color: var(--text-color);
+            border: none;
+            padding: 0.5rem 1.5rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .lang-btn.active {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        h2 {
+            color: var(--primary-color);
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid var(--accent-bg);
+            padding-bottom: 0.5rem;
+        }
+
+        h3 {
+            color: var(--text-color);
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        p, ul, ol {
+            margin-top: 0;
+            margin-bottom: 1.25rem;
+            color: var(--text-muted);
+        }
+
+        ul {
+            padding-left: 1.5rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        .alert {
+            background-color: var(--accent-bg);
+            border: 1px solid var(--accent-border);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            color: #B71C1C;
+            font-weight: 500;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 3rem;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        /* Language content control */
+        .lang-bn {
+            display: none;
+        }
+
+        html[lang="bn"] .lang-en {
+            display: none;
+        }
+
+        html[lang="bn"] .lang-bn {
+            display: block;
+        }
+    </style>
+    <script>
+        function switchLanguage(lang) {
+            document.documentElement.lang = lang;
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.getElementById('btn-' + lang).classList.add('active');
+        }
+    </script>
+</head>
+<body>
+
+    <div class="header">
+        <div class="lang-en">
+            <h1>Privacy Policy</h1>
+            <p>Alif Blood Bank - Free Life Saving Platform</p>
+        </div>
+        <div class="lang-bn">
+            <h1>প্রাইভেসি পলিসি</h1>
+            <p>আলিফ ব্লাড ব্যাংক - ফ্রি জীবন রক্ষাকারী প্ল্যাটফর্ম</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="language-switcher">
+            <button id="btn-en" class="lang-btn active" onclick="switchLanguage('en')">English</button>
+            <button id="btn-bn" class="lang-btn" onclick="switchLanguage('bn')">বাংলা</button>
+        </div>
+
+        <div class="card">
+            <!-- ENGLISH SECTION -->
+            <div class="lang-en">
+                <div class="alert">
+                    <strong>Important notice for blood donors:</strong> Your blood group, registered name, and contact number will be visible to registered members looking for compatible blood to facilitate critical emergency communication.
+                </div>
+
+                <p><strong>Effective Date:</strong> July 19, 2026</p>
+
+                <p>Welcome to <strong>Alif Blood Bank</strong>. We are fully committed to protecting your personal information and your right to privacy. If you have any questions or concerns about our policy or our practices regarding your personal information, please contact us at <strong>help.alifshen.ltd@gmail.com</strong>.</p>
+
+                <h2>1. Information We Collect</h2>
+                <p>When you register and use the Alif Blood Bank application, we collect personal and sensitive information necessary to match donors with blood seekers safely and efficiently:</p>
+                <ul>
+                    <li><strong>Account Information:</strong> Full name, email address, phone number, password, and optional profile pictures.</li>
+                    <li><strong>Health & Medical Attributes:</strong> Blood group (A+, B+, O+, AB+, A-, B-, O-, AB-) and donation eligibility details.</li>
+                    <li><strong>Geographical Information:</strong> Country, district, upazila, and coordinates to enable localized search queries and filter regional pipelines.</li>
+                    <li><strong>Device & Usage Information:</strong> Device model, operating system version, network status, unique identifiers, and app diagnostic logs.</li>
+                </ul>
+
+                <h2>2. How We Use Your Information</h2>
+                <p>We use the collected information for the following specific purposes:</p>
+                <ul>
+                    <li>To facilitate critical emergency blood requests and connect donor-recipient pipelines.</li>
+                    <li>To show country-specific content (including Bengali translation for users in Bangladesh).</li>
+                    <li>To process VIP/V9 Premium Subscriptions and prevent transaction fraud.</li>
+                    <li>To deliver advertisements via Google Mobile Ads SDK (AdMob).</li>
+                    <li>To diagnose, maintain, and optimize application performance.</li>
+                </ul>
+
+                <h2>3. Data Sharing & Visibility</h2>
+                <p><strong>Strict Restriction:</strong> We DO NOT sell, rent, or lease your personal information to third-party marketing companies.</p>
+                <p><strong>In-App Visibility:</strong> To achieve our lifesaving purpose, your registered phone number, blood group, name, and regional location will be accessible to registered, authenticated platform members who are actively searching for compatible donors.</p>
+
+                <h2>4. Third-Party Services & Advertisements</h2>
+                <p>We work with third-party service providers who assist us in operating and monetizing the application:</p>
+                <ul>
+                    <li><strong>Google Mobile Ads (AdMob):</strong> Used to deliver visual and interstitial ads. These networks may collect anonymous identifiers (such as AAID) to customize the ad experience.</li>
+                    <li><strong>Payment Processors:</strong> For processing Premium V9 Subscription plans, payment information is safely processed via mobile financial services (bKash, Nagad, Rocket) or Google Play Billing in compliance with PCI-DSS security guidelines.</li>
+                </ul>
+
+                <h2>5. Location Services</h2>
+                <p>The app queries the device location to match you with nearby hospitals and blood requests in real-time. This dynamic location querying is only done with your explicit consent and remains entirely confidential.</p>
+
+                <h2>6. Data Security</h2>
+                <p>We implement strict administrative, technical, and physical security measures (including industry-standard database encryption and secure pipelines) to protect your personal information from unauthorized access, loss, or disclosure.</p>
+
+                <h2>7. Your Choices and Data Deletion</h2>
+                <p>You can access, modify, or permanently delete your Alif Blood Bank profile and historical record at any time via the user profile controls inside the application. If you request deletion, all your personal details will be completely wiped from our active databases.</p>
+
+                <h2>8. Updates to This Privacy Policy</h2>
+                <p>We may update this Privacy Policy from time to time. Any changes will be indicated inside the application along with an updated effective date. We encourage you to review this policy periodically.</p>
+
+                <h2>9. Contact Us</h2>
+                <p>If you have any questions, complaints, or feedback about this policy, please reach out to us:</p>
+                <p>Email: <strong>help.alifshen.ltd@gmail.com</strong><br>Developer: <strong>Alif Sheen Ltd.</strong></p>
+            </div>
+
+            <!-- BENGALI SECTION -->
+            <div class="lang-bn">
+                <div class="alert">
+                    <strong>রক্তদাতাদের জন্য গুরুত্বপূর্ণ বিজ্ঞপ্তি:</strong> জরুরি মুহূর্তে যোগাযোগের সুবিধার্থে আপনার রক্তের গ্রুপ, নিবন্ধিত নাম এবং মোবাইল নম্বরটি প্ল্যাটফর্মের অন্যান্য নিবন্ধিত সদস্যদের কাছে দৃশ্যমান থাকবে।
+                </div>
+
+                <p><strong>কার্যকরী তারিখ:</strong> ১৯ জুলাই, ২০২৬</p>
+
+                <p><strong>আলিফ ব্লাড ব্যাংক</strong> এ আপনাকে স্বাগত জানাই। আমরা আপনার ব্যক্তিগত তথ্য এবং আপনার গোপনীয়তার অধিকার রক্ষা করতে সম্পূর্ণ প্রতিশ্রুতিবদ্ধ। আমাদের পলিসি বা আপনার ব্যক্তিগত তথ্য সম্পর্কিত কোনো প্রশ্ন থাকলে অনুগ্রহ করে আমাদের সাথে যোগাযোগ করুন: <strong>help.alifshen.ltd@gmail.com</strong>।</p>
+
+                <h2>১. আমরা যে তথ্য সংগ্রহ করি</h2>
+                <p>আপনি যখন আলিফ ব্লাড ব্যাংক অ্যাপ ব্যবহার করেন, তখন আমরা রক্তদাতা এবং গ্রহীতার মধ্যে দ্রুত ও নিরাপদ যোগাযোগ স্থাপনের জন্য প্রয়োজনীয় তথ্য সংগ্রহ করি:</p>
+                <ul>
+                    <li><strong>অ্যাকাউন্ট তথ্য:</strong> সম্পূর্ণ নাম, ইমেইল ঠিকানা, ফোন নম্বর, পাসওয়ার্ড এবং ঐচ্ছিক প্রোফাইল ছবি।</li>
+                    <li><strong>রক্তের তথ্য:</strong> রক্তের গ্রুপ (A+, B+, O+, AB+, A-, B-, O-, AB-) এবং রক্তদানের শেষ তারিখ।</li>
+                    <li><strong>ভৌগোলিক তথ্য:</strong> দেশ, জেলা, উপজেলা এবং রক্তের অনুরোধের নিকটবর্তী হাসপাতাল ফিল্টারের জন্য প্রয়োজনীয় লোকেশন।</li>
+                    <li><strong>ডিভাইস ও ব্যবহার সংক্রান্ত তথ্য:</strong> ডিভাইসের মডেল, অপারেটিং সিস্টেম সংস্করণ, নেটওয়ার্কের স্থিতি এবং অ্যাপ ডায়াগনস্টিক লগ।</li>
+                </ul>
+
+                <h2>২. আপনার তথ্য আমরা যেভাবে ব্যবহার করি</h2>
+                <p>সংগৃহীত তথ্যগুলো নিম্নোক্ত উদ্দেশ্যে ব্যবহৃত হয়:</p>
+                <ul>
+                    <li>রক্তের তাৎক্ষণিক অনুরোধ ও রক্তদাতাদের সাথে গ্রহীতার মেলবন্ধন স্থাপন করতে।</li>
+                    <li>বাংলাদেশি ব্যবহারকারীদের জন্য স্বয়ংক্রিয়ভাবে বাংলা ভাষা ও আঞ্চলিক রক্তের তথ্য প্রদান করতে।</li>
+                    <li>ভি৯ (V9) প্রিমিয়াম সাবস্ক্রিপশন সফলভাবে পরিচালনা এবং লেনদেনের সুরক্ষা নিশ্চিত করতে।</li>
+                    <li>গুগল মোবাইল অ্যাডস (AdMob) এর মাধ্যমে প্রাসঙ্গিক বিজ্ঞাপন প্রদর্শন করতে।</li>
+                    <li>অ্যাপের কার্যক্ষমতা উন্নয়ন ও ডায়াগনস্টিক ত্রুটি সংশোধন করতে।</li>
+                </ul>
+
+                <h2>৩. তথ্য আদান-প্রদান ও দৃশ্যমানতা</h2>
+                <p><strong>কঠোর নিষেধাজ্ঞা:</strong> আমরা কোনো অবস্থাতেই বিজ্ঞাপন বা অন্য কোনো বাণিজ্যিক উদ্দেশ্যে আপনার তথ্য কোনো তৃতীয় পক্ষের কাছে বিক্রি, লিজ বা ভাড়া দিই না।</p>
+                <p><strong>অ্যাপের ভেতরের দৃশ্যমানতা:</strong> মুমূর্ষু রোগীর জীবন রক্ষার্থে রক্তদাতার নিবন্ধিত ফোন নম্বর, রক্তের গ্রুপ, নাম এবং অঞ্চল অ্যাপে লগইন করা অন্যান্য নিবন্ধিত সদস্যদের কাছে সরাসরি প্রদর্শিত হবে যেন তারা আপনার সাথে সরাসরি ফোনে যোগাযোগ করতে পারেন।</p>
+
+                <h2>৪. থার্ড-পার্টি সেবা ও বিজ্ঞাপন</h2>
+                <p>আমরা অ্যাপের সঠিক পরিচালনা এবং বিজ্ঞাপনের জন্য নিম্নোক্ত সেবাগুলো ব্যবহার করি:</p>
+                <ul>
+                    <li><strong>গুগল মোবাইল অ্যাডস (AdMob):</strong> অ্যাপের খরচ নির্বাহ ও বিনামূল্যে সেবা সচল রাখতে বিজ্ঞাপন প্রদর্শিত হয়। এই নেটওয়ার্কগুলো বিজ্ঞাপন প্রদর্শনের উদ্দেশ্যে বেনামী আইডি সংগ্রহ করতে পারে।</li>
+                    <li><strong>পেমেন্ট গেটওয়ে:</strong> ভি৯ (V9) প্রিমিয়াম প্যাক ক্রয়ের জন্য পেমেন্ট নিরাপদভাবে বিকাশ, নগদ, রকেট বা গুগল প্লে বিলিং-এর মাধ্যমে সম্পূর্ণ এনক্রিপ্টেড উপায়ে সম্পন্ন করা হয়।</li>
+                </ul>
+
+                <h2>৫. লোকেশন সার্ভিসেস</h2>
+                <p>আপনার নিকটবর্তী এলাকার হাসপাতালের তালিকা ও রক্তের জরুরি অনুরোধগুলো খুঁজে পেতে আপনার ডিভাইসের জিপিএস বা লোকেশন অনুমতি প্রয়োজন হতে পারে। এই তথ্য সম্পূর্ণ সুরক্ষিত থাকে।</p>
+
+                <h2>৬. তথ্যের নিরাপত্তা</h2>
+                <p>আপনার ব্যক্তিগত তথ্য চুরি, অননুমোদিত ব্যবহার বা প্রকাশ থেকে রক্ষা করতে আমরা ইন্ডাস্ট্রি-স্ট্যান্ডার্ড ডাটাবেজ এনক্রিপশন এবং নিরাপদ নেটওয়ার্ক ব্যবহার করি।</p>
+
+                <h2>৭. প্রোফাইল ডিলিট বা মুছে ফেলার অধিকার</h2>
+                <p>আপনি চাইলে যেকোনো সময় অ্যাপের প্রোফাইল সেটিংস থেকে আপনার সম্পূর্ণ অ্যাকাউন্ট এবং যোগাযোগের তথ্য চিরতরে মুছে (Delete) ফেলতে পারেন। অ্যাকাউন্ট ডিলিট করার সাথে সাথে আমাদের ডাটাবেজ থেকে আপনার তথ্য সম্পূর্ণভাবে মুছে ফেলা হবে।</p>
+
+                <h2>৮. প্রাইভেসি পলিসি পরিবর্তন</h2>
+                <p>প্রয়োজনবোধে আমরা এই পলিসি পরিবর্তন বা আপডেট করতে পারি। যেকোনো পরিবর্তনের ক্ষেত্রে অ্যাপের মধ্যে নোটিশ এবং কার্যকরী তারিখ হালনাগাদ করে দেওয়া হবে।</p>
+
+                <h2>৯. আমাদের সাথে যোগাযোগ করুন</h2>
+                <p>এই প্রাইভেসি পলিসি সম্পর্কে আপনার কোনো প্রশ্ন, জিজ্ঞাসা বা অভিযোগ থাকলে যোগাযোগ করুন:</p>
+                <p>ইমেইল: <strong>help.alifshen.ltd@gmail.com</strong><br>ডেভেলপার: <strong>আলিফ শীন লিমিটেড (Alif Sheen Ltd.)</strong></p>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>&copy; 2026 Alif Blood Bank. All Rights Reserved.</p>
+        </div>
+    </div>
+
+</body>
+</html>
