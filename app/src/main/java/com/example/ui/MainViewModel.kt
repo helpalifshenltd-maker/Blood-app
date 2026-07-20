@@ -11,6 +11,8 @@ class MainViewModel(
     private val repository: BloodConnectRepository = BloodConnectRepository.getInstance()
 ) : ViewModel() {
 
+    var selectedAmbulanceTypeForBooking by mutableStateOf("AC")
+
     init {
         // Periodically sync with remote Supabase database every 15 seconds to fetch latest updates, requests, and donor profiles
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
@@ -223,6 +225,14 @@ class MainViewModel(
 
     fun updateCommissionRates(standardRate: Double, mPlusRate: Double) {
         repository.updateCommissionRates(standardRate, mPlusRate)
+    }
+
+    fun addWalletBalance(amount: Double) {
+        repository.addWalletBalance(amount)
+    }
+
+    fun deductWalletBalance(amount: Double): Boolean {
+        return repository.deductWalletBalance(amount)
     }
 
     fun updatePaymentConfig(bkash: String, nagad: String, rocket: String, googlePlay: String) {
@@ -892,8 +902,30 @@ class MainViewModel(
         }
     }
 
-    fun submitDonationClaim(requestId: String, donorPhone: String, donorName: String, contactNumber: String) {
-        repository.submitDonationClaim(requestId, donorPhone, donorName, contactNumber)
+    fun submitDonationClaim(
+        requestId: String,
+        donorPhone: String,
+        donorName: String,
+        contactNumber: String,
+        donationDate: String = "",
+        donationTime: String = "",
+        donorBloodGroup: String = "",
+        lastDonationDate: String = "",
+        healthStatus: String = "",
+        additionalRemarks: String = ""
+    ) {
+        repository.submitDonationClaim(
+            requestId = requestId,
+            donorPhone = donorPhone,
+            donorName = donorName,
+            contactNumber = contactNumber,
+            donationDate = donationDate,
+            donationTime = donationTime,
+            donorBloodGroup = donorBloodGroup,
+            lastDonationDate = lastDonationDate,
+            healthStatus = healthStatus,
+            additionalRemarks = additionalRemarks
+        )
     }
 
     fun acceptDonationClaim(claimId: String) {

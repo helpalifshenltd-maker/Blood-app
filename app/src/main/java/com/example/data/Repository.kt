@@ -123,10 +123,10 @@ class BloodConnectRepository private constructor() {
     private val _homeNotice = MutableStateFlow("স্বাগতম আলিফ ব্লাড ব্যাংকে! জরুরি প্রয়োজনে চ্যাট বা কল করুন।")
     val homeNotice: StateFlow<String> = _homeNotice.asStateFlow()
 
-    private val _standardCommissionRate = MutableStateFlow(5.0)
+    private val _standardCommissionRate = MutableStateFlow(30.0)
     val standardCommissionRate: StateFlow<Double> = _standardCommissionRate.asStateFlow()
 
-    private val _mPlusCommissionRate = MutableStateFlow(10.0)
+    private val _mPlusCommissionRate = MutableStateFlow(50.0)
     val mPlusCommissionRate: StateFlow<Double> = _mPlusCommissionRate.asStateFlow()
 
     fun updateCommissionRates(standardRate: Double, mPlusRate: Double) {
@@ -666,6 +666,7 @@ class BloodConnectRepository private constructor() {
                 remove("user_session_isWarning")
                 remove("user_session_warningReason")
                 remove("user_session_role")
+                remove("user_session_walletBalance")
                 apply()
             }
         } else {
@@ -687,6 +688,7 @@ class BloodConnectRepository private constructor() {
                 putBoolean("user_session_isWarning", donor.isWarning)
                 putString("user_session_warningReason", donor.warningReason)
                 putString("user_session_role", donor.role)
+                putFloat("user_session_walletBalance", donor.walletBalance.toFloat())
                 apply()
             }
         }
@@ -715,7 +717,8 @@ class BloodConnectRepository private constructor() {
                 donor.userId,
                 donor.isWarning.toString(),
                 donor.warningReason,
-                donor.role
+                donor.role,
+                donor.walletBalance.toString()
             ).joinToString("||FIELD_SEP||")
         }
     }
@@ -745,7 +748,8 @@ class BloodConnectRepository private constructor() {
                         userId = parts.getOrNull(13) ?: "",
                         isWarning = parts.getOrNull(14)?.toBoolean() ?: false,
                         warningReason = parts.getOrNull(15) ?: "",
-                        role = parts.getOrNull(16) ?: "Donor"
+                        role = parts.getOrNull(16) ?: "Donor",
+                        walletBalance = parts.getOrNull(17)?.toDoubleOrNull() ?: 0.0
                     )
                 )
             }
@@ -941,7 +945,8 @@ class BloodConnectRepository private constructor() {
                 userId = prefs.getString("user_session_userId", "") ?: "",
                 isWarning = prefs.getBoolean("user_session_isWarning", false),
                 warningReason = prefs.getString("user_session_warningReason", "") ?: "",
-                role = prefs.getString("user_session_role", "Donor") ?: "Donor"
+                role = prefs.getString("user_session_role", "Donor") ?: "Donor",
+                walletBalance = prefs.getFloat("user_session_walletBalance", 0.0f).toDouble()
             )
             _currentUser.value = loadedDonor
             
@@ -1033,8 +1038,8 @@ class BloodConnectRepository private constructor() {
         _popupNotice.value = prefs.getString("popup_notice", _popupNotice.value) ?: _popupNotice.value
         _appName.value = prefs.getString("app_name_pref", _appName.value) ?: _appName.value
 
-        _standardCommissionRate.value = prefs.getFloat("standard_commission_rate", 5.0f).toDouble()
-        _mPlusCommissionRate.value = prefs.getFloat("mplus_commission_rate", 10.0f).toDouble()
+        _standardCommissionRate.value = prefs.getFloat("standard_commission_rate", 30.0f).toDouble()
+        _mPlusCommissionRate.value = prefs.getFloat("mplus_commission_rate", 50.0f).toDouble()
 
         _bkashNumber.value = prefs.getString("payment_bkash", _bkashNumber.value) ?: _bkashNumber.value
         _nagadNumber.value = prefs.getString("payment_nagad", _nagadNumber.value) ?: _nagadNumber.value
@@ -1356,6 +1361,24 @@ class BloodConnectRepository private constructor() {
         setCurrentUser(null)
     }
 
+    fun addWalletBalance(amount: Double) {
+        val current = _currentUser.value ?: return
+        val updated = current.copy(walletBalance = current.walletBalance + amount)
+        setCurrentUser(updated)
+        _donors.value = _donors.value.map { if (it.id == current.id) updated else it }
+        saveDonorsLocal()
+    }
+
+    fun deductWalletBalance(amount: Double): Boolean {
+        val current = _currentUser.value ?: return false
+        if (current.walletBalance < amount) return false
+        val updated = current.copy(walletBalance = current.walletBalance - amount)
+        setCurrentUser(updated)
+        _donors.value = _donors.value.map { if (it.id == current.id) updated else it }
+        saveDonorsLocal()
+        return true
+    }
+
     // PROFILE ACTIONS
     fun updateProfile(
         name: String,
@@ -1409,14 +1432,31 @@ class BloodConnectRepository private constructor() {
         _donors.value = _donors.value.map { if (it.id == current.id) updated else it }
     }
 
-    fun submitDonationClaim(requestId: String, donorPhone: String, donorName: String, contactNumber: String) {
+    fun submitDonationClaim(
+        requestId: String,
+        donorPhone: String,
+        donorName: String,
+        contactNumber: String,
+        donationDate: String = "",
+        donationTime: String = "",
+        donorBloodGroup: String = "",
+        lastDonationDate: String = "",
+        healthStatus: String = "",
+        additionalRemarks: String = ""
+    ) {
         val newClaim = DonationClaim(
             id = "claim_${System.currentTimeMillis()}",
             requestId = requestId,
             donorPhone = donorPhone,
             donorName = donorName,
             contactNumber = contactNumber,
-            status = "Pending"
+            status = "Pending",
+            donationDate = donationDate,
+            donationTime = donationTime,
+            donorBloodGroup = donorBloodGroup,
+            lastDonationDate = lastDonationDate,
+            healthStatus = healthStatus,
+            additionalRemarks = additionalRemarks
         )
         _donationClaims.value = _donationClaims.value + newClaim
     }

@@ -21,7 +21,8 @@ data class BloodDonor(
     val userId: String = "",
     val isWarning: Boolean = false,
     val warningReason: String = "",
-    val role: String = "Donor" // "Donor" or "Requester"
+    val role: String = "Donor", // "Donor" or "Requester"
+    val walletBalance: Double = 0.0
 ) {
     val displayUserId: String
         get() = if (userId.isNotBlank()) userId else "ABB-${(id.hashCode().let { if (it < 0) -it else it } % 90000 + 10000)}"
@@ -52,7 +53,13 @@ data class DonationClaim(
     val donorPhone: String,
     val donorName: String,
     val contactNumber: String, // request owner's phone
-    val status: String = "Pending" // Pending, Accepted, Rejected
+    val status: String = "Pending", // Pending, Accepted, Rejected
+    val donationDate: String = "",
+    val donationTime: String = "",
+    val donorBloodGroup: String = "",
+    val lastDonationDate: String = "",
+    val healthStatus: String = "",
+    val additionalRemarks: String = ""
 )
 
 data class DonationNotification(
@@ -272,7 +279,7 @@ object Loc {
                 "amb_patient_name" to "Patient Name",
                 "amb_contact_phone" to "Contact Phone Number",
                 "amb_pickup" to "Pickup Address",
-                "amb_destination" to "Destination/Hospital",
+                "amb_destination" to "Where to take (Destination/Hospital)",
                 "amb_urgency" to "Urgency",
                 "amb_urgency_emergency" to "Emergency",
                 "amb_urgency_general" to "General",
@@ -451,7 +458,7 @@ object Loc {
                 "amb_patient_name" to "রোগীর নাম",
                 "amb_contact_phone" to "যোগাযোগের ফোন নম্বর",
                 "amb_pickup" to "পিকআপের ঠিকানা",
-                "amb_destination" to "গন্তব্য/হাসপাতাল",
+                "amb_destination" to "কোন জায়গায় নিয়ে যাবে (গন্তব্য/হাসপাতাল)",
                 "amb_urgency" to "জরুরি অবস্থা",
                 "amb_urgency_emergency" to "জরুরি (Emergency)",
                 "amb_urgency_general" to "সাধারণ (General)",
