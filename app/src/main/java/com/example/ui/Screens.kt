@@ -9224,58 +9224,63 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                     }
                 }
                 Spacer(modifier = Modifier.height(12.dp))
-                // Navigation Drawer Items
-                adminMenus.forEach { (tag, label, icon) ->
-                    val isSelected = activeTab == tag
-                    NavigationDrawerItem(
-                        label = { 
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(label, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                val badgeValue = when (tag) {
-                                    "DONORS" -> "${donorsList.size}"
-                                    "REQUESTS" -> "${requestsList.filter { it.status == "Active" }.size}"
-                                    "REPORTS" -> "${scamReportsList.size}"
-                                    else -> null
-                                }
-                                if (badgeValue != null) {
-                                    Box(
-                                        modifier = Modifier
-                                            .background(if (isSelected) Color.White else novusSidebarBg, RoundedCornerShape(10.dp))
-                                            .padding(horizontal = 8.dp, vertical = 2.dp)
-                                    ) {
-                                        Text(
-                                            text = badgeValue,
-                                            color = if (isSelected) novusSidebarBg else Color.White,
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
+                // Navigation Drawer Items made scrollable to prevent overflow and ensure settings are always accessible
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    adminMenus.forEach { (tag, label, icon) ->
+                        val isSelected = activeTab == tag
+                        NavigationDrawerItem(
+                            label = { 
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(label, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    val badgeValue = when (tag) {
+                                        "DONORS" -> "${donorsList.size}"
+                                        "REQUESTS" -> "${requestsList.filter { it.status == "Active" }.size}"
+                                        "REPORTS" -> "${scamReportsList.size}"
+                                        else -> null
+                                    }
+                                    if (badgeValue != null) {
+                                        Box(
+                                            modifier = Modifier
+                                                .background(if (isSelected) Color.White else novusSidebarBg, RoundedCornerShape(10.dp))
+                                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = badgeValue,
+                                                color = if (isSelected) novusSidebarBg else Color.White,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
                                     }
                                 }
-                            }
-                        },
-                        selected = isSelected,
-                        onClick = {
-                            scope.launch { drawerState.close() }
-                            activeTab = tag
-                            filterStatus = "All"
-                        },
-                        icon = { Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(20.dp)) },
-                        colors = NavigationDrawerItemDefaults.colors(
-                            selectedContainerColor = novusSidebarActive,
-                            selectedIconColor = Color.White,
-                            selectedTextColor = Color.White,
-                            unselectedContainerColor = Color.Transparent,
-                            unselectedIconColor = Color.White.copy(alpha = 0.7f),
-                            unselectedTextColor = Color.White.copy(alpha = 0.7f)
-                        ),
-                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                    )
+                            },
+                            selected = isSelected,
+                            onClick = {
+                                scope.launch { drawerState.close() }
+                                activeTab = tag
+                                filterStatus = "All"
+                            },
+                            icon = { Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                            colors = NavigationDrawerItemDefaults.colors(
+                                selectedContainerColor = novusSidebarActive,
+                                selectedIconColor = Color.White,
+                                selectedTextColor = Color.White,
+                                unselectedContainerColor = Color.Transparent,
+                                unselectedIconColor = Color.White.copy(alpha = 0.7f),
+                                unselectedTextColor = Color.White.copy(alpha = 0.7f)
+                            ),
+                            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                        )
+                    }
                 }
-                Spacer(modifier = Modifier.weight(1f))
                 HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
                 NavigationDrawerItem(
                     label = { Text(if (language == AppLanguage.ENG) "Go to Home Screen" else "হোমে ফিরে যান", fontWeight = FontWeight.Medium, fontSize = 13.sp) },
