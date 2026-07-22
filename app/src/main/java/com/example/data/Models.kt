@@ -5,14 +5,14 @@ enum class AppLanguage {
 }
 
 data class BloodDonor(
-    val id: String,
-    val name: String,
-    val bloodGroup: String,
-    val phone: String,
-    val email: String,
-    val district: String,
-    val upazila: String,
-    val lastDonationDate: String, // e.g., "2026-03-12" or "Available"
+    val id: String = "",
+    val name: String = "",
+    val bloodGroup: String = "",
+    val phone: String = "",
+    val email: String = "",
+    val district: String = "",
+    val upazila: String = "",
+    val lastDonationDate: String = "Available", // e.g., "2026-03-12" or "Available"
     val isAvailable: Boolean = true,
     val isApproved: Boolean = true,
     val donationCount: Int = 0,
@@ -29,14 +29,14 @@ data class BloodDonor(
 }
 
 data class BloodRequest(
-    val id: String,
-    val patientName: String,
-    val bloodGroup: String,
+    val id: String = "",
+    val patientName: String = "",
+    val bloodGroup: String = "",
     val bloodAmount: String = "",
-    val hospitalName: String,
-    val district: String,
-    val upazila: String,
-    val contactNumber: String,
+    val hospitalName: String = "",
+    val district: String = "",
+    val upazila: String = "",
+    val contactNumber: String = "",
     val details: String = "Urgent blood needed, please contact immediately.",
     val isEmergency: Boolean = true,
     val isApproved: Boolean = true,
@@ -48,11 +48,11 @@ data class BloodRequest(
 )
 
 data class DonationClaim(
-    val id: String,
-    val requestId: String,
-    val donorPhone: String,
-    val donorName: String,
-    val contactNumber: String, // request owner's phone
+    val id: String = "",
+    val requestId: String = "",
+    val donorPhone: String = "",
+    val donorName: String = "",
+    val contactNumber: String = "", // request owner's phone
     val status: String = "Pending", // Pending, Accepted, Rejected
     val donationDate: String = "",
     val donationTime: String = "",
@@ -63,63 +63,63 @@ data class DonationClaim(
 )
 
 data class DonationNotification(
-    val id: String,
-    val titleEn: String,
-    val titleBn: String,
-    val messageEn: String,
-    val messageBn: String,
-    val timestamp: String,
+    val id: String = "",
+    val titleEn: String = "",
+    val titleBn: String = "",
+    val messageEn: String = "",
+    val messageBn: String = "",
+    val timestamp: String = "",
     val isRead: Boolean = false,
     val type: String = "ALERT", // ALERT, REQUEST, SUCCESS
     val country: String = "Bangladesh"
 )
 
 data class CustomAdConfig(
-    val id: String,
-    val networkName: String,
-    val title: String,
-    val bannerUrl: String,      // Image URL or local Uri path
+    val id: String = "",
+    val networkName: String = "",
+    val title: String = "",
+    val bannerUrl: String = "",      // Image URL or local Uri path
     val isVideo: Boolean = false,
     val videoUrl: String = "",   // Video URL or local Uri path
-    val targetUrl: String,
+    val targetUrl: String = "",
     val targetCountries: String = "All",
     val weight: Int = 1         // Display rotation weight / weight priority
 )
 
 data class ScamReport(
-    val id: String,
-    val reporterName: String,
-    val reporterPhone: String,
-    val scammerDonorId: String,
-    val scammerDonorName: String,
-    val scammerDonorPhone: String,
-    val reason: String,
-    val amountDemanded: String,
-    val timestamp: String,
+    val id: String = "",
+    val reporterName: String = "",
+    val reporterPhone: String = "",
+    val scammerDonorId: String = "",
+    val scammerDonorName: String = "",
+    val scammerDonorPhone: String = "",
+    val reason: String = "",
+    val amountDemanded: String = "",
+    val timestamp: String = "",
     val status: String = "Pending", // Pending, Dismissed, Banned
     val country: String = "Bangladesh",
     val scammerPhotoUri: String? = null
 )
 
 data class ChatMessage(
-    val id: String,
-    val senderPhone: String,
-    val senderName: String,
-    val receiverPhone: String,
-    val receiverName: String,
-    val message: String,
-    val timestamp: String,
+    val id: String = "",
+    val senderPhone: String = "",
+    val senderName: String = "",
+    val receiverPhone: String = "",
+    val receiverName: String = "",
+    val message: String = "",
+    val timestamp: String = "",
     val isRead: Boolean = false
 )
 
 data class Ambulance(
-    val id: String,
-    val ownerName: String,
-    val serviceName: String,
-    val phone: String,
-    val district: String,
-    val upazila: String,
-    val ambulanceType: String, // AC, Non-AC, Freezer, ICU
+    val id: String = "",
+    val ownerName: String = "",
+    val serviceName: String = "",
+    val phone: String = "",
+    val district: String = "",
+    val upazila: String = "",
+    val ambulanceType: String = "", // AC, Non-AC, Freezer, ICU
     val isAvailable: Boolean = true,
     val description: String = "",
     val country: String = "Bangladesh"
@@ -493,14 +493,14 @@ object Loc {
 
 @com.squareup.moshi.JsonClass(generateAdapter = true)
 data class AmbulanceBooking(
-    val id: String,
-    val patientName: String,
-    val contactPhone: String,
-    val pickupAddress: String,
-    val destinationAddress: String,
-    val ambulanceType: String,
-    val urgencyLevel: String,
-    val dateTime: String,
+    val id: String = "",
+    val patientName: String = "",
+    val contactPhone: String = "",
+    val pickupAddress: String = "",
+    val destinationAddress: String = "",
+    val ambulanceType: String = "",
+    val urgencyLevel: String = "",
+    val dateTime: String = "",
     val status: String = "Pending",
     val assignedAmbulanceId: String? = null,
     val assignedAmbulanceName: String? = null,
@@ -532,24 +532,24 @@ data class AppConfig(
 
 @com.squareup.moshi.JsonClass(generateAdapter = true)
 data class V9SubscriptionPlan(
-    val id: String,
-    val nameEn: String,
-    val nameBn: String,
-    val price: Double,
-    val durationDays: Int,
-    val descriptionEn: String,
-    val descriptionBn: String
+    val id: String = "",
+    val nameEn: String = "",
+    val nameBn: String = "",
+    val price: Double = 0.0,
+    val durationDays: Int = 30,
+    val descriptionEn: String = "",
+    val descriptionBn: String = ""
 )
 
 @com.squareup.moshi.JsonClass(generateAdapter = true)
 data class UserSubscription(
-    val userPhone: String,
-    val planId: String,
-    val planNameEn: String,
-    val planNameBn: String,
-    val pricePaid: Double,
-    val startDate: String,
-    val endDate: String,
+    val userPhone: String = "",
+    val planId: String = "",
+    val planNameEn: String = "",
+    val planNameBn: String = "",
+    val pricePaid: Double = 0.0,
+    val startDate: String = "",
+    val endDate: String = "",
     val isExpired: Boolean = false,
     val transactionId: String = "",
     val paymentMethod: String = ""

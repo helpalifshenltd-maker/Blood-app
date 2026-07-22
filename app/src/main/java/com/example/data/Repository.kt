@@ -410,6 +410,9 @@ class BloodConnectRepository private constructor() {
         _ambulanceBookings.value = listOf(newBooking) + _ambulanceBookings.value
         saveBookingsLocal()
         
+        // Push ambulance booking to Firebase Realtime Database
+        pushAmbulanceBookingToFirebase(newBooking)
+
         // Push to remote API if configured
         appScope.launch {
             if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
@@ -1185,6 +1188,198 @@ class BloodConnectRepository private constructor() {
             BloodConnectApiClient.updateBaseUrl(savedUrl, savedKey)
             triggerRemoteSync()
         }
+
+        // Initialize Firebase Realtime Database sync
+        initFirebaseDatabase()
+    }
+
+    private var firebaseDb: com.google.firebase.database.FirebaseDatabase? = null
+
+    fun initFirebaseDatabase() {
+        try {
+            firebaseDb = com.google.firebase.database.FirebaseDatabase.getInstance("https://alif-blood-bank-default-rtdb.firebaseio.com")
+        } catch (e: Exception) {
+            try {
+                firebaseDb = com.google.firebase.database.FirebaseDatabase.getInstance()
+            } catch (e2: Exception) {
+                Log.e("BloodConnectRepo", "Firebase DB init error: ${e2.message}")
+            }
+        }
+        listenToFirebaseRealtimeDatabase()
+        pushInitialDataToFirebaseIfEmpty()
+    }
+
+    fun pushDonorToFirebase(donor: BloodDonor) {
+        appScope.launch {
+            try {
+                val key = donor.id.ifBlank { "u_${donor.phone.replace("+", "")}" }
+                firebaseDb?.getReference("donors")?.child(key)?.setValue(donor)
+            } catch (e: Exception) {
+                Log.e("BloodConnectRepo", "Firebase push donor error: ${e.message}")
+            }
+        }
+    }
+
+    fun pushRequestToFirebase(request: BloodRequest) {
+        appScope.launch {
+            try {
+                val key = request.id.ifBlank { "r_${System.currentTimeMillis()}" }
+                firebaseDb?.getReference("requests")?.child(key)?.setValue(request)
+            } catch (e: Exception) {
+                Log.e("BloodConnectRepo", "Firebase push request error: ${e.message}")
+            }
+        }
+    }
+
+    fun pushAmbulanceBookingToFirebase(booking: AmbulanceBooking) {
+        appScope.launch {
+            try {
+                val key = booking.id.ifBlank { "b_${System.currentTimeMillis()}" }
+                firebaseDb?.getReference("ambulance_bookings")?.child(key)?.setValue(booking)
+            } catch (e: Exception) {
+                Log.e("BloodConnectRepo", "Firebase push booking error: ${e.message}")
+            }
+        }
+    }
+
+    fun pushChatMessageToFirebase(msg: ChatMessage) {
+        appScope.launch {
+            try {
+                val key = msg.id.ifBlank { "m_${System.currentTimeMillis()}" }
+                firebaseDb?.getReference("chat_messages")?.child(key)?.setValue(msg)
+            } catch (e: Exception) {
+                Log.e("BloodConnectRepo", "Firebase push chat error: ${e.message}")
+            }
+        }
+    }
+
+    fun pushAppConfigToFirebase() {
+        appScope.launch {
+            try {
+                val configMap = mapOf(
+                    "app_name" to _appName.value,
+                    "home_notice" to _homeNotice.value,
+                    "popup_notice" to _popupNotice.value,
+                    "bkash_number" to _bkashNumber.value,
+                    "nagad_number" to _nagadNumber.value,
+                    "rocket_number" to _rocketNumber.value
+                )
+                firebaseDb?.getReference("app_config")?.setValue(configMap)
+            } catch (e: Exception) {
+                Log.e("BloodConnectRepo", "Firebase push config error: ${e.message}")
+            }
+        }
+    }
+
+    private fun pushInitialDataToFirebaseIfEmpty() {
+        val db = firebaseDb ?: return
+        db.getReference("donors").addListenerForSingleValueEvent(object : com.google.firebase.database.ValueEventListener {
+            override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
+                if (!snapshot.exists() || snapshot.childrenCount == 0L) {
+                    _donors.value.forEach { donor ->
+                        val key = donor.id.ifBlank { "u_${donor.phone.replace("+", "")}" }
+                        db.getReference("donors").child(key).setValue(donor)
+                    }
+                }
+            }
+            override fun onCancelled(error: com.google.firebase.database.DatabaseError) {}
+        })
+
+        db.getReference("requests").addListenerForSingleValueEvent(object : com.google.firebase.database.ValueEventListener {
+            override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
+                if (!snapshot.exists() || snapshot.childrenCount == 0L) {
+                    _requests.value.forEach { req ->
+                        val key = req.id.ifBlank { "r_${System.currentTimeMillis()}" }
+                        db.getReference("requests").child(key).setValue(req)
+                    }
+                }
+            }
+            override fun onCancelled(error: com.google.firebase.database.DatabaseError) {}
+        })
+
+        pushAppConfigToFirebase()
+    }
+
+    private fun listenToFirebaseRealtimeDatabase() {
+        val db = firebaseDb ?: return
+
+        // Listen to Donors
+        db.getReference("donors").addValueEventListener(object : com.google.firebase.database.ValueEventListener {
+            override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
+                try {
+                    val list = mutableListOf<BloodDonor>()
+                    for (child in snapshot.children) {
+                        val donor = child.getValue(BloodDonor::class.java)
+                        if (donor != null && donor.id.isNotBlank()) {
+                            list.add(donor)
+                        }
+                    }
+                    if (list.isNotEmpty()) {
+                        val currentLocal = _donors.value
+                        val merged = list + currentLocal.filter { local ->
+                            list.none { remote -> remote.id == local.id || (remote.phone.isNotBlank() && remote.phone == local.phone) }
+                        }
+                        _donors.value = merged
+                        saveDonorsLocal()
+                    }
+                } catch (e: Exception) {
+                    Log.e("BloodConnectRepo", "Error listening to Firebase donors: ${e.message}")
+                }
+            }
+            override fun onCancelled(error: com.google.firebase.database.DatabaseError) {}
+        })
+
+        // Listen to Requests
+        db.getReference("requests").addValueEventListener(object : com.google.firebase.database.ValueEventListener {
+            override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
+                try {
+                    val list = mutableListOf<BloodRequest>()
+                    for (child in snapshot.children) {
+                        val req = child.getValue(BloodRequest::class.java)
+                        if (req != null && req.id.isNotBlank()) {
+                            list.add(req)
+                        }
+                    }
+                    if (list.isNotEmpty()) {
+                        val currentLocal = _requests.value
+                        val merged = list + currentLocal.filter { local ->
+                            list.none { remote -> remote.id == local.id }
+                        }
+                        _requests.value = merged
+                        saveRequestsLocal()
+                    }
+                } catch (e: Exception) {
+                    Log.e("BloodConnectRepo", "Error listening to Firebase requests: ${e.message}")
+                }
+            }
+            override fun onCancelled(error: com.google.firebase.database.DatabaseError) {}
+        })
+
+        // Listen to Chat Messages
+        db.getReference("chat_messages").addValueEventListener(object : com.google.firebase.database.ValueEventListener {
+            override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
+                try {
+                    val list = mutableListOf<ChatMessage>()
+                    for (child in snapshot.children) {
+                        val msg = child.getValue(ChatMessage::class.java)
+                        if (msg != null && msg.id.isNotBlank()) {
+                            list.add(msg)
+                        }
+                    }
+                    if (list.isNotEmpty()) {
+                        val currentLocal = _messages.value
+                        val merged = list + currentLocal.filter { local ->
+                            list.none { remote -> remote.id == local.id }
+                        }
+                        _messages.value = merged
+                        saveMessagesLocal()
+                    }
+                } catch (e: Exception) {
+                    Log.e("BloodConnectRepo", "Error listening to Firebase chat: ${e.message}")
+                }
+            }
+            override fun onCancelled(error: com.google.firebase.database.DatabaseError) {}
+        })
     }
 
     fun updateRemoteApiUrl(context: Context, url: String, apiKey: String): Boolean {
@@ -1452,6 +1647,9 @@ class BloodConnectRepository private constructor() {
         _donors.value = _donors.value + newUser
         saveDonorsLocal()
 
+        // Push donor to Firebase Realtime Database
+        pushDonorToFirebase(newUser)
+
         // Post to remote API if configured
         appScope.launch {
             if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
@@ -1525,6 +1723,10 @@ class BloodConnectRepository private constructor() {
         )
         setCurrentUser(updated)
         _donors.value = _donors.value.map { if (it.id == current.id) updated else it }
+        saveDonorsLocal()
+
+        // Push profile update to Firebase Realtime Database
+        pushDonorToFirebase(updated)
 
         // Post profile update to remote API if configured
         appScope.launch {
@@ -1655,6 +1857,9 @@ class BloodConnectRepository private constructor() {
         _requests.value = listOf(newReq) + _requests.value
         seenRequestIds.add(newReq.id)
         saveRequestsLocal()
+
+        // Push blood request to Firebase Realtime Database
+        pushRequestToFirebase(newReq)
 
         // Post request to remote API in background if configured
         appScope.launch {
@@ -1847,6 +2052,9 @@ class BloodConnectRepository private constructor() {
         )
         _messages.value = _messages.value + newMsg
         saveMessagesLocal()
+
+        // Push chat message to Firebase Realtime Database
+        pushChatMessageToFirebase(newMsg)
 
         // Push to remote API if configured
         appScope.launch {
@@ -2062,6 +2270,7 @@ class BloodConnectRepository private constructor() {
     }
 
     fun pushAppConfigToRemote() {
+        pushAppConfigToFirebase()
         appScope.launch {
             if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
                 val config = AppConfig(
