@@ -6,6 +6,7 @@ plugins {
   alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.roborazzi)
   alias(libs.plugins.secrets)
+  alias(libs.plugins.google.services)
 }
 
 android {
@@ -14,7 +15,7 @@ android {
 
   defaultConfig {
     applicationId = "my.alifbooldbank.com"
-    minSdk = 21
+    minSdk = 24
     targetSdk = 35
     versionCode = 3
     versionName = "3.0"
@@ -95,6 +96,11 @@ dependencies {
   implementation(libs.androidx.work.runtime.ktx)
   implementation(libs.coil.compose)
   implementation(libs.converter.moshi)
+  implementation(platform(libs.firebase.bom))
+  implementation(libs.firebase.database)
+  implementation(libs.firebase.firestore)
+  implementation(libs.firebase.auth)
+  implementation(libs.firebase.storage)
   // implementation(libs.firebase.ai)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)

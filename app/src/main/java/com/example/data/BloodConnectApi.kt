@@ -16,9 +16,9 @@ interface BloodConnectApiService {
     @GET("donors")
     suspend fun getDonors(): List<BloodDonor>
 
-    @Headers("Prefer: resolution=merge-duplicates")
+    @Headers("Prefer: return=representation,resolution=merge-duplicates")
     @POST("donors")
-    suspend fun registerDonor(@Body donor: BloodDonor): BloodDonor
+    suspend fun registerDonor(@Body donor: BloodDonor): List<BloodDonor>
 
     @PATCH("donors")
     suspend fun updateDonor(@Query("id") idFilter: String, @Body donor: BloodDonor): List<BloodDonor>
@@ -29,9 +29,9 @@ interface BloodConnectApiService {
     @GET("requests")
     suspend fun getRequests(): List<BloodRequest>
 
-    @Headers("Prefer: resolution=merge-duplicates")
+    @Headers("Prefer: return=representation,resolution=merge-duplicates")
     @POST("requests")
-    suspend fun createRequest(@Body request: BloodRequest): BloodRequest
+    suspend fun createRequest(@Body request: BloodRequest): List<BloodRequest>
 
     @PATCH("requests")
     suspend fun updateRequest(@Query("id") idFilter: String, @Body request: BloodRequest): List<BloodRequest>
@@ -39,17 +39,37 @@ interface BloodConnectApiService {
     @DELETE("requests")
     suspend fun deleteRequest(@Query("id") idFilter: String): List<BloodRequest>
 
+    @GET("ambulance_bookings")
+    suspend fun getAmbulanceBookings(): List<AmbulanceBooking>
+
+    @Headers("Prefer: return=representation,resolution=merge-duplicates")
+    @POST("ambulance_bookings")
+    suspend fun createAmbulanceBooking(@Body booking: AmbulanceBooking): List<AmbulanceBooking>
+
+    @PATCH("ambulance_bookings")
+    suspend fun updateAmbulanceBooking(@Query("id") idFilter: String, @Body booking: AmbulanceBooking): List<AmbulanceBooking>
+
+    @DELETE("ambulance_bookings")
+    suspend fun deleteAmbulanceBooking(@Query("id") idFilter: String): List<AmbulanceBooking>
+
+    @GET("chat_messages")
+    suspend fun getChatMessages(): List<ChatMessage>
+
+    @Headers("Prefer: return=representation,resolution=merge-duplicates")
+    @POST("chat_messages")
+    suspend fun sendChatMessage(@Body message: ChatMessage): List<ChatMessage>
+
     @GET("notifications")
     suspend fun getNotifications(): List<DonationNotification>
 
-    @Headers("Prefer: resolution=merge-duplicates")
+    @Headers("Prefer: return=representation,resolution=merge-duplicates")
     @POST("notifications")
-    suspend fun sendNotification(@Body notification: DonationNotification): DonationNotification
+    suspend fun sendNotification(@Body notification: DonationNotification): List<DonationNotification>
 
     @GET("app_config")
     suspend fun getAppConfig(): List<AppConfig>
 
-    @Headers("Prefer: resolution=merge-duplicates")
+    @Headers("Prefer: return=representation,resolution=merge-duplicates")
     @POST("app_config")
     suspend fun updateAppConfig(@Body config: AppConfig): List<AppConfig>
 }
@@ -140,7 +160,7 @@ object BloodConnectApiClient {
         }
     }
 
-    suspend fun registerDonor(donor: BloodDonor): Result<BloodDonor> {
+    suspend fun registerDonor(donor: BloodDonor): Result<List<BloodDonor>> {
         val service = apiService ?: return Result.failure(Exception("API URL is not set. Action performed locally."))
         return try {
             val response = service.registerDonor(donor)
@@ -160,10 +180,70 @@ object BloodConnectApiClient {
         }
     }
 
-    suspend fun createRequest(request: BloodRequest): Result<BloodRequest> {
+    suspend fun createRequest(request: BloodRequest): Result<List<BloodRequest>> {
         val service = apiService ?: return Result.failure(Exception("API URL is not set. Action performed locally."))
         return try {
             val response = service.createRequest(request)
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun fetchAmbulanceBookings(): Result<List<AmbulanceBooking>> {
+        val service = apiService ?: return Result.failure(Exception("API URL is not set."))
+        return try {
+            val list = service.getAmbulanceBookings()
+            Result.success(list)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createAmbulanceBooking(booking: AmbulanceBooking): Result<List<AmbulanceBooking>> {
+        val service = apiService ?: return Result.failure(Exception("API URL is not set."))
+        return try {
+            val response = service.createAmbulanceBooking(booking)
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateAmbulanceBooking(id: String, booking: AmbulanceBooking): Result<List<AmbulanceBooking>> {
+        val service = apiService ?: return Result.failure(Exception("API URL is not set."))
+        return try {
+            val response = service.updateAmbulanceBooking("eq.$id", booking)
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteAmbulanceBooking(id: String): Result<List<AmbulanceBooking>> {
+        val service = apiService ?: return Result.failure(Exception("API URL is not set."))
+        return try {
+            val response = service.deleteAmbulanceBooking("eq.$id")
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun fetchChatMessages(): Result<List<ChatMessage>> {
+        val service = apiService ?: return Result.failure(Exception("API URL is not set."))
+        return try {
+            val list = service.getChatMessages()
+            Result.success(list)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun sendChatMessage(message: ChatMessage): Result<List<ChatMessage>> {
+        val service = apiService ?: return Result.failure(Exception("API URL is not set."))
+        return try {
+            val response = service.sendChatMessage(message)
             Result.success(response)
         } catch (e: Exception) {
             Result.failure(e)

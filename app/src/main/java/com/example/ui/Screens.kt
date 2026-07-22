@@ -13991,6 +13991,41 @@ fun BookAmbulanceScreen(viewModel: MainViewModel) {
                 leadingIcon = { Icon(Icons.Default.Notes, contentDescription = null) }
             )
 
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color(0xFFE8F5E9),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, Color(0xFF81C784))
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = Color(0xFF2E7D32),
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = if (language == AppLanguage.BAN) "বুকিং চার্জ: সম্পূর্ণ ফ্রী (০ টাকা)" else "Booking Fee: 100% FREE (0 BDT)",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = Color(0xFF1B5E20)
+                        )
+                        Text(
+                            text = if (language == AppLanguage.BAN) "যে বুকিং করবে তার কোনো টাকা দিতে হবে না। বুকিং করার পর ৩০ মিনিট পেন্ডিং থাকবে।" else "Ambulance booking is free for patients. Valid for 30 minutes until accepted.",
+                            fontSize = 11.sp,
+                            color = Color(0xFF2E7D32)
+                        )
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
 
             Button(
@@ -14187,6 +14222,16 @@ fun BookingCard(
     val bookingAcceptanceFee by viewModel.bookingAcceptanceFee.collectAsState()
     val ambulancesList by viewModel.ambulances.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
+
+    var currentTimeMillis by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(booking.id, booking.status) {
+        if (booking.status == "Pending") {
+            while (true) {
+                currentTimeMillis = System.currentTimeMillis()
+                kotlinx.coroutines.delay(1000)
+            }
+        }
+    }
     
     val statusColor = when (booking.status) {
         "Pending" -> Color(0xFFFF9800)
@@ -14251,6 +14296,83 @@ fun BookingCard(
                         fontWeight = FontWeight.Bold,
                         color = statusColor
                     )
+                }
+            }
+
+            if (booking.status == "Pending") {
+                val creationTime = booking.id.substringAfter("book_").toLongOrNull() ?: 0L
+                val elapsedMillis = if (creationTime > 0) (currentTimeMillis - creationTime).coerceAtLeast(0L) else 0L
+                val totalAllowedMillis = 30 * 60 * 1000L
+                val remainingMillis = (totalAllowedMillis - elapsedMillis).coerceAtLeast(0L)
+                val remainingMinutes = remainingMillis / 1000 / 60
+                val remainingSeconds = (remainingMillis / 1000) % 60
+
+                Spacer(modifier = Modifier.height(10.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color(0xFFFFF8E1),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color(0xFFFFC107))
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.AccessTime,
+                                    contentDescription = "Pending Timer",
+                                    tint = Color(0xFFE65100),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (language == AppLanguage.BAN) "বুকিং পেন্ডিং রয়েছে" else "Booking Pending",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = Color(0xFFE65100)
+                                )
+                            }
+                            Surface(
+                                color = Color(0xFFFFE0B2),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(
+                                    text = "%02d:%02d".format(remainingMinutes, remainingSeconds),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 14.sp,
+                                    color = Color(0xFFD84315)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = if (language == AppLanguage.BAN)
+                                "৩০ মিনিটের মধ্যে কোন গাড়ি চালক একসেপ্ট না করলে বুকিংটি স্বয়ংক্রিয়ভাবে বাতিল হয়ে যাবে।"
+                            else "If no driver accepts within 30 minutes, this booking will auto-cancel.",
+                            fontSize = 11.sp,
+                            color = Color(0xFF5D4037)
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = "Free",
+                                tint = Color(0xFF2E7D32),
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (language == AppLanguage.BAN) "রোগীর জন্য বুকিং চার্জ: সম্পূর্ণ ফ্রী (০ টাকা)" else "Patient Booking Charge: 100% FREE (0 BDT)",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF2E7D32)
+                            )
+                        }
+                    }
                 }
             }
 

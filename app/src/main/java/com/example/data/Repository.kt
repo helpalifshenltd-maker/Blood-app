@@ -410,6 +410,13 @@ class BloodConnectRepository private constructor() {
         _ambulanceBookings.value = listOf(newBooking) + _ambulanceBookings.value
         saveBookingsLocal()
         
+        // Push to remote API if configured
+        appScope.launch {
+            if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
+                BloodConnectApiClient.createAmbulanceBooking(newBooking)
+            }
+        }
+        
         // Push notification
         addNotification(
             titleEn = "New Ambulance Booking Request",
@@ -429,6 +436,7 @@ class BloodConnectRepository private constructor() {
         adminNotes: String? = null,
         fare: Double? = null
     ) {
+        var updatedItem: AmbulanceBooking? = null
         _ambulanceBookings.value = _ambulanceBookings.value.map {
             if (it.id == bookingId) {
                 val finalFare = fare ?: it.fare
@@ -437,7 +445,7 @@ class BloodConnectRepository private constructor() {
                               resolvedName?.contains("এম প্লাস") == true
                 val rate = if (isMPlus) _mPlusCommissionRate.value else _standardCommissionRate.value
                 val finalCommission = finalFare * (rate / 100.0)
-                it.copy(
+                val item = it.copy(
                     status = newStatus,
                     assignedAmbulanceName = resolvedName,
                     assignedAmbulancePhone = assignedPhone ?: it.assignedAmbulancePhone,
@@ -445,11 +453,21 @@ class BloodConnectRepository private constructor() {
                     fare = finalFare,
                     commission = finalCommission
                 )
+                updatedItem = item
+                item
             } else {
                 it
             }
         }
         saveBookingsLocal()
+
+        updatedItem?.let { booking ->
+            appScope.launch {
+                if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
+                    BloodConnectApiClient.updateAmbulanceBooking(booking.id, booking)
+                }
+            }
+        }
     }
 
     fun payBookingCommission(
@@ -837,6 +855,52 @@ class BloodConnectRepository private constructor() {
         }
     }
 
+    fun saveMessagesLocal() {
+        appContext?.let { ctx ->
+            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putString("local_messages_list", serializeMessages(_messages.value)).apply()
+        }
+    }
+
+    fun serializeMessages(msgs: List<ChatMessage>): String {
+        return msgs.joinToString("||MSG_SEP||") { m ->
+            listOf(
+                m.id,
+                m.senderPhone,
+                m.senderName,
+                m.receiverPhone,
+                m.receiverName,
+                m.message,
+                m.timestamp,
+                m.isRead.toString()
+            ).joinToString("||FIELD_SEP||")
+        }
+    }
+
+    fun deserializeMessages(serialized: String): List<ChatMessage> {
+        if (serialized.isEmpty()) return emptyList()
+        val list = mutableListOf<ChatMessage>()
+        val items = serialized.split("||MSG_SEP||")
+        for (item in items) {
+            val parts = item.split("||FIELD_SEP||")
+            if (parts.size >= 8) {
+                list.add(
+                    ChatMessage(
+                        id = parts[0],
+                        senderPhone = parts[1],
+                        senderName = parts[2],
+                        receiverPhone = parts[3],
+                        receiverName = parts[4],
+                        message = parts[5],
+                        timestamp = parts[6],
+                        isRead = parts[7].toBoolean()
+                    )
+                )
+            }
+        }
+        return list
+    }
+
     fun serializeAmbulances(ambulances: List<Ambulance>): String {
         return ambulances.joinToString("||AMB_SEP||") { amb ->
             listOf(
@@ -895,6 +959,11 @@ class BloodConnectRepository private constructor() {
     fun deleteAmbulanceBooking(bookingId: String) {
         _ambulanceBookings.value = _ambulanceBookings.value.filter { it.id != bookingId }
         saveBookingsLocal()
+        appScope.launch {
+            if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
+                BloodConnectApiClient.deleteAmbulanceBooking(bookingId)
+            }
+        }
     }
 
     fun showSystemStatusBarNotification(title: String, message: String) {
@@ -989,6 +1058,11 @@ class BloodConnectRepository private constructor() {
         val ambulancesStr = prefs.getString("ambulances_list", "") ?: ""
         if (ambulancesStr.isNotBlank()) {
             _ambulances.value = deserializeAmbulances(ambulancesStr)
+        }
+
+        val messagesStr = prefs.getString("local_messages_list", "") ?: ""
+        if (messagesStr.isNotBlank()) {
+            _messages.value = deserializeMessages(messagesStr)
         } else {
             _ambulances.value = MockData.initialAmbulances
         }
@@ -1189,7 +1263,35 @@ class BloodConnectRepository private constructor() {
                 _syncError.value = if (_syncError.value == null) err else "${_syncError.value}\n$err"
             }
 
-            // 3. Fetch AppConfig
+            // 3. Fetch Ambulance Bookings
+            val bookingsResult = BloodConnectApiClient.fetchAmbulanceBookings()
+            if (bookingsResult.isSuccess) {
+                val remoteBookings = bookingsResult.getOrNull()
+                if (remoteBookings != null) {
+                    val currentLocal = _ambulanceBookings.value
+                    val mergedBookings = remoteBookings + currentLocal.filter { local ->
+                        remoteBookings.none { remote -> remote.id == local.id }
+                    }
+                    _ambulanceBookings.value = mergedBookings
+                    saveBookingsLocal()
+                }
+            }
+
+            // 4. Fetch Chat Messages
+            val messagesResult = BloodConnectApiClient.fetchChatMessages()
+            if (messagesResult.isSuccess) {
+                val remoteMessages = messagesResult.getOrNull()
+                if (remoteMessages != null) {
+                    val currentLocal = _messages.value
+                    val mergedMessages = remoteMessages + currentLocal.filter { local ->
+                        remoteMessages.none { remote -> remote.id == local.id }
+                    }
+                    _messages.value = mergedMessages
+                    saveMessagesLocal()
+                }
+            }
+
+            // 5. Fetch AppConfig
             val configResult = BloodConnectApiClient.fetchAppConfig()
             if (configResult.isSuccess) {
                 val remoteConfig = configResult.getOrNull()
@@ -1744,6 +1846,14 @@ class BloodConnectRepository private constructor() {
             isRead = false
         )
         _messages.value = _messages.value + newMsg
+        saveMessagesLocal()
+
+        // Push to remote API if configured
+        appScope.launch {
+            if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
+                BloodConnectApiClient.sendChatMessage(newMsg)
+            }
+        }
 
         // Trigger Email notification to Admin for new messages
         context?.let {
@@ -1788,13 +1898,27 @@ class BloodConnectRepository private constructor() {
     }
 
     fun markChatAsRead(userPhone: String, peerPhone: String) {
+        fun cleanPhone(p: String): String = p.replace(Regex("[^0-9]"), "").takeLast(10)
+        val cleanUser = cleanPhone(userPhone)
+        val cleanPeer = cleanPhone(peerPhone)
+
         _messages.value = _messages.value.map {
-            if (it.senderPhone == peerPhone && it.receiverPhone == userPhone && !it.isRead) {
+            val msgSenderClean = cleanPhone(it.senderPhone)
+            val msgReceiverClean = cleanPhone(it.receiverPhone)
+
+            val matchesPeerSender = (cleanPeer.isNotEmpty() && msgSenderClean == cleanPeer) ||
+                                    it.senderPhone.equals(peerPhone, ignoreCase = true)
+            val matchesUserReceiver = (cleanUser.isNotEmpty() && msgReceiverClean == cleanUser) ||
+                                      it.receiverPhone.equals(userPhone, ignoreCase = true) ||
+                                      it.receiverPhone.equals("LIVE_SUPPORT", ignoreCase = true)
+
+            if (matchesPeerSender && matchesUserReceiver && !it.isRead) {
                 it.copy(isRead = true)
             } else {
                 it
             }
         }
+        saveMessagesLocal()
     }
 
     // ADMIN ACTIONS

@@ -26,7 +26,7 @@ class MainViewModel(
             }
         }
 
-        // Periodically check for expired pending ambulance bookings (older than 20 minutes)
+        // Periodically check for expired pending ambulance bookings (older than 30 minutes)
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             while (true) {
                 try {
@@ -35,19 +35,19 @@ class MainViewModel(
                     bookingsList.forEach { booking ->
                         if (booking.status == "Pending" && booking.id.startsWith("book_")) {
                             val creationTime = booking.id.substringAfter("book_").toLongOrNull() ?: 0L
-                            if (creationTime > 0L && (now - creationTime) > 20 * 60 * 1000) {
+                            if (creationTime > 0L && (now - creationTime) > 30 * 60 * 1000L) {
                                 // Cancel the booking automatically
                                 repository.updateBookingStatus(
                                     bookingId = booking.id,
                                     newStatus = "Cancelled",
-                                    adminNotes = "Auto-cancelled: No reply within 20 minutes."
+                                    adminNotes = "Auto-cancelled: No driver accepted within 30 minutes."
                                 )
                                 // Add a system notification about this cancellation
                                 repository.addNotification(
                                     titleEn = "Booking Auto-Cancelled",
                                     titleBn = "বুকিং স্বয়ংক্রিয়ভাবে বাতিল",
-                                    messageEn = "Ambulance booking for ${booking.patientName} was automatically cancelled due to no response in 20 minutes.",
-                                    messageBn = "২০ মিনিটের মধ্যে কোনো সাড়া না দেওয়ায় ${booking.patientName} এর অ্যাম্বুলেন্স বুকিংটি স্বয়ংক্রিয়ভাবে বাতিল করা হয়েছে।",
+                                    messageEn = "Ambulance booking for ${booking.patientName} was automatically cancelled due to no driver response in 30 minutes.",
+                                    messageBn = "৩০ মিনিটের মধ্যে কোনো গাড়ি চালক একসেপ্ট না করায় ${booking.patientName}-এর অ্যাম্বুলেন্স বুকিংটি স্বয়ংক্রিয়ভাবে বাতিল করা হয়েছে।",
                                     type = "GENERAL_INFO",
                                     country = "Bangladesh"
                                 )
@@ -289,15 +289,32 @@ class MainViewModel(
         repository.currentUser,
         isAdminMode
     ) { msgList, user, isAdmin ->
-        if (user == null) {
-            0
-        } else {
-            msgList.count { msg ->
-                !msg.isRead && (
-                    msg.receiverPhone.equals(user.phone, ignoreCase = true) ||
-                    (isAdmin && msg.receiverPhone == "LIVE_SUPPORT")
-                )
+        fun cleanPhone(p: String): String = p.replace(Regex("[^0-9]"), "").takeLast(10)
+
+        val myPhoneClean = user?.phone?.let { cleanPhone(it) } ?: ""
+
+        // If user is null, collect any sender phones the current local device used in chat history
+        val mySentPhones = if (myPhoneClean.isEmpty()) {
+            msgList.map { cleanPhone(it.senderPhone) }.filter { it.isNotBlank() }.toSet()
+        } else emptySet()
+
+        msgList.count { msg ->
+            if (msg.isRead) return@count false
+
+            val msgReceiverClean = cleanPhone(msg.receiverPhone)
+
+            val isForMe = if (myPhoneClean.isNotEmpty()) {
+                msgReceiverClean.isNotEmpty() && msgReceiverClean == myPhoneClean
+            } else {
+                msgReceiverClean.isNotEmpty() && mySentPhones.contains(msgReceiverClean)
             }
+
+            val isForAdminSupport = isAdmin && (
+                msg.receiverPhone.equals("LIVE_SUPPORT", ignoreCase = true) ||
+                msg.receiverPhone.contains("ADMIN", ignoreCase = true)
+            )
+
+            isForMe || isForAdminSupport
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
