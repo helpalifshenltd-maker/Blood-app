@@ -129,6 +129,17 @@ class BloodConnectRepository private constructor() {
     private val _mPlusCommissionRate = MutableStateFlow(50.0)
     val mPlusCommissionRate: StateFlow<Double> = _mPlusCommissionRate.asStateFlow()
 
+    private val _bookingAcceptanceFee = MutableStateFlow(50.0)
+    val bookingAcceptanceFee: StateFlow<Double> = _bookingAcceptanceFee.asStateFlow()
+
+    fun updateBookingAcceptanceFee(fee: Double) {
+        _bookingAcceptanceFee.value = fee
+        appContext?.let { ctx ->
+            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putFloat("booking_acceptance_fee", fee.toFloat()).apply()
+        }
+    }
+
     fun updateCommissionRates(standardRate: Double, mPlusRate: Double) {
         _standardCommissionRate.value = standardRate
         _mPlusCommissionRate.value = mPlusRate
@@ -1040,6 +1051,7 @@ class BloodConnectRepository private constructor() {
 
         _standardCommissionRate.value = prefs.getFloat("standard_commission_rate", 30.0f).toDouble()
         _mPlusCommissionRate.value = prefs.getFloat("mplus_commission_rate", 50.0f).toDouble()
+        _bookingAcceptanceFee.value = prefs.getFloat("booking_acceptance_fee", 50.0f).toDouble()
 
         _bkashNumber.value = prefs.getString("payment_bkash", _bkashNumber.value) ?: _bkashNumber.value
         _nagadNumber.value = prefs.getString("payment_nagad", _nagadNumber.value) ?: _nagadNumber.value
@@ -1048,6 +1060,7 @@ class BloodConnectRepository private constructor() {
 
         _privacyPolicyEn.value = prefs.getString("policy_privacy_en", _privacyPolicyEn.value) ?: _privacyPolicyEn.value
         _privacyPolicyBn.value = prefs.getString("policy_privacy_bn", _privacyPolicyBn.value) ?: _privacyPolicyBn.value
+        _privacyPolicyUrl.value = prefs.getString("policy_privacy_url", _privacyPolicyUrl.value) ?: _privacyPolicyUrl.value
         _termsConditionsEn.value = prefs.getString("policy_terms_en", _termsConditionsEn.value) ?: _termsConditionsEn.value
         _termsConditionsBn.value = prefs.getString("policy_terms_bn", _termsConditionsBn.value) ?: _termsConditionsBn.value
         _refundPolicyEn.value = prefs.getString("policy_refund_en", _refundPolicyEn.value) ?: _refundPolicyEn.value
@@ -1186,6 +1199,9 @@ class BloodConnectRepository private constructor() {
                     _popupNotice.value = remoteConfig.popup_notice
                     _privacyPolicyEn.value = remoteConfig.privacy_policy_en
                     _privacyPolicyBn.value = remoteConfig.privacy_policy_bn
+                    if (remoteConfig.privacy_policy_url.isNotBlank()) {
+                        _privacyPolicyUrl.value = remoteConfig.privacy_policy_url
+                    }
                     _termsConditionsEn.value = remoteConfig.terms_conditions_en
                     _termsConditionsBn.value = remoteConfig.terms_conditions_bn
                     _refundPolicyEn.value = remoteConfig.refund_policy_en
@@ -1876,6 +1892,9 @@ class BloodConnectRepository private constructor() {
     private val _privacyPolicyBn = MutableStateFlow("আমরা আপনার গোপনীয়তাকে শতভাগ মূল্যায়ন করি। আপনার যোগাযোগের তথ্য কেবল রক্তদান বা রক্তদাতার সন্ধানের জন্য নিবন্ধিত সদস্যদের সঙ্গে শেয়ার করা হয়। আমরা আপনার কোনো ব্যক্তিগত তথ্য কোনো তৃতীয় পক্ষকে প্রদান করি না।")
     val privacyPolicyBn: StateFlow<String> = _privacyPolicyBn.asStateFlow()
 
+    private val _privacyPolicyUrl = MutableStateFlow("https://alifshengroup.com/privacy-policy")
+    val privacyPolicyUrl: StateFlow<String> = _privacyPolicyUrl.asStateFlow()
+
     private val _termsConditionsEn = MutableStateFlow("By using Blood Connect BD, you agree to participate voluntarily and donate blood without demanding any financial compensation. All matched services and platform usages are conducted at the user's own discretion and responsibility.")
     val termsConditionsEn: StateFlow<String> = _termsConditionsEn.asStateFlow()
 
@@ -1891,10 +1910,12 @@ class BloodConnectRepository private constructor() {
     fun updatePolicies(
         privacyEn: String, privacyBn: String,
         termsEn: String, termsBn: String,
-        refundEn: String, refundBn: String
+        refundEn: String, refundBn: String,
+        privacyUrl: String = _privacyPolicyUrl.value
     ) {
         _privacyPolicyEn.value = privacyEn
         _privacyPolicyBn.value = privacyBn
+        _privacyPolicyUrl.value = privacyUrl
         _termsConditionsEn.value = termsEn
         _termsConditionsBn.value = termsBn
         _refundPolicyEn.value = refundEn
@@ -1905,6 +1926,7 @@ class BloodConnectRepository private constructor() {
             prefs.edit().apply {
                 putString("policy_privacy_en", privacyEn)
                 putString("policy_privacy_bn", privacyBn)
+                putString("policy_privacy_url", privacyUrl)
                 putString("policy_terms_en", termsEn)
                 putString("policy_terms_bn", termsBn)
                 putString("policy_refund_en", refundEn)
@@ -1925,6 +1947,7 @@ class BloodConnectRepository private constructor() {
                     popup_notice = _popupNotice.value,
                     privacy_policy_en = _privacyPolicyEn.value,
                     privacy_policy_bn = _privacyPolicyBn.value,
+                    privacy_policy_url = _privacyPolicyUrl.value,
                     terms_conditions_en = _termsConditionsEn.value,
                     terms_conditions_bn = _termsConditionsBn.value,
                     refund_policy_en = _refundPolicyEn.value,

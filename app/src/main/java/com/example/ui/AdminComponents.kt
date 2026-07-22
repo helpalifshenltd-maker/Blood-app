@@ -106,6 +106,252 @@ fun AdminStatCard(
 }
 
 @Composable
+fun AdminCountryStatsCard(
+    donorsList: List<BloodDonor>,
+    ambulancesList: List<com.example.data.Ambulance>,
+    language: AppLanguage
+) {
+    val isBn = language == AppLanguage.BAN
+    val countryOptions = listOf(
+        "All Countries", "Bangladesh", "India", "Saudi Arabia", 
+        "United Arab Emirates", "United States", "United Kingdom"
+    )
+    var selectedCountry by remember { mutableStateOf("All Countries") }
+    var expandedDropdown by remember { mutableStateOf(false) }
+
+    val filteredList = remember(donorsList, selectedCountry) {
+        donorsList.filter { donor ->
+            when (selectedCountry) {
+                "All Countries" -> true
+                "Bangladesh" -> donor.country.isEmpty() || donor.country.equals("Bangladesh", ignoreCase = true)
+                else -> donor.country.equals(selectedCountry, ignoreCase = true)
+            }
+        }
+    }
+
+    val totalCount = filteredList.size
+    val donorCount = filteredList.count { it.role == "Donor" }
+    val ambulanceCount = filteredList.count { it.role == "Ambulance" || ambulancesList.any { amb -> amb.phone == it.phone } }
+    val regularUserCount = filteredList.count { it.role != "Donor" && it.role != "Ambulance" }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+        border = BorderStroke(1.dp, AdminBorder),
+        shape = RoundedCornerShape(14.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header with Country Selector
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = if (isBn) "ইউজার পরিসংখ্যান ও দেশ ফিল্টার" else "User Statistics & Country Filter",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = AdminTextWhite
+                    )
+                    Text(
+                        text = if (isBn) "কোন দেশে কতজন ডোনার ও ইউজার আছে দেখুন" else "View user & donor distribution by country",
+                        fontSize = 11.sp,
+                        color = AdminTextMuted
+                    )
+                }
+
+                // Dropdown Button
+                Box {
+                    Button(
+                        onClick = { expandedDropdown = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = AdminPrimaryBlue),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = if (selectedCountry == "All Countries" && isBn) "সকল দেশ" else selectedCountry,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = expandedDropdown,
+                        onDismissRequest = { expandedDropdown = false },
+                        modifier = Modifier.background(AdminCardBg).border(1.dp, AdminBorder)
+                    ) {
+                        countryOptions.forEach { c ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = if (c == "All Countries" && isBn) "সকল দেশ (All)" else c,
+                                        color = AdminTextWhite,
+                                        fontSize = 12.sp,
+                                        fontWeight = if (c == selectedCountry) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                },
+                                onClick = {
+                                    selectedCountry = c
+                                    expandedDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Stat Cards Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Total Users Box
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(Color(0xFF2563EB).copy(alpha = 0.15f), RoundedCornerShape(10.dp))
+                        .border(1.dp, Color(0xFF2563EB).copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                        .padding(10.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = "$totalCount",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black,
+                            color = AdminTextWhite
+                        )
+                        Text(
+                            text = if (isBn) "মোট ইউজার" else "Total Users",
+                            fontSize = 10.sp,
+                            color = AdminTextMuted,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                // Donors Box
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(Color(0xFFEF4444).copy(alpha = 0.15f), RoundedCornerShape(10.dp))
+                        .border(1.dp, Color(0xFFEF4444).copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                        .padding(10.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = "$donorCount",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black,
+                            color = AdminAccRed
+                        )
+                        Text(
+                            text = if (isBn) "রক্তদাতা" else "Donors",
+                            fontSize = 10.sp,
+                            color = AdminTextMuted,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                // Ambulance Box
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(Color(0xFF10B981).copy(alpha = 0.15f), RoundedCornerShape(10.dp))
+                        .border(1.dp, Color(0xFF10B981).copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                        .padding(10.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = "$ambulanceCount",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black,
+                            color = AdminAccGreen
+                        )
+                        Text(
+                            text = if (isBn) "অ্যাম্বুলেন্স" else "Ambulances",
+                            fontSize = 10.sp,
+                            color = AdminTextMuted,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                // Regular Users / Patients Box
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(Color(0xFFF59E0B).copy(alpha = 0.15f), RoundedCornerShape(10.dp))
+                        .border(1.dp, Color(0xFFF59E0B).copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                        .padding(10.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = "$regularUserCount",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black,
+                            color = AdminAccOrange
+                        )
+                        Text(
+                            text = if (isBn) "সাধারণ ইউজার" else "Patients",
+                            fontSize = 10.sp,
+                            color = AdminTextMuted,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Blood Group Breakdown Grid for selected country
+            Text(
+                text = if (isBn) "রক্তের গ্রুপ অনুযায়ী ডোনার সংখ্যা ($selectedCountry):" else "Blood Group Breakdown ($selectedCountry):",
+                fontSize = 11.sp,
+                color = AdminTextMuted,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+
+            val bloodGroups = listOf("A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                bloodGroups.forEach { bg ->
+                    val bgCount = filteredList.count { it.bloodGroup == bg }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(AdminDarkBg, RoundedCornerShape(6.dp))
+                            .border(1.dp, AdminBorder, RoundedCornerShape(6.dp))
+                            .padding(vertical = 6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(bg, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = AdminAccRed)
+                            Text("$bgCount", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AdminTextWhite)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun AdminFiltersCard(
     language: AppLanguage,
     searchQuery: String,
@@ -637,14 +883,16 @@ fun AdminPoliciesTab(
     language: AppLanguage,
     privacyEn: String,
     privacyBn: String,
+    privacyUrl: String = "",
     termsEn: String,
     termsBn: String,
     refundEn: String,
     refundBn: String,
-    onSave: (String, String, String, String, String, String) -> Unit
+    onSave: (String, String, String, String, String, String, String) -> Unit
 ) {
     var draftPrivacyEn by remember { mutableStateOf(privacyEn) }
     var draftPrivacyBn by remember { mutableStateOf(privacyBn) }
+    var draftPrivacyUrl by remember { mutableStateOf(privacyUrl) }
     var draftTermsEn by remember { mutableStateOf(termsEn) }
     var draftTermsBn by remember { mutableStateOf(termsBn) }
     var draftRefundEn by remember { mutableStateOf(refundEn) }
@@ -692,10 +940,25 @@ fun AdminPoliciesTab(
                 OutlinedTextField(
                     value = draftPrivacyBn,
                     onValueChange = { draftPrivacyBn = it },
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
                     textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = AdminTextWhite),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = AdminPrimaryBlue,
+                        unfocusedBorderColor = AdminBorder,
+                        focusedContainerColor = AdminDarkBg,
+                        unfocusedContainerColor = AdminDarkBg
+                    )
+                )
+
+                Text("Privacy Policy Web Link / ইউআরএল লিংক (https://...)", fontSize = 11.sp, color = AdminAccGreen, fontWeight = FontWeight.Bold)
+                OutlinedTextField(
+                    value = draftPrivacyUrl,
+                    onValueChange = { draftPrivacyUrl = it },
+                    placeholder = { Text("https://alifshengroup.com/privacy-policy", color = Color.Gray, fontSize = 12.sp) },
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = AdminTextWhite),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AdminAccGreen,
                         unfocusedBorderColor = AdminBorder,
                         focusedContainerColor = AdminDarkBg,
                         unfocusedContainerColor = AdminDarkBg
@@ -786,7 +1049,7 @@ fun AdminPoliciesTab(
 
         Button(
             onClick = {
-                onSave(draftPrivacyEn, draftPrivacyBn, draftTermsEn, draftTermsBn, draftRefundEn, draftRefundBn)
+                onSave(draftPrivacyEn, draftPrivacyBn, draftPrivacyUrl, draftTermsEn, draftTermsBn, draftRefundEn, draftRefundBn)
             },
             modifier = Modifier.fillMaxWidth().height(48.dp),
             colors = ButtonDefaults.buttonColors(containerColor = AdminAccRed),
@@ -2102,22 +2365,19 @@ fun AdminSettingsTab(
             }
         }
 
-        // Ambulance Commission Settings (Standard and M Plus)
+        // Ambulance Booking Acceptance Fee Settings
         Card(
             modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp),
             colors = CardDefaults.cardColors(containerColor = AdminCardBg),
             border = BorderStroke(1.dp, AdminBorder),
             shape = RoundedCornerShape(12.dp)
         ) {
-            val standardRateState by viewModel.standardCommissionRate.collectAsState()
-            val mPlusRateState by viewModel.mPlusCommissionRate.collectAsState()
-
-            var standardDraft by remember(standardRateState) { mutableStateOf(standardRateState.toString()) }
-            var mPlusDraft by remember(mPlusRateState) { mutableStateOf(mPlusRateState.toString()) }
+            val bookingAcceptanceFeeState by viewModel.bookingAcceptanceFee.collectAsState()
+            var feeDraft by remember(bookingAcceptanceFeeState) { mutableStateOf(bookingAcceptanceFeeState.toString()) }
 
             Column(modifier = Modifier.padding(14.dp)) {
                 Text(
-                    text = if (language == AppLanguage.ENG) "Ambulance Commission Rates" else "অ্যাম্বুলেন্স কমিশন রেট",
+                    text = if (language == AppLanguage.ENG) "Ambulance Booking Acceptance Fee" else "অ্যাম্বুলেন্স বুকিং একসেপ্ট ফি (টাকা)",
                     fontWeight = FontWeight.Bold,
                     color = AdminAccOrange,
                     fontSize = 15.sp
@@ -2125,67 +2385,44 @@ fun AdminSettingsTab(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = if (language == AppLanguage.ENG) {
-                        "Define separate commission systems for standard and M Plus premium ambulances."
+                        "Set the wallet deduction price required when an ambulance provider accepts a booking request."
                     } else {
-                        "সাধারণ অ্যাম্বুলেন্স এবং এম প্লাস প্রিমিয়াম অ্যাম্বুলেন্সের জন্য আলাদা কমিশন পার্সেন্টেজ নির্ধারণ করুন।"
+                        "একজন অ্যাম্বুলেন্স ড্রাইভার/মালিক যখন বুকিং একসেপ্ট করবেন, তখন তার ওয়ালেট থেকে নির্ধারিত এই ফি কেটে নেওয়া হবে।"
                     },
                     fontSize = 11.sp,
                     color = AdminTextMuted
                 )
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = if (language == AppLanguage.ENG) "Standard Commission (%)" else "সাধারণ কমিশন (%)",
-                            fontSize = 11.sp,
-                            color = AdminTextMuted
+                Column {
+                    Text(
+                        text = if (language == AppLanguage.ENG) "Booking Acceptance Fee (BDT)" else "বুকিং একসেপ্ট ফি (টাকা)",
+                        fontSize = 11.sp,
+                        color = AdminTextMuted
+                    )
+                    OutlinedTextField(
+                        value = feeDraft,
+                        onValueChange = { feeDraft = it },
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        textStyle = androidx.compose.ui.text.TextStyle(color = AdminTextWhite),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
                         )
-                        OutlinedTextField(
-                            value = standardDraft,
-                            onValueChange = { standardDraft = it },
-                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                            textStyle = androidx.compose.ui.text.TextStyle(color = AdminTextWhite),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = AdminPrimaryBlue,
-                                unfocusedBorderColor = AdminBorder,
-                                focusedContainerColor = AdminDarkBg,
-                                unfocusedContainerColor = AdminDarkBg
-                            )
-                        )
-                    }
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = if (language == AppLanguage.ENG) "M Plus Commission (%)" else "এম প্লাস কমিশন (%)",
-                            fontSize = 11.sp,
-                            color = AdminTextMuted
-                        )
-                        OutlinedTextField(
-                            value = mPlusDraft,
-                            onValueChange = { mPlusDraft = it },
-                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                            textStyle = androidx.compose.ui.text.TextStyle(color = AdminTextWhite),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = AdminPrimaryBlue,
-                                unfocusedBorderColor = AdminBorder,
-                                focusedContainerColor = AdminDarkBg,
-                                unfocusedContainerColor = AdminDarkBg
-                            )
-                        )
-                    }
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
 
                 Button(
                     onClick = {
-                        val sRate = standardDraft.toDoubleOrNull() ?: 5.0
-                        val mRate = mPlusDraft.toDoubleOrNull() ?: 10.0
-                        viewModel.updateCommissionRates(sRate, mRate)
+                        val fee = feeDraft.toDoubleOrNull() ?: 50.0
+                        viewModel.updateBookingAcceptanceFee(fee)
                         Toast.makeText(
                             context,
-                            if (language == AppLanguage.ENG) "Commission Rates Updated!" else "কমিশন রেট সফলভাবে আপডেট হয়েছে!",
+                            if (language == AppLanguage.ENG) "Booking Acceptance Fee Updated!" else "বুকিং একসেপ্ট ফি সফলভাবে সংরক্ষিত হয়েছে!",
                             Toast.LENGTH_SHORT
                         ).show()
                     },
@@ -2194,7 +2431,7 @@ fun AdminSettingsTab(
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(
-                        text = if (language == AppLanguage.ENG) "Save Commission Rates" else "কমিশন রেট সংরক্ষণ করুন",
+                        text = if (language == AppLanguage.ENG) "Save Acceptance Fee" else "বুকিং একসেপ্ট ফি সংরক্ষণ করুন",
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp
                     )

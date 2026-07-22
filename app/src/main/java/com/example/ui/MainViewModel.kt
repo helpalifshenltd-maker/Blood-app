@@ -159,6 +159,11 @@ class MainViewModel(
 
     val standardCommissionRate: StateFlow<Double> = repository.standardCommissionRate
     val mPlusCommissionRate: StateFlow<Double> = repository.mPlusCommissionRate
+    val bookingAcceptanceFee: StateFlow<Double> = repository.bookingAcceptanceFee
+
+    fun updateBookingAcceptanceFee(fee: Double) {
+        repository.updateBookingAcceptanceFee(fee)
+    }
 
     val emailNotifyEnabled: StateFlow<Boolean> = repository.emailNotifyEnabled
     val smtpHost: StateFlow<String> = repository.smtpHost
@@ -278,6 +283,23 @@ class MainViewModel(
     val ambulanceBookings: StateFlow<List<AmbulanceBooking>> = repository.ambulanceBookings
 
     val messages: StateFlow<List<ChatMessage>> = repository.messages
+
+    val unreadChatCount: StateFlow<Int> = combine(
+        repository.messages,
+        repository.currentUser,
+        isAdminMode
+    ) { msgList, user, isAdmin ->
+        if (user == null) {
+            0
+        } else {
+            msgList.count { msg ->
+                !msg.isRead && (
+                    msg.receiverPhone.equals(user.phone, ignoreCase = true) ||
+                    (isAdmin && msg.receiverPhone == "LIVE_SUPPORT")
+                )
+            }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     val subscriptionPlans: StateFlow<List<V9SubscriptionPlan>> = repository.subscriptionPlans
     val userSubscriptions: StateFlow<List<UserSubscription>> = repository.userSubscriptions
@@ -1120,6 +1142,7 @@ class MainViewModel(
     // POLICY STATE STREAMS
     val privacyPolicyEn: StateFlow<String> = repository.privacyPolicyEn
     val privacyPolicyBn: StateFlow<String> = repository.privacyPolicyBn
+    val privacyPolicyUrl: StateFlow<String> = repository.privacyPolicyUrl
 
     val termsConditionsEn: StateFlow<String> = repository.termsConditionsEn
     val termsConditionsBn: StateFlow<String> = repository.termsConditionsBn
@@ -1130,9 +1153,10 @@ class MainViewModel(
     fun updatePolicies(
         privacyEn: String, privacyBn: String,
         termsEn: String, termsBn: String,
-        refundEn: String, refundBn: String
+        refundEn: String, refundBn: String,
+        privacyUrl: String = repository.privacyPolicyUrl.value
     ) {
-        repository.updatePolicies(privacyEn, privacyBn, termsEn, termsBn, refundEn, refundBn)
+        repository.updatePolicies(privacyEn, privacyBn, termsEn, termsBn, refundEn, refundBn, privacyUrl)
     }
 
     // --- V9 SUBSCRIPTION OPERATIONS ---

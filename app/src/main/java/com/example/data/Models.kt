@@ -526,7 +526,8 @@ data class AppConfig(
     val terms_conditions_en: String = "",
     val terms_conditions_bn: String = "",
     val refund_policy_en: String = "",
-    val refund_policy_bn: String = ""
+    val refund_policy_bn: String = "",
+    val privacy_policy_url: String = "https://alifshengroup.com/privacy-policy"
 )
 
 @com.squareup.moshi.JsonClass(generateAdapter = true)
