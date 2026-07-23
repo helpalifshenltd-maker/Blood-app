@@ -1194,9 +1194,21 @@ class BloodConnectRepository private constructor() {
     }
 
     private var firebaseDb: com.google.firebase.database.FirebaseDatabase? = null
+    private var isFirebaseListening = false
 
-    fun initFirebaseDatabase() {
+    private fun cleanKey(raw: String): String {
+        val sanitized = raw.replace(Regex("[.#$\\[\\]/+]"), "_").trim()
+        return if (sanitized.isBlank()) "item_${System.currentTimeMillis()}" else sanitized
+    }
+
+    fun getDb(): com.google.firebase.database.FirebaseDatabase? {
+        if (firebaseDb != null) return firebaseDb
         try {
+            appContext?.let { ctx ->
+                if (com.google.firebase.FirebaseApp.getApps(ctx).isEmpty()) {
+                    com.google.firebase.FirebaseApp.initializeApp(ctx)
+                }
+            }
             firebaseDb = com.google.firebase.database.FirebaseDatabase.getInstance("https://alif-blood-bank-default-rtdb.firebaseio.com")
         } catch (e: Exception) {
             try {
@@ -1205,15 +1217,26 @@ class BloodConnectRepository private constructor() {
                 Log.e("BloodConnectRepo", "Firebase DB init error: ${e2.message}")
             }
         }
-        listenToFirebaseRealtimeDatabase()
+        return firebaseDb
+    }
+
+    fun initFirebaseDatabase() {
+        val db = getDb() ?: return
+        if (!isFirebaseListening) {
+            isFirebaseListening = true
+            listenToFirebaseRealtimeDatabase()
+        }
         pushInitialDataToFirebaseIfEmpty()
     }
 
     fun pushDonorToFirebase(donor: BloodDonor) {
         appScope.launch {
             try {
-                val key = donor.id.ifBlank { "u_${donor.phone.replace("+", "")}" }
-                firebaseDb?.getReference("donors")?.child(key)?.setValue(donor)
+                val db = getDb() ?: return@launch
+                val safeId = donor.id.ifBlank { "u_${donor.phone}" }
+                val finalDonor = donor.copy(id = safeId)
+                val key = cleanKey(safeId)
+                db.getReference("donors").child(key).setValue(finalDonor)
             } catch (e: Exception) {
                 Log.e("BloodConnectRepo", "Firebase push donor error: ${e.message}")
             }
@@ -1223,8 +1246,11 @@ class BloodConnectRepository private constructor() {
     fun pushRequestToFirebase(request: BloodRequest) {
         appScope.launch {
             try {
-                val key = request.id.ifBlank { "r_${System.currentTimeMillis()}" }
-                firebaseDb?.getReference("requests")?.child(key)?.setValue(request)
+                val db = getDb() ?: return@launch
+                val safeId = request.id.ifBlank { "r_${System.currentTimeMillis()}" }
+                val finalRequest = request.copy(id = safeId)
+                val key = cleanKey(safeId)
+                db.getReference("requests").child(key).setValue(finalRequest)
             } catch (e: Exception) {
                 Log.e("BloodConnectRepo", "Firebase push request error: ${e.message}")
             }
@@ -1234,8 +1260,11 @@ class BloodConnectRepository private constructor() {
     fun pushAmbulanceBookingToFirebase(booking: AmbulanceBooking) {
         appScope.launch {
             try {
-                val key = booking.id.ifBlank { "b_${System.currentTimeMillis()}" }
-                firebaseDb?.getReference("ambulance_bookings")?.child(key)?.setValue(booking)
+                val db = getDb() ?: return@launch
+                val safeId = booking.id.ifBlank { "b_${System.currentTimeMillis()}" }
+                val finalBooking = booking.copy(id = safeId)
+                val key = cleanKey(safeId)
+                db.getReference("ambulance_bookings").child(key).setValue(finalBooking)
             } catch (e: Exception) {
                 Log.e("BloodConnectRepo", "Firebase push booking error: ${e.message}")
             }
@@ -1245,8 +1274,11 @@ class BloodConnectRepository private constructor() {
     fun pushChatMessageToFirebase(msg: ChatMessage) {
         appScope.launch {
             try {
-                val key = msg.id.ifBlank { "m_${System.currentTimeMillis()}" }
-                firebaseDb?.getReference("chat_messages")?.child(key)?.setValue(msg)
+                val db = getDb() ?: return@launch
+                val safeId = msg.id.ifBlank { "m_${System.currentTimeMillis()}" }
+                val finalMsg = msg.copy(id = safeId)
+                val key = cleanKey(safeId)
+                db.getReference("chat_messages").child(key).setValue(finalMsg)
             } catch (e: Exception) {
                 Log.e("BloodConnectRepo", "Firebase push chat error: ${e.message}")
             }
@@ -1256,6 +1288,7 @@ class BloodConnectRepository private constructor() {
     fun pushAppConfigToFirebase() {
         appScope.launch {
             try {
+                val db = getDb() ?: return@launch
                 val configMap = mapOf(
                     "app_name" to _appName.value,
                     "home_notice" to _homeNotice.value,
@@ -1264,44 +1297,35 @@ class BloodConnectRepository private constructor() {
                     "nagad_number" to _nagadNumber.value,
                     "rocket_number" to _rocketNumber.value
                 )
-                firebaseDb?.getReference("app_config")?.setValue(configMap)
+                db.getReference("app_config").setValue(configMap)
             } catch (e: Exception) {
                 Log.e("BloodConnectRepo", "Firebase push config error: ${e.message}")
             }
         }
     }
 
-    private fun pushInitialDataToFirebaseIfEmpty() {
-        val db = firebaseDb ?: return
-        db.getReference("donors").addListenerForSingleValueEvent(object : com.google.firebase.database.ValueEventListener {
-            override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
-                if (!snapshot.exists() || snapshot.childrenCount == 0L) {
-                    _donors.value.forEach { donor ->
-                        val key = donor.id.ifBlank { "u_${donor.phone.replace("+", "")}" }
-                        db.getReference("donors").child(key).setValue(donor)
-                    }
+    fun pushInitialDataToFirebaseIfEmpty() {
+        val db = getDb() ?: return
+        appScope.launch {
+            try {
+                _donors.value.forEach { donor ->
+                    pushDonorToFirebase(donor)
                 }
-            }
-            override fun onCancelled(error: com.google.firebase.database.DatabaseError) {}
-        })
-
-        db.getReference("requests").addListenerForSingleValueEvent(object : com.google.firebase.database.ValueEventListener {
-            override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
-                if (!snapshot.exists() || snapshot.childrenCount == 0L) {
-                    _requests.value.forEach { req ->
-                        val key = req.id.ifBlank { "r_${System.currentTimeMillis()}" }
-                        db.getReference("requests").child(key).setValue(req)
-                    }
+                _requests.value.forEach { req ->
+                    pushRequestToFirebase(req)
                 }
+                _messages.value.forEach { msg ->
+                    pushChatMessageToFirebase(msg)
+                }
+                pushAppConfigToFirebase()
+            } catch (e: Exception) {
+                Log.e("BloodConnectRepo", "Firebase initial sync error: ${e.message}")
             }
-            override fun onCancelled(error: com.google.firebase.database.DatabaseError) {}
-        })
-
-        pushAppConfigToFirebase()
+        }
     }
 
     private fun listenToFirebaseRealtimeDatabase() {
-        val db = firebaseDb ?: return
+        val db = getDb() ?: return
 
         // Listen to Donors
         db.getReference("donors").addValueEventListener(object : com.google.firebase.database.ValueEventListener {
@@ -1310,8 +1334,12 @@ class BloodConnectRepository private constructor() {
                     val list = mutableListOf<BloodDonor>()
                     for (child in snapshot.children) {
                         val donor = child.getValue(BloodDonor::class.java)
-                        if (donor != null && donor.id.isNotBlank()) {
-                            list.add(donor)
+                        if (donor != null) {
+                            val safeId = if (donor.id.isBlank()) (child.key ?: "") else donor.id
+                            val finalDonor = donor.copy(id = safeId)
+                            if (finalDonor.id.isNotBlank()) {
+                                list.add(finalDonor)
+                            }
                         }
                     }
                     if (list.isNotEmpty()) {
@@ -1336,8 +1364,12 @@ class BloodConnectRepository private constructor() {
                     val list = mutableListOf<BloodRequest>()
                     for (child in snapshot.children) {
                         val req = child.getValue(BloodRequest::class.java)
-                        if (req != null && req.id.isNotBlank()) {
-                            list.add(req)
+                        if (req != null) {
+                            val safeId = if (req.id.isBlank()) (child.key ?: "") else req.id
+                            val finalReq = req.copy(id = safeId)
+                            if (finalReq.id.isNotBlank()) {
+                                list.add(finalReq)
+                            }
                         }
                     }
                     if (list.isNotEmpty()) {
@@ -1362,8 +1394,12 @@ class BloodConnectRepository private constructor() {
                     val list = mutableListOf<ChatMessage>()
                     for (child in snapshot.children) {
                         val msg = child.getValue(ChatMessage::class.java)
-                        if (msg != null && msg.id.isNotBlank()) {
-                            list.add(msg)
+                        if (msg != null) {
+                            val safeId = if (msg.id.isBlank()) (child.key ?: "") else msg.id
+                            val finalMsg = msg.copy(id = safeId)
+                            if (finalMsg.id.isNotBlank()) {
+                                list.add(finalMsg)
+                            }
                         }
                     }
                     if (list.isNotEmpty()) {
