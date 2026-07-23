@@ -49,6 +49,9 @@ class BloodConnectRepository private constructor() {
     private val _messages = MutableStateFlow<List<ChatMessage>>(MockData.initialMessages)
     val messages: StateFlow<List<ChatMessage>> = _messages.asStateFlow()
 
+    private val _isFirebaseConnected = MutableStateFlow<Boolean>(true)
+    val isFirebaseConnected: StateFlow<Boolean> = _isFirebaseConnected.asStateFlow()
+
     private val _ambulances = MutableStateFlow<List<Ambulance>>(MockData.initialAmbulances)
     val ambulances: StateFlow<List<Ambulance>> = _ambulances.asStateFlow()
 
@@ -98,6 +101,8 @@ class BloodConnectRepository private constructor() {
             country = country
         )
         _ambulances.value = listOf(newAmbulance) + _ambulances.value
+        saveAmbulancesLocal()
+        pushAmbulanceToFirebase(newAmbulance)
         
         // Notification
         addNotification(
@@ -111,13 +116,18 @@ class BloodConnectRepository private constructor() {
     }
 
     fun toggleAmbulanceAvailability(ambulanceId: String) {
+        var updated: Ambulance? = null
         _ambulances.value = _ambulances.value.map {
             if (it.id == ambulanceId) {
-                it.copy(isAvailable = !it.isAvailable)
+                val upd = it.copy(isAvailable = !it.isAvailable)
+                updated = upd
+                upd
             } else {
                 it
             }
         }
+        saveAmbulancesLocal()
+        updated?.let { pushAmbulanceToFirebase(it) }
     }
 
     private val _homeNotice = MutableStateFlow("স্বাগতম আলিফ ব্লাড ব্যাংকে! জরুরি প্রয়োজনে চ্যাট বা কল করুন।")
@@ -465,6 +475,7 @@ class BloodConnectRepository private constructor() {
         saveBookingsLocal()
 
         updatedItem?.let { booking ->
+            pushAmbulanceBookingToFirebase(booking)
             appScope.launch {
                 if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
                     BloodConnectApiClient.updateAmbulanceBooking(booking.id, booking)
@@ -479,19 +490,23 @@ class BloodConnectRepository private constructor() {
         txnId: String,
         phone: String
     ) {
+        var updatedBook: AmbulanceBooking? = null
         _ambulanceBookings.value = _ambulanceBookings.value.map {
             if (it.id == bookingId) {
-                it.copy(
+                val upd = it.copy(
                     isCommissionPaid = true,
                     paymentMethod = method,
                     paymentTxnId = txnId,
                     paymentPhone = phone
                 )
+                updatedBook = upd
+                upd
             } else {
                 it
             }
         }
         saveBookingsLocal()
+        updatedBook?.let { pushAmbulanceBookingToFirebase(it) }
     }
 
     fun saveBookingsLocal() {
@@ -957,11 +972,13 @@ class BloodConnectRepository private constructor() {
     fun deleteAmbulance(ambulanceId: String) {
         _ambulances.value = _ambulances.value.filter { it.id != ambulanceId }
         saveAmbulancesLocal()
+        deleteAmbulanceFromFirebase(ambulanceId)
     }
 
     fun deleteAmbulanceBooking(bookingId: String) {
         _ambulanceBookings.value = _ambulanceBookings.value.filter { it.id != bookingId }
         saveBookingsLocal()
+        deleteBookingFromFirebase(bookingId)
         appScope.launch {
             if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
                 BloodConnectApiClient.deleteAmbulanceBooking(bookingId)
@@ -1243,6 +1260,54 @@ class BloodConnectRepository private constructor() {
         }
     }
 
+    fun cleanExpiredRequests() {
+        val sevenDaysAgoMs = System.currentTimeMillis() - (7L * 24 * 60 * 60 * 1000L)
+        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+
+        val validRequests = _requests.value.filter { req ->
+            var isExpired = false
+            if (req.id.startsWith("r_")) {
+                val ts = req.id.removePrefix("r_").toLongOrNull()
+                if (ts != null && ts > 0) {
+                    if (ts < sevenDaysAgoMs) {
+                        isExpired = true
+                    }
+                }
+            }
+            if (!isExpired && req.dateRequested.isNotBlank()) {
+                try {
+                    val parsedDate = sdf.parse(req.dateRequested)
+                    if (parsedDate != null) {
+                        if (parsedDate.time < (sevenDaysAgoMs - 86400000L)) {
+                            isExpired = true
+                        }
+                    }
+                } catch (e: Exception) {
+                    // keep if unparseable
+                }
+            }
+            !isExpired
+        }
+
+        if (validRequests.size != _requests.value.size) {
+            val expired = _requests.value.filter { !validRequests.contains(it) }
+            _requests.value = validRequests
+            saveRequestsLocal()
+            appScope.launch {
+                try {
+                    val db = getDb() ?: return@launch
+                    expired.forEach { req ->
+                        val safeId = req.id.ifBlank { "r_${System.currentTimeMillis()}" }
+                        val key = cleanKey(safeId)
+                        db.getReference("requests").child(key).removeValue()
+                    }
+                } catch (e: Exception) {
+                    Log.e("BloodConnectRepo", "Error removing expired requests from Firebase: ${e.message}")
+                }
+            }
+        }
+    }
+
     fun pushRequestToFirebase(request: BloodRequest) {
         appScope.launch {
             try {
@@ -1271,6 +1336,68 @@ class BloodConnectRepository private constructor() {
         }
     }
 
+    fun pushAmbulanceToFirebase(ambulance: Ambulance) {
+        appScope.launch {
+            try {
+                val db = getDb() ?: return@launch
+                val safeId = ambulance.id.ifBlank { "amb_${System.currentTimeMillis()}" }
+                val finalAmb = ambulance.copy(id = safeId)
+                val key = cleanKey(safeId)
+                db.getReference("ambulances").child(key).setValue(finalAmb)
+            } catch (e: Exception) {
+                Log.e("BloodConnectRepo", "Firebase push ambulance error: ${e.message}")
+            }
+        }
+    }
+
+    fun deleteDonorFromFirebase(donorId: String) {
+        appScope.launch {
+            try {
+                val db = getDb() ?: return@launch
+                val key = cleanKey(donorId)
+                db.getReference("donors").child(key).removeValue()
+            } catch (e: Exception) {
+                Log.e("BloodConnectRepo", "Firebase delete donor error: ${e.message}")
+            }
+        }
+    }
+
+    fun deleteRequestFromFirebase(requestId: String) {
+        appScope.launch {
+            try {
+                val db = getDb() ?: return@launch
+                val key = cleanKey(requestId)
+                db.getReference("requests").child(key).removeValue()
+            } catch (e: Exception) {
+                Log.e("BloodConnectRepo", "Firebase delete request error: ${e.message}")
+            }
+        }
+    }
+
+    fun deleteAmbulanceFromFirebase(ambulanceId: String) {
+        appScope.launch {
+            try {
+                val db = getDb() ?: return@launch
+                val key = cleanKey(ambulanceId)
+                db.getReference("ambulances").child(key).removeValue()
+            } catch (e: Exception) {
+                Log.e("BloodConnectRepo", "Firebase delete ambulance error: ${e.message}")
+            }
+        }
+    }
+
+    fun deleteBookingFromFirebase(bookingId: String) {
+        appScope.launch {
+            try {
+                val db = getDb() ?: return@launch
+                val key = cleanKey(bookingId)
+                db.getReference("ambulance_bookings").child(key).removeValue()
+            } catch (e: Exception) {
+                Log.e("BloodConnectRepo", "Firebase delete booking error: ${e.message}")
+            }
+        }
+    }
+
     fun pushChatMessageToFirebase(msg: ChatMessage) {
         appScope.launch {
             try {
@@ -1295,7 +1422,16 @@ class BloodConnectRepository private constructor() {
                     "popup_notice" to _popupNotice.value,
                     "bkash_number" to _bkashNumber.value,
                     "nagad_number" to _nagadNumber.value,
-                    "rocket_number" to _rocketNumber.value
+                    "rocket_number" to _rocketNumber.value,
+                    "booking_acceptance_fee" to _bookingAcceptanceFee.value,
+                    "standard_commission_rate" to _standardCommissionRate.value,
+                    "mplus_commission_rate" to _mPlusCommissionRate.value,
+                    "privacy_policy_en" to _privacyPolicyEn.value,
+                    "privacy_policy_bn" to _privacyPolicyBn.value,
+                    "terms_en" to _termsConditionsEn.value,
+                    "terms_bn" to _termsConditionsBn.value,
+                    "refund_en" to _refundPolicyEn.value,
+                    "refund_bn" to _refundPolicyBn.value
                 )
                 db.getReference("app_config").setValue(configMap)
             } catch (e: Exception) {
@@ -1317,6 +1453,12 @@ class BloodConnectRepository private constructor() {
                 _messages.value.forEach { msg ->
                     pushChatMessageToFirebase(msg)
                 }
+                _ambulances.value.forEach { amb ->
+                    pushAmbulanceToFirebase(amb)
+                }
+                _ambulanceBookings.value.forEach { booking ->
+                    pushAmbulanceBookingToFirebase(booking)
+                }
                 pushAppConfigToFirebase()
             } catch (e: Exception) {
                 Log.e("BloodConnectRepo", "Firebase initial sync error: ${e.message}")
@@ -1326,6 +1468,85 @@ class BloodConnectRepository private constructor() {
 
     private fun listenToFirebaseRealtimeDatabase() {
         val db = getDb() ?: return
+
+        // Connection Status Presence Listener
+        db.getReference(".info/connected").addValueEventListener(object : com.google.firebase.database.ValueEventListener {
+            override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
+                val connected = snapshot.getValue(Boolean::class.java) ?: false
+                _isFirebaseConnected.value = connected
+            }
+            override fun onCancelled(error: com.google.firebase.database.DatabaseError) {}
+        })
+
+        // Listen to App Config
+        db.getReference("app_config").addValueEventListener(object : com.google.firebase.database.ValueEventListener {
+            override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
+                try {
+                    val name = snapshot.child("app_name").getValue(String::class.java)
+                    if (!name.isNullOrBlank()) _appName.value = name
+
+                    val homeNot = snapshot.child("home_notice").getValue(String::class.java)
+                    if (!homeNot.isNullOrBlank()) _homeNotice.value = homeNot
+
+                    val popNot = snapshot.child("popup_notice").getValue(String::class.java)
+                    if (!popNot.isNullOrBlank()) _popupNotice.value = popNot
+
+                    val bkash = snapshot.child("bkash_number").getValue(String::class.java)
+                    if (!bkash.isNullOrBlank()) _bkashNumber.value = bkash
+
+                    val nagad = snapshot.child("nagad_number").getValue(String::class.java)
+                    if (!nagad.isNullOrBlank()) _nagadNumber.value = nagad
+
+                    val rocket = snapshot.child("rocket_number").getValue(String::class.java)
+                    if (!rocket.isNullOrBlank()) _rocketNumber.value = rocket
+
+                    val feeObj = snapshot.child("booking_acceptance_fee").value
+                    if (feeObj != null) {
+                        val fee = when (feeObj) {
+                            is Number -> feeObj.toDouble()
+                            is String -> feeObj.toDoubleOrNull()
+                            else -> null
+                        }
+                        if (fee != null) _bookingAcceptanceFee.value = fee
+                    }
+
+                    val stdCommObj = snapshot.child("standard_commission_rate").value
+                    if (stdCommObj != null) {
+                        val rate = when (stdCommObj) {
+                            is Number -> stdCommObj.toDouble()
+                            is String -> stdCommObj.toDoubleOrNull()
+                            else -> null
+                        }
+                        if (rate != null) _standardCommissionRate.value = rate
+                    }
+
+                    val mplusCommObj = snapshot.child("mplus_commission_rate").value
+                    if (mplusCommObj != null) {
+                        val rate = when (mplusCommObj) {
+                            is Number -> mplusCommObj.toDouble()
+                            is String -> mplusCommObj.toDoubleOrNull()
+                            else -> null
+                        }
+                        if (rate != null) _mPlusCommissionRate.value = rate
+                    }
+
+                    val privEn = snapshot.child("privacy_policy_en").getValue(String::class.java)
+                    if (!privEn.isNullOrBlank()) _privacyPolicyEn.value = privEn
+
+                    val privBn = snapshot.child("privacy_policy_bn").getValue(String::class.java)
+                    if (!privBn.isNullOrBlank()) _privacyPolicyBn.value = privBn
+
+                    val termsEn = snapshot.child("terms_en").getValue(String::class.java)
+                    if (!termsEn.isNullOrBlank()) _termsConditionsEn.value = termsEn
+
+                    val termsBn = snapshot.child("terms_bn").getValue(String::class.java)
+                    if (!termsBn.isNullOrBlank()) _termsConditionsBn.value = termsBn
+                } catch (e: Exception) {
+                    Log.e("BloodConnectRepo", "Error listening to app_config: ${e.message}")
+                }
+            }
+            override fun onCancelled(error: com.google.firebase.database.DatabaseError) {}
+        })
 
         // Listen to Donors
         db.getReference("donors").addValueEventListener(object : com.google.firebase.database.ValueEventListener {
@@ -1349,6 +1570,13 @@ class BloodConnectRepository private constructor() {
                         }
                         _donors.value = merged
                         saveDonorsLocal()
+
+                        _currentUser.value?.let { current ->
+                            val remoteCurrent = merged.find { phonesMatch(it.phone, current.phone) }
+                            if (remoteCurrent != null && remoteCurrent != current) {
+                                setCurrentUser(remoteCurrent)
+                            }
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e("BloodConnectRepo", "Error listening to Firebase donors: ${e.message}")
@@ -1378,6 +1606,7 @@ class BloodConnectRepository private constructor() {
                             list.none { remote -> remote.id == local.id }
                         }
                         _requests.value = merged
+                        cleanExpiredRequests()
                         saveRequestsLocal()
                     }
                 } catch (e: Exception) {
@@ -1412,6 +1641,66 @@ class BloodConnectRepository private constructor() {
                     }
                 } catch (e: Exception) {
                     Log.e("BloodConnectRepo", "Error listening to Firebase chat: ${e.message}")
+                }
+            }
+            override fun onCancelled(error: com.google.firebase.database.DatabaseError) {}
+        })
+
+        // Listen to Ambulances
+        db.getReference("ambulances").addValueEventListener(object : com.google.firebase.database.ValueEventListener {
+            override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
+                try {
+                    val list = mutableListOf<Ambulance>()
+                    for (child in snapshot.children) {
+                        val amb = child.getValue(Ambulance::class.java)
+                        if (amb != null) {
+                            val safeId = if (amb.id.isBlank()) (child.key ?: "") else amb.id
+                            val finalAmb = amb.copy(id = safeId)
+                            if (finalAmb.id.isNotBlank()) {
+                                list.add(finalAmb)
+                            }
+                        }
+                    }
+                    if (list.isNotEmpty()) {
+                        val currentLocal = _ambulances.value
+                        val merged = list + currentLocal.filter { local ->
+                            list.none { remote -> remote.id == local.id || (remote.phone.isNotBlank() && remote.phone == local.phone) }
+                        }
+                        _ambulances.value = merged
+                        saveAmbulancesLocal()
+                    }
+                } catch (e: Exception) {
+                    Log.e("BloodConnectRepo", "Error listening to Firebase ambulances: ${e.message}")
+                }
+            }
+            override fun onCancelled(error: com.google.firebase.database.DatabaseError) {}
+        })
+
+        // Listen to Ambulance Bookings
+        db.getReference("ambulance_bookings").addValueEventListener(object : com.google.firebase.database.ValueEventListener {
+            override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
+                try {
+                    val list = mutableListOf<AmbulanceBooking>()
+                    for (child in snapshot.children) {
+                        val book = child.getValue(AmbulanceBooking::class.java)
+                        if (book != null) {
+                            val safeId = if (book.id.isBlank()) (child.key ?: "") else book.id
+                            val finalBook = book.copy(id = safeId)
+                            if (finalBook.id.isNotBlank()) {
+                                list.add(finalBook)
+                            }
+                        }
+                    }
+                    if (list.isNotEmpty()) {
+                        val currentLocal = _ambulanceBookings.value
+                        val merged = list + currentLocal.filter { local ->
+                            list.none { remote -> remote.id == local.id }
+                        }
+                        _ambulanceBookings.value = merged
+                        saveBookingsLocal()
+                    }
+                } catch (e: Exception) {
+                    Log.e("BloodConnectRepo", "Error listening to Firebase bookings: ${e.message}")
                 }
             }
             override fun onCancelled(error: com.google.firebase.database.DatabaseError) {}
@@ -1872,6 +2161,7 @@ class BloodConnectRepository private constructor() {
         patientGender: String = "Male",
         medicalCondition: String = ""
     ) {
+        val todayStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
         val newReq = BloodRequest(
             id = "r_${System.currentTimeMillis()}",
             patientName = patientName,
@@ -1884,7 +2174,7 @@ class BloodConnectRepository private constructor() {
             details = details,
             isEmergency = isEmergency,
             isApproved = true,
-            dateRequested = "2026-06-12",
+            dateRequested = todayStr,
             status = "Active",
             country = country,
             patientGender = patientGender,
@@ -1892,6 +2182,7 @@ class BloodConnectRepository private constructor() {
         )
         _requests.value = listOf(newReq) + _requests.value
         seenRequestIds.add(newReq.id)
+        cleanExpiredRequests()
         saveRequestsLocal()
 
         // Push blood request to Firebase Realtime Database
@@ -2012,6 +2303,7 @@ class BloodConnectRepository private constructor() {
 
             // Post update to remote API
             updatedDonor?.let { donor ->
+                pushDonorToFirebase(donor)
                 appScope.launch {
                     if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
                         BloodConnectApiClient.updateDonor(donor.id, donor)
@@ -2055,6 +2347,7 @@ class BloodConnectRepository private constructor() {
 
             // Post update to remote API
             updatedDonor?.let { donor ->
+                pushDonorToFirebase(donor)
                 appScope.launch {
                     if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
                         BloodConnectApiClient.updateDonor(donor.id, donor)
@@ -2180,8 +2473,9 @@ class BloodConnectRepository private constructor() {
             setCurrentUser(current.copy(isWarning = isWarning, warningReason = reason))
         }
 
-        // Post to remote API
+        // Post to Firebase & remote API
         updatedDonor?.let { donor ->
+            pushDonorToFirebase(donor)
             appScope.launch {
                 if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
                     BloodConnectApiClient.updateDonor(id, donor)
@@ -2200,8 +2494,9 @@ class BloodConnectRepository private constructor() {
             } else it
         }
 
-        // Post to remote API
+        // Post to Firebase & remote API
         updatedDonor?.let { donor ->
+            pushDonorToFirebase(donor)
             appScope.launch {
                 if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
                     BloodConnectApiClient.updateDonor(id, donor)
@@ -2212,6 +2507,7 @@ class BloodConnectRepository private constructor() {
 
     fun deleteDonor(id: String) {
         _donors.value = _donors.value.filterNot { it.id == id }
+        deleteDonorFromFirebase(id)
 
         // Delete from remote API
         appScope.launch {
@@ -2223,6 +2519,7 @@ class BloodConnectRepository private constructor() {
 
     fun deleteRequest(id: String) {
         _requests.value = _requests.value.filterNot { it.id == id }
+        deleteRequestFromFirebase(id)
 
         // Delete from remote API
         appScope.launch {
@@ -2243,8 +2540,9 @@ class BloodConnectRepository private constructor() {
             } else it
         }
 
-        // Post to remote API
+        // Post to Firebase & remote API
         updatedReq?.let { req ->
+            pushRequestToFirebase(req)
             appScope.launch {
                 if (BloodConnectApiClient.apiUrl.value.isNotBlank()) {
                     BloodConnectApiClient.updateRequest(id, req)

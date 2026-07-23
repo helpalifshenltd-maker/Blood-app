@@ -334,7 +334,7 @@ object MockData {
             details = "Patient has upcoming bypass surgery. Needs 3 bags. Highly urgent.",
             isEmergency = true,
             isApproved = true,
-            dateRequested = "2026-06-12",
+            dateRequested = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date()),
             status = "Active",
             country = "Bangladesh"
         ),

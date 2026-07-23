@@ -133,12 +133,36 @@ class MainViewModel(
 
     // --- REPOSITORY BINDINGS (FILTERED SPECIFICALLY BY ACTIVE COUNTRY SERVER/SANDBOX) ---
     val currentUser: StateFlow<BloodDonor?> = repository.currentUser
+    val isFirebaseConnected: StateFlow<Boolean> = repository.isFirebaseConnected
+    
+    // Unfiltered bindings for Admin and Global oversight
+    val allDonors: StateFlow<List<BloodDonor>> = repository.donors
+    val allRequests: StateFlow<List<BloodRequest>> = repository.requests
+    val allAmbulances: StateFlow<List<Ambulance>> = repository.ambulances
+    val allAmbulanceBookings: StateFlow<List<AmbulanceBooking>> = repository.ambulanceBookings
+
     val donors: StateFlow<List<BloodDonor>> = combine(repository.donors, detectedCountry) { list, countryName ->
-        list.filter { it.country.equals(countryName, ignoreCase = true) }
+        list.filter {
+            it.country.isBlank() ||
+            it.country.equals(countryName, ignoreCase = true) ||
+            (countryName.equals("Bangladesh", ignoreCase = true) && it.country.equals("BD", ignoreCase = true)) ||
+            (countryName.equals("BD", ignoreCase = true) && it.country.equals("Bangladesh", ignoreCase = true)) ||
+            countryName.equals("Global", ignoreCase = true) ||
+            countryName.equals("International", ignoreCase = true) ||
+            countryName.isBlank()
+        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val requests: StateFlow<List<BloodRequest>> = combine(repository.requests, detectedCountry) { list, countryName ->
-        list.filter { it.country.equals(countryName, ignoreCase = true) }
+        list.filter {
+            it.country.isBlank() ||
+            it.country.equals(countryName, ignoreCase = true) ||
+            (countryName.equals("Bangladesh", ignoreCase = true) && it.country.equals("BD", ignoreCase = true)) ||
+            (countryName.equals("BD", ignoreCase = true) && it.country.equals("Bangladesh", ignoreCase = true)) ||
+            countryName.equals("Global", ignoreCase = true) ||
+            countryName.equals("International", ignoreCase = true) ||
+            countryName.isBlank()
+        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val notifications: StateFlow<List<DonationNotification>> = combine(repository.notifications, detectedCountry) { list, countryName ->

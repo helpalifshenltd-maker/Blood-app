@@ -9671,15 +9671,16 @@ fun AdminStatCard(
 
 @Composable
 fun AdminDashboardScreen(viewModel: MainViewModel) {
-    val donorsList by viewModel.donors.collectAsState()
-    val requestsList by viewModel.requests.collectAsState()
+    val donorsList by viewModel.allDonors.collectAsState()
+    val requestsList by viewModel.allRequests.collectAsState()
     val scamReportsList by viewModel.scamReports.collectAsState()
     val strings by viewModel.strings.collectAsState()
     val language by viewModel.language.collectAsState()
     val isSyncing by viewModel.isSyncing.collectAsState()
     val messagesList by viewModel.messages.collectAsState()
-    val ambulancesList by viewModel.ambulances.collectAsState()
-    val ambulanceBookingsList by viewModel.ambulanceBookings.collectAsState()
+    val ambulancesList by viewModel.allAmbulances.collectAsState()
+    val ambulanceBookingsList by viewModel.allAmbulanceBookings.collectAsState()
+    val isConnected by viewModel.isFirebaseConnected.collectAsState()
 
     val context = LocalContext.current
 
@@ -10000,6 +10001,37 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                             fontWeight = FontWeight.Bold,
                             color = Color.White,
                             letterSpacing = 0.5.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .background(
+                                if (isConnected) Color(0xFF10B981).copy(alpha = 0.2f) else Color(0xFFEF4444).copy(alpha = 0.2f),
+                                CircleShape
+                            )
+                            .border(
+                                1.dp,
+                                if (isConnected) Color(0xFF10B981) else Color(0xFFEF4444),
+                                CircleShape
+                            )
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(if (isConnected) Color(0xFF10B981) else Color(0xFFEF4444), CircleShape)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isConnected) 
+                                (if (language == AppLanguage.ENG) "Connected" else "কানেক্টেড (Connected)") 
+                            else 
+                                (if (language == AppLanguage.ENG) "Disconnected" else "ডিসকানেক্টেড (Disconnected)"),
+                            color = if (isConnected) Color(0xFF10B981) else Color(0xFFEF4444),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
@@ -11859,10 +11891,10 @@ fun ChatInboxScreen(viewModel: MainViewModel) {
 
     val currentUser = userSession!!
     
-    val myMessages = messages.filter { it.senderPhone == currentUser.phone || it.receiverPhone == currentUser.phone }
+    val myMessages = messages.filter { phonesMatch(it.senderPhone, currentUser.phone) || phonesMatch(it.receiverPhone, currentUser.phone) }
     val uniquePeers = myMessages
-        .map { if (it.senderPhone == currentUser.phone) it.receiverPhone to it.receiverName else it.senderPhone to it.senderName }
-        .distinctBy { it.first }
+        .map { if (phonesMatch(it.senderPhone, currentUser.phone)) it.receiverPhone to it.receiverName else it.senderPhone to it.senderName }
+        .distinctBy { (it.first.replace(Regex("[^0-9]"), "").takeLast(10)).ifEmpty { it.first } }
 
     Column(
         modifier = Modifier
@@ -11930,18 +11962,18 @@ fun ChatInboxScreen(viewModel: MainViewModel) {
                 items(uniquePeers.size) { index ->
                     val (peerPhone, peerName) = uniquePeers[index]
                     
-                    val donorPeer = donors.find { it.phone == peerPhone }
+                    val donorPeer = donors.find { phonesMatch(it.phone, peerPhone) }
                     val bloodSymbol = donorPeer?.bloodGroup ?: "💬"
                     
                     val threadMsgs = myMessages.filter { 
-                        (it.senderPhone == currentUser.phone && it.receiverPhone == peerPhone) || 
-                        (it.senderPhone == peerPhone && it.receiverPhone == currentUser.phone)
+                        (phonesMatch(it.senderPhone, currentUser.phone) && phonesMatch(it.receiverPhone, peerPhone)) || 
+                        (phonesMatch(it.senderPhone, peerPhone) && phonesMatch(it.receiverPhone, currentUser.phone))
                     }
                     val lastMsgObj = threadMsgs.lastOrNull()
                     val lastMsgText = lastMsgObj?.message ?: ""
                     val lastTimestamp = lastMsgObj?.timestamp ?: ""
                     
-                    val unreadCount = threadMsgs.count { it.senderPhone == peerPhone && !it.isRead }
+                    val unreadCount = threadMsgs.count { phonesMatch(it.senderPhone, peerPhone) && !it.isRead }
 
                     Card(
                         modifier = Modifier
@@ -12076,8 +12108,8 @@ fun ChatRoomScreen(viewModel: MainViewModel) {
     }
 
     val threadMsgs = messages.filter { 
-        (it.senderPhone == senderPhone && it.receiverPhone == peerPhoneStr) || 
-        (it.senderPhone == peerPhoneStr && it.receiverPhone == senderPhone)
+        (phonesMatch(it.senderPhone, senderPhone) && phonesMatch(it.receiverPhone, peerPhoneStr)) || 
+        (phonesMatch(it.senderPhone, peerPhoneStr) && phonesMatch(it.receiverPhone, senderPhone))
     }
 
     Column(
@@ -12177,7 +12209,7 @@ fun ChatRoomScreen(viewModel: MainViewModel) {
         ) {
             items(threadMsgs.size) { index ->
                 val msg = threadMsgs[index]
-                val isMe = msg.senderPhone == currentUser.phone
+                val isMe = phonesMatch(msg.senderPhone, senderPhone)
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),

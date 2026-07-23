@@ -556,3 +556,15 @@ data class UserSubscription(
 )
 
 
+fun phonesMatch(p1: String?, p2: String?): Boolean {
+    val phone1 = p1 ?: ""
+    val phone2 = p2 ?: ""
+    if (phone1 == phone2) return true
+    if (phone1.isBlank() || phone2.isBlank()) return false
+    if (phone1.equals("LIVE_SUPPORT", ignoreCase = true) || phone2.equals("LIVE_SUPPORT", ignoreCase = true)) {
+        return phone1.equals(phone2, ignoreCase = true)
+    }
+    val clean1 = phone1.replace(Regex("[^0-9]"), "").takeLast(10)
+    val clean2 = phone2.replace(Regex("[^0-9]"), "").takeLast(10)
+    return clean1.isNotEmpty() && clean1 == clean2
+}
