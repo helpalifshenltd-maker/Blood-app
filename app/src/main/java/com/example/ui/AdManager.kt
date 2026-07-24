@@ -144,21 +144,33 @@ object AdManager {
             return
         }
 
+        var rewardTriggered = false
         rewardedAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
             override fun onAdDismissedFullScreenContent() {
                 rewardedAd = null
                 loadRewarded(context)
+                if (!rewardTriggered) {
+                    rewardTriggered = true
+                    onRewardEarned()
+                }
             }
 
             override fun onAdFailedToShowFullScreenContent(error: AdError) {
                 rewardedAd = null
                 loadRewarded(context)
+                if (!rewardTriggered) {
+                    rewardTriggered = true
+                    onRewardEarned()
+                }
             }
         }
 
         rewardedAd?.show(activity) { rewardItem ->
             Log.d(TAG, "User earned reward: ${rewardItem.amount} ${rewardItem.type}")
-            onRewardEarned()
+            if (!rewardTriggered) {
+                rewardTriggered = true
+                onRewardEarned()
+            }
         }
     }
 }

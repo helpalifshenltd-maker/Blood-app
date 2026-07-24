@@ -569,13 +569,16 @@ class MainViewModel(
     var isSupportChatMode by mutableStateOf(false)
 
     fun openChatRoom(peerPhone: String, peerName: String, isSupport: Boolean = false) {
+        val user = currentUser.value
+        if (user == null) {
+            setShowRegistrationTab(false)
+            navigateTo(AppScreen.LOGIN_REGISTER)
+            return
+        }
         _activeChatPeerPhone.value = peerPhone
         _activeChatPeerName.value = peerName
         isSupportChatMode = isSupport
-        val user = currentUser.value
-        if (user != null) {
-            markInAppChatRead(user.phone, peerPhone)
-        }
+        markInAppChatRead(user.phone, peerPhone)
         navigateTo(AppScreen.CHAT_ROOM)
     }
 

@@ -6991,22 +6991,41 @@ fun SearchDonorScreen(viewModel: MainViewModel) {
                                 )
                             }
 
-                            IconButton(
-                                onClick = {
-                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${donor.phone}"))
-                                    context.startActivity(intent)
-                                },
-                                modifier = Modifier
-                                    .background(LightPinkRed, CircleShape)
-                                    .size(40.dp)
-                                    .testTag("call_donor_${donor.phone}")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Call,
-                                    contentDescription = "Call Donor",
-                                    tint = BloodRed,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                IconButton(
+                                    onClick = {
+                                        viewModel.openChatRoom(donor.phone, donor.name)
+                                    },
+                                    modifier = Modifier
+                                        .background(Color(0xFFE0F2F1), CircleShape)
+                                        .size(40.dp)
+                                        .testTag("chat_donor_${donor.phone}")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Forum,
+                                        contentDescription = "Chat Donor",
+                                        tint = Color(0xFF00796B),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+
+                                IconButton(
+                                    onClick = {
+                                        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${donor.phone}"))
+                                        context.startActivity(intent)
+                                    },
+                                    modifier = Modifier
+                                        .background(LightPinkRed, CircleShape)
+                                        .size(40.dp)
+                                        .testTag("call_donor_${donor.phone}")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Call,
+                                        contentDescription = "Call Donor",
+                                        tint = BloodRed,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -7241,6 +7260,39 @@ fun DonorProfileScreen(viewModel: MainViewModel) {
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = strings["profile_btn_chat"] ?: "In-App Chat",
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Button(
+            onClick = {
+                try {
+                    val smsIntent = Intent(Intent.ACTION_VIEW, Uri.parse("sms:${finalDonor.phone}"))
+                    context.startActivity(smsIntent)
+                } catch (e: Exception) {
+                    try {
+                        val sendToIntent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:${finalDonor.phone}"))
+                        context.startActivity(sendToIntent)
+                    } catch (ex: Exception) {
+                        android.widget.Toast.makeText(context, "Cannot open SMS app", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(54.dp)
+                .testTag("profile_direct_sms_btn"),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE8EAF6), contentColor = Color(0xFF283593)),
+            border = BorderStroke(1.dp, Color(0xFFC5CAE9)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Icon(Icons.Filled.Send, contentDescription = "sms")
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = if (language == AppLanguage.BAN) "ফোনের এসএমএস অ্যাপ দিয়ে মেসেজ দিন" else "Send Direct SMS (Phone App)",
                 fontWeight = FontWeight.Bold,
                 fontSize = 15.sp
             )
@@ -12081,11 +12133,48 @@ fun ChatRoomScreen(viewModel: MainViewModel) {
 
     if (userSession == null || peerPhone == null || peerName == null) {
         Column(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            CircularProgressIndicator(color = BloodRed)
+            Icon(
+                imageVector = Icons.Filled.Forum,
+                contentDescription = "Chat",
+                tint = BloodRed,
+                modifier = Modifier.size(72.dp)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = if (language == AppLanguage.ENG) "In-App Direct Messaging" else "সরাসরি চ্যাট",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = DarkText
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = if (language == AppLanguage.ENG) 
+                    "You must login or register to send and receive messages." 
+                    else "মেসেজ পাঠাতে বা চ্যাট করতে আপনাকে অবস্যই লগইন করতে হবে।",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.Gray,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(
+                onClick = { 
+                    viewModel.setShowRegistrationTab(false)
+                    viewModel.navigateTo(AppScreen.LOGIN_REGISTER) 
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = BloodRed),
+                modifier = Modifier.fillMaxWidth().height(48.dp)
+            ) {
+                Text(
+                    text = strings["btn_login"] ?: "Login / Register",
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
         return
     }
@@ -12327,29 +12416,16 @@ fun ChatRoomScreen(viewModel: MainViewModel) {
                 IconButton(
                     onClick = {
                         if (msgInput.isNotBlank() && !userHasUnpaidCommission) {
-                            if (peerPhoneStr == "LIVE_SUPPORT") {
-                                AdManager.showRewarded(context) {
-                                    viewModel.sendInAppChatMessage(
-                                        context = context,
-                                        senderPhone = senderPhone,
-                                        senderName = senderName,
-                                        receiverPhone = peerPhoneStr,
-                                        receiverName = peerNameStr,
-                                        messageText = msgInput.trim()
-                                    )
-                                    msgInput = ""
-                                }
-                            } else {
-                                viewModel.sendInAppChatMessage(
-                                    context = context,
-                                    senderPhone = senderPhone,
-                                    senderName = senderName,
-                                    receiverPhone = peerPhoneStr,
-                                    receiverName = peerNameStr,
-                                    messageText = msgInput.trim()
-                                )
-                                msgInput = ""
-                            }
+                            val textToSend = msgInput.trim()
+                            msgInput = ""
+                            viewModel.sendInAppChatMessage(
+                                context = context,
+                                senderPhone = senderPhone,
+                                senderName = senderName,
+                                receiverPhone = peerPhoneStr,
+                                receiverName = peerNameStr,
+                                messageText = textToSend
+                            )
                         }
                     },
                     enabled = !userHasUnpaidCommission && msgInput.isNotBlank(),
@@ -14665,7 +14741,15 @@ fun BookingCard(
                 }
             }
 
-            if (booking.status == "Pending" && currentUser != null) {
+            val isAmbulanceAccount = currentUser != null && (
+                currentUser?.role == "Ambulance" ||
+                ambulancesList.any { 
+                    (it.phone.isNotBlank() && phonesMatch(it.phone, currentUser?.phone)) || 
+                    (it.ownerName.isNotBlank() && currentUser?.name != null && it.ownerName.equals(currentUser?.name, ignoreCase = true)) 
+                }
+            )
+
+            if (booking.status == "Pending" && isAmbulanceAccount) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Button(
                     onClick = {

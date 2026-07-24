@@ -148,6 +148,7 @@ class BloodConnectRepository private constructor() {
             val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
             prefs.edit().putFloat("booking_acceptance_fee", fee.toFloat()).apply()
         }
+        pushAppConfigToRemote()
     }
 
     fun updateCommissionRates(standardRate: Double, mPlusRate: Double) {
@@ -161,6 +162,7 @@ class BloodConnectRepository private constructor() {
                 apply()
             }
         }
+        pushAppConfigToRemote()
     }
 
     fun updateHomeNotice(newNotice: String) {
@@ -329,6 +331,7 @@ class BloodConnectRepository private constructor() {
             _customAdTargetUrl.value = first.targetUrl
             _customAdTargetCountries.value = first.targetCountries
         }
+        pushAppConfigToRemote()
     }
 
     fun serializeBookings(list: List<AmbulanceBooking>): String {
@@ -542,6 +545,7 @@ class BloodConnectRepository private constructor() {
             putString("custom_ad_target_countries", targetCountries)
             apply()
         }
+        pushAppConfigToRemote()
     }
 
     fun updateAdMobConfig(
@@ -567,6 +571,7 @@ class BloodConnectRepository private constructor() {
             putString("admob_native_id", nativeId)
             apply()
         }
+        pushAppConfigToRemote()
     }
 
     fun updateEmailConfig(
@@ -1816,32 +1821,30 @@ class BloodConnectRepository private constructor() {
             if (configResult.isSuccess) {
                 val remoteConfig = configResult.getOrNull()
                 if (remoteConfig != null) {
-                    _appName.value = remoteConfig.app_name
-                    _homeNotice.value = remoteConfig.home_notice
-                    _popupNotice.value = remoteConfig.popup_notice
-                    _privacyPolicyEn.value = remoteConfig.privacy_policy_en
-                    _privacyPolicyBn.value = remoteConfig.privacy_policy_bn
-                    if (remoteConfig.privacy_policy_url.isNotBlank()) {
-                        _privacyPolicyUrl.value = remoteConfig.privacy_policy_url
-                    }
-                    _termsConditionsEn.value = remoteConfig.terms_conditions_en
-                    _termsConditionsBn.value = remoteConfig.terms_conditions_bn
-                    _refundPolicyEn.value = remoteConfig.refund_policy_en
-                    _refundPolicyBn.value = remoteConfig.refund_policy_bn
+                    if (remoteConfig.app_name.isNotBlank()) _appName.value = remoteConfig.app_name
+                    if (remoteConfig.home_notice.isNotBlank()) _homeNotice.value = remoteConfig.home_notice
+                    if (remoteConfig.popup_notice.isNotBlank()) _popupNotice.value = remoteConfig.popup_notice
+                    if (remoteConfig.privacy_policy_en.isNotBlank()) _privacyPolicyEn.value = remoteConfig.privacy_policy_en
+                    if (remoteConfig.privacy_policy_bn.isNotBlank()) _privacyPolicyBn.value = remoteConfig.privacy_policy_bn
+                    if (remoteConfig.privacy_policy_url.isNotBlank()) _privacyPolicyUrl.value = remoteConfig.privacy_policy_url
+                    if (remoteConfig.terms_conditions_en.isNotBlank()) _termsConditionsEn.value = remoteConfig.terms_conditions_en
+                    if (remoteConfig.terms_conditions_bn.isNotBlank()) _termsConditionsBn.value = remoteConfig.terms_conditions_bn
+                    if (remoteConfig.refund_policy_en.isNotBlank()) _refundPolicyEn.value = remoteConfig.refund_policy_en
+                    if (remoteConfig.refund_policy_bn.isNotBlank()) _refundPolicyBn.value = remoteConfig.refund_policy_bn
 
-                    // Back up to local preferences
+                    // Back up non-blank values to local preferences
                     appContext?.let { ctx ->
                         val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
                         prefs.edit().apply {
-                            putString("app_name_pref", remoteConfig.app_name)
-                            putString("home_notice", remoteConfig.home_notice)
-                            putString("popup_notice", remoteConfig.popup_notice)
-                            putString("policy_privacy_en", remoteConfig.privacy_policy_en)
-                            putString("policy_privacy_bn", remoteConfig.privacy_policy_bn)
-                            putString("policy_terms_en", remoteConfig.terms_conditions_en)
-                            putString("policy_terms_bn", remoteConfig.terms_conditions_bn)
-                            putString("policy_refund_en", remoteConfig.refund_policy_en)
-                            putString("policy_refund_bn", remoteConfig.refund_policy_bn)
+                            if (_appName.value.isNotBlank()) putString("app_name_pref", _appName.value)
+                            if (_homeNotice.value.isNotBlank()) putString("home_notice", _homeNotice.value)
+                            if (_popupNotice.value.isNotBlank()) putString("popup_notice", _popupNotice.value)
+                            if (_privacyPolicyEn.value.isNotBlank()) putString("policy_privacy_en", _privacyPolicyEn.value)
+                            if (_privacyPolicyBn.value.isNotBlank()) putString("policy_privacy_bn", _privacyPolicyBn.value)
+                            if (_termsConditionsEn.value.isNotBlank()) putString("policy_terms_en", _termsConditionsEn.value)
+                            if (_termsConditionsBn.value.isNotBlank()) putString("policy_terms_bn", _termsConditionsBn.value)
+                            if (_refundPolicyEn.value.isNotBlank()) putString("policy_refund_en", _refundPolicyEn.value)
+                            if (_refundPolicyBn.value.isNotBlank()) putString("policy_refund_bn", _refundPolicyBn.value)
                             apply()
                         }
                     }
@@ -2468,6 +2471,7 @@ class BloodConnectRepository private constructor() {
                 upd
             } else it
         }
+        saveDonorsLocal()
         val current = _currentUser.value
         if (current != null && current.id == id) {
             setCurrentUser(current.copy(isWarning = isWarning, warningReason = reason))
@@ -2493,6 +2497,7 @@ class BloodConnectRepository private constructor() {
                 upd
             } else it
         }
+        saveDonorsLocal()
 
         // Post to Firebase & remote API
         updatedDonor?.let { donor ->
@@ -2507,6 +2512,7 @@ class BloodConnectRepository private constructor() {
 
     fun deleteDonor(id: String) {
         _donors.value = _donors.value.filterNot { it.id == id }
+        saveDonorsLocal()
         deleteDonorFromFirebase(id)
 
         // Delete from remote API
@@ -2519,6 +2525,7 @@ class BloodConnectRepository private constructor() {
 
     fun deleteRequest(id: String) {
         _requests.value = _requests.value.filterNot { it.id == id }
+        saveRequestsLocal()
         deleteRequestFromFirebase(id)
 
         // Delete from remote API
@@ -2539,6 +2546,7 @@ class BloodConnectRepository private constructor() {
                 upd
             } else it
         }
+        saveRequestsLocal()
 
         // Post to Firebase & remote API
         updatedReq?.let { req ->
