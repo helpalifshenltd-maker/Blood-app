@@ -134,6 +134,44 @@ dependencies {
 }
 
 // Decode debug.keystore from debug.keystore.base64 if it does not exist
+val googleServicesFile = file("${projectDir}/google-services.json")
+if (!googleServicesFile.exists()) {
+  try {
+    val defaultJson = """
+    {
+      "project_info": {
+        "project_number": "1032126723993",
+        "firebase_url": "https://alif-blood-bank-default-rtdb.firebaseio.com",
+        "project_id": "alif-blood-bank",
+        "storage_bucket": "alif-blood-bank.firebasestorage.app"
+      },
+      "client": [
+        {
+          "client_info": {
+            "mobilesdk_app_id": "1:1032126723993:android:8a06781dd85fc3c5674508",
+            "android_client_info": {
+              "package_name": "my.alifbooldbank.com"
+            }
+          },
+          "oauth_client": [],
+          "api_key": [
+            {
+              "current_key": "AIzaSyBfauc5IDT7_9OxXUHAkJJhflAdZjlck0g"
+            }
+          ],
+          "services": {}
+        }
+      ],
+      "configuration_version": "1"
+    }
+    """.trimIndent()
+    googleServicesFile.writeText(defaultJson)
+    println("SUCCESS: Created default google-services.json at configuration time.")
+  } catch (e: Exception) {
+    println("ERROR: Failed to create google-services.json: ${e.message}")
+  }
+}
+
 val keystoreFile = file("${rootDir}/debug.keystore")
 val base64File = file("${rootDir}/debug.keystore.base64")
 if (!keystoreFile.exists() && base64File.exists()) {
