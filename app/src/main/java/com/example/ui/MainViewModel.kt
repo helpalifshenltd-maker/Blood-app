@@ -317,21 +317,15 @@ class MainViewModel(
 
         val myPhoneClean = user?.phone?.let { cleanPhone(it) } ?: ""
 
-        // If user is null, collect any sender phones the current local device used in chat history
-        val mySentPhones = if (myPhoneClean.isEmpty()) {
-            msgList.map { cleanPhone(it.senderPhone) }.filter { it.isNotBlank() }.toSet()
-        } else emptySet()
-
         msgList.count { msg ->
             if (msg.isRead) return@count false
 
             val msgReceiverClean = cleanPhone(msg.receiverPhone)
+            val msgSenderClean = cleanPhone(msg.senderPhone)
 
             val isForMe = if (myPhoneClean.isNotEmpty()) {
-                msgReceiverClean.isNotEmpty() && msgReceiverClean == myPhoneClean
-            } else {
-                msgReceiverClean.isNotEmpty() && mySentPhones.contains(msgReceiverClean)
-            }
+                msgReceiverClean.isNotEmpty() && msgReceiverClean == myPhoneClean && msgSenderClean != myPhoneClean
+            } else false
 
             val isForAdminSupport = isAdmin && (
                 msg.receiverPhone.equals("LIVE_SUPPORT", ignoreCase = true) ||

@@ -1678,7 +1678,6 @@ class BloodConnectRepository private constructor() {
             isFirebaseListening = true
             listenToFirebaseRealtimeDatabase()
         }
-        pushInitialDataToFirebaseIfEmpty()
     }
 
     fun pushDonorToFirebase(donor: BloodDonor) {
@@ -1929,105 +1928,133 @@ class BloodConnectRepository private constructor() {
         db.getReference("app_config").addValueEventListener(object : com.google.firebase.database.ValueEventListener {
             override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
                 try {
-                    val name = snapshot.child("app_name").getValue(String::class.java)
-                    if (!name.isNullOrBlank()) _appName.value = name
+                    if (snapshot.exists() && snapshot.childrenCount > 0) {
+                        val name = snapshot.child("app_name").getValue(String::class.java)
+                        if (!name.isNullOrBlank()) _appName.value = name
 
-                    val homeNot = snapshot.child("home_notice").getValue(String::class.java)
-                    if (!homeNot.isNullOrBlank()) _homeNotice.value = homeNot
+                        val homeNot = snapshot.child("home_notice").getValue(String::class.java)
+                        if (!homeNot.isNullOrBlank()) _homeNotice.value = homeNot
 
-                    val popNot = snapshot.child("popup_notice").getValue(String::class.java)
-                    if (!popNot.isNullOrBlank()) _popupNotice.value = popNot
+                        val popNot = snapshot.child("popup_notice").getValue(String::class.java)
+                        if (!popNot.isNullOrBlank()) _popupNotice.value = popNot
 
-                    val bkash = snapshot.child("bkash_number").getValue(String::class.java)
-                    if (!bkash.isNullOrBlank()) _bkashNumber.value = bkash
+                        val bkash = snapshot.child("bkash_number").getValue(String::class.java)
+                        if (!bkash.isNullOrBlank()) _bkashNumber.value = bkash
 
-                    val nagad = snapshot.child("nagad_number").getValue(String::class.java)
-                    if (!nagad.isNullOrBlank()) _nagadNumber.value = nagad
+                        val nagad = snapshot.child("nagad_number").getValue(String::class.java)
+                        if (!nagad.isNullOrBlank()) _nagadNumber.value = nagad
 
-                    val rocket = snapshot.child("rocket_number").getValue(String::class.java)
-                    if (!rocket.isNullOrBlank()) _rocketNumber.value = rocket
+                        val rocket = snapshot.child("rocket_number").getValue(String::class.java)
+                        if (!rocket.isNullOrBlank()) _rocketNumber.value = rocket
 
-                    val feeObj = snapshot.child("booking_acceptance_fee").value
-                    if (feeObj != null) {
-                        val fee = when (feeObj) {
-                            is Number -> feeObj.toDouble()
-                            is String -> feeObj.toDoubleOrNull()
-                            else -> null
+                        val feeObj = snapshot.child("booking_acceptance_fee").value
+                        if (feeObj != null) {
+                            val fee = when (feeObj) {
+                                is Number -> feeObj.toDouble()
+                                is String -> feeObj.toDoubleOrNull()
+                                else -> null
+                            }
+                            if (fee != null) _bookingAcceptanceFee.value = fee
                         }
-                        if (fee != null) _bookingAcceptanceFee.value = fee
-                    }
 
-                    val stdCommObj = snapshot.child("standard_commission_rate").value
-                    if (stdCommObj != null) {
-                        val rate = when (stdCommObj) {
-                            is Number -> stdCommObj.toDouble()
-                            is String -> stdCommObj.toDoubleOrNull()
-                            else -> null
+                        val stdCommObj = snapshot.child("standard_commission_rate").value
+                        if (stdCommObj != null) {
+                            val rate = when (stdCommObj) {
+                                is Number -> stdCommObj.toDouble()
+                                is String -> stdCommObj.toDoubleOrNull()
+                                else -> null
+                            }
+                            if (rate != null) _standardCommissionRate.value = rate
                         }
-                        if (rate != null) _standardCommissionRate.value = rate
-                    }
 
-                    val mplusCommObj = snapshot.child("mplus_commission_rate").value
-                    if (mplusCommObj != null) {
-                        val rate = when (mplusCommObj) {
-                            is Number -> mplusCommObj.toDouble()
-                            is String -> mplusCommObj.toDoubleOrNull()
-                            else -> null
+                        val mplusCommObj = snapshot.child("mplus_commission_rate").value
+                        if (mplusCommObj != null) {
+                            val rate = when (mplusCommObj) {
+                                is Number -> mplusCommObj.toDouble()
+                                is String -> mplusCommObj.toDoubleOrNull()
+                                else -> null
+                            }
+                            if (rate != null) _mPlusCommissionRate.value = rate
                         }
-                        if (rate != null) _mPlusCommissionRate.value = rate
+
+                        val privEn = snapshot.child("privacy_policy_en").getValue(String::class.java)
+                        if (!privEn.isNullOrBlank()) _privacyPolicyEn.value = privEn
+
+                        val privBn = snapshot.child("privacy_policy_bn").getValue(String::class.java)
+                        if (!privBn.isNullOrBlank()) _privacyPolicyBn.value = privBn
+
+                        val termsEn = snapshot.child("terms_en").getValue(String::class.java)
+                        if (!termsEn.isNullOrBlank()) _termsConditionsEn.value = termsEn
+
+                        val termsBn = snapshot.child("terms_bn").getValue(String::class.java)
+                        if (!termsBn.isNullOrBlank()) _termsConditionsBn.value = termsBn
+
+                        // Custom CPA / Affmine Ads Sync
+                        val customEnabled = snapshot.child("custom_ads_enabled").getValue(Boolean::class.java)
+                        if (customEnabled != null) _customAdsEnabled.value = customEnabled
+
+                        val netName = snapshot.child("custom_ad_network_name").getValue(String::class.java)
+                        if (netName != null) _customAdNetworkName.value = netName
+
+                        val adTitle = snapshot.child("custom_ad_title").getValue(String::class.java)
+                        if (adTitle != null) _customAdTitle.value = adTitle
+
+                        val bannerUrl = snapshot.child("custom_ad_banner_url").getValue(String::class.java)
+                        if (bannerUrl != null) _customAdBannerUrl.value = bannerUrl
+
+                        val targetUrl = snapshot.child("custom_ad_target_url").getValue(String::class.java)
+                        if (targetUrl != null) _customAdTargetUrl.value = targetUrl
+
+                        val targetCountries = snapshot.child("custom_ad_target_countries").getValue(String::class.java)
+                        if (targetCountries != null) _customAdTargetCountries.value = targetCountries
+
+                        val serializedAdList = snapshot.child("custom_ad_configs_list").getValue(String::class.java)
+                        if (!serializedAdList.isNullOrEmpty()) {
+                            _customAdConfigs.value = deserializeAds(serializedAdList)
+                        }
+
+                        // AdMob Sync
+                        val admobEnabled = snapshot.child("admob_enabled").getValue(Boolean::class.java)
+                        if (admobEnabled != null) _adMobEnabled.value = admobEnabled
+
+                        val admobApp = snapshot.child("admob_app_id").getValue(String::class.java)
+                        if (admobApp != null) _adMobAppId.value = admobApp
+
+                        val admobBanner = snapshot.child("admob_banner_id").getValue(String::class.java)
+                        if (admobBanner != null) _adMobBannerId.value = admobBanner
+
+                        val admobInter = snapshot.child("admob_interstitial_id").getValue(String::class.java)
+                        if (admobInter != null) _adMobInterstitialId.value = admobInter
+
+                        val admobNative = snapshot.child("admob_native_id").getValue(String::class.java)
+                        if (admobNative != null) _adMobNativeId.value = admobNative
+
+                        // Persist to local preferences so local cache remains synced
+                        appContext?.let { ctx ->
+                            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+                            prefs.edit().apply {
+                                if (_appName.value.isNotBlank()) putString("app_name_pref", _appName.value)
+                                if (_homeNotice.value.isNotBlank()) putString("home_notice", _homeNotice.value)
+                                if (_popupNotice.value.isNotBlank()) putString("popup_notice", _popupNotice.value)
+                                if (_bkashNumber.value.isNotBlank()) putString("payment_bkash", _bkashNumber.value)
+                                if (_nagadNumber.value.isNotBlank()) putString("payment_nagad", _nagadNumber.value)
+                                if (_rocketNumber.value.isNotBlank()) putString("payment_rocket", _rocketNumber.value)
+                                putFloat("booking_acceptance_fee", _bookingAcceptanceFee.value.toFloat())
+                                putFloat("standard_commission_rate", _standardCommissionRate.value.toFloat())
+                                putFloat("mplus_commission_rate", _mPlusCommissionRate.value.toFloat())
+                                if (_privacyPolicyEn.value.isNotBlank()) putString("policy_privacy_en", _privacyPolicyEn.value)
+                                if (_privacyPolicyBn.value.isNotBlank()) putString("policy_privacy_bn", _privacyPolicyBn.value)
+                                if (_termsConditionsEn.value.isNotBlank()) putString("policy_terms_en", _termsConditionsEn.value)
+                                if (_termsConditionsBn.value.isNotBlank()) putString("policy_terms_bn", _termsConditionsBn.value)
+                                if (_refundPolicyEn.value.isNotBlank()) putString("policy_refund_en", _refundPolicyEn.value)
+                                if (_refundPolicyBn.value.isNotBlank()) putString("policy_refund_bn", _refundPolicyBn.value)
+                                apply()
+                            }
+                        }
+                    } else {
+                        // Seed Firebase config only if config node is missing
+                        pushAppConfigToFirebase()
                     }
-
-                    val privEn = snapshot.child("privacy_policy_en").getValue(String::class.java)
-                    if (!privEn.isNullOrBlank()) _privacyPolicyEn.value = privEn
-
-                    val privBn = snapshot.child("privacy_policy_bn").getValue(String::class.java)
-                    if (!privBn.isNullOrBlank()) _privacyPolicyBn.value = privBn
-
-                    val termsEn = snapshot.child("terms_en").getValue(String::class.java)
-                    if (!termsEn.isNullOrBlank()) _termsConditionsEn.value = termsEn
-
-                    val termsBn = snapshot.child("terms_bn").getValue(String::class.java)
-                    if (!termsBn.isNullOrBlank()) _termsConditionsBn.value = termsBn
-
-                    // Custom CPA / Affmine Ads Sync
-                    val customEnabled = snapshot.child("custom_ads_enabled").getValue(Boolean::class.java)
-                    if (customEnabled != null) _customAdsEnabled.value = customEnabled
-
-                    val netName = snapshot.child("custom_ad_network_name").getValue(String::class.java)
-                    if (netName != null) _customAdNetworkName.value = netName
-
-                    val adTitle = snapshot.child("custom_ad_title").getValue(String::class.java)
-                    if (adTitle != null) _customAdTitle.value = adTitle
-
-                    val bannerUrl = snapshot.child("custom_ad_banner_url").getValue(String::class.java)
-                    if (bannerUrl != null) _customAdBannerUrl.value = bannerUrl
-
-                    val targetUrl = snapshot.child("custom_ad_target_url").getValue(String::class.java)
-                    if (targetUrl != null) _customAdTargetUrl.value = targetUrl
-
-                    val targetCountries = snapshot.child("custom_ad_target_countries").getValue(String::class.java)
-                    if (targetCountries != null) _customAdTargetCountries.value = targetCountries
-
-                    val serializedAdList = snapshot.child("custom_ad_configs_list").getValue(String::class.java)
-                    if (!serializedAdList.isNullOrEmpty()) {
-                        _customAdConfigs.value = deserializeAds(serializedAdList)
-                    }
-
-                    // AdMob Sync
-                    val admobEnabled = snapshot.child("admob_enabled").getValue(Boolean::class.java)
-                    if (admobEnabled != null) _adMobEnabled.value = admobEnabled
-
-                    val admobApp = snapshot.child("admob_app_id").getValue(String::class.java)
-                    if (admobApp != null) _adMobAppId.value = admobApp
-
-                    val admobBanner = snapshot.child("admob_banner_id").getValue(String::class.java)
-                    if (admobBanner != null) _adMobBannerId.value = admobBanner
-
-                    val admobInter = snapshot.child("admob_interstitial_id").getValue(String::class.java)
-                    if (admobInter != null) _adMobInterstitialId.value = admobInter
-
-                    val admobNative = snapshot.child("admob_native_id").getValue(String::class.java)
-                    if (admobNative != null) _adMobNativeId.value = admobNative
                 } catch (e: Exception) {
                     Log.e("BloodConnectRepo", "Error listening to app_config: ${e.message}")
                 }
@@ -2039,23 +2066,27 @@ class BloodConnectRepository private constructor() {
         db.getReference("donors").addValueEventListener(object : com.google.firebase.database.ValueEventListener {
             override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
                 try {
-                    val list = mutableListOf<BloodDonor>()
-                    for (child in snapshot.children) {
-                        val parsed = parseDonorFromSnapshot(child)
-                        if (parsed != null && parsed.id.isNotBlank()) {
-                            list.add(parsed)
-                        }
-                    }
-                    if (snapshot.exists()) {
-                        _donors.value = list
-                        saveDonorsLocal()
-
-                        _currentUser.value?.let { current ->
-                            val remoteCurrent = list.find { phonesMatch(it.phone, current.phone) }
-                            if (remoteCurrent != null && remoteCurrent != current) {
-                                setCurrentUser(remoteCurrent)
+                    if (snapshot.exists() && snapshot.childrenCount > 0) {
+                        val list = mutableListOf<BloodDonor>()
+                        for (child in snapshot.children) {
+                            val parsed = parseDonorFromSnapshot(child)
+                            if (parsed != null && parsed.id.isNotBlank()) {
+                                list.add(parsed)
                             }
                         }
+                        if (list.isNotEmpty()) {
+                            _donors.value = list
+                            saveDonorsLocal()
+
+                            _currentUser.value?.let { current ->
+                                val remoteCurrent = list.find { phonesMatch(it.phone, current.phone) }
+                                if (remoteCurrent != null && remoteCurrent != current) {
+                                    setCurrentUser(remoteCurrent)
+                                }
+                            }
+                        }
+                    } else if (!snapshot.exists() || snapshot.childrenCount == 0L) {
+                        MockData.initialDonors.forEach { pushDonorToFirebase(it) }
                     }
                 } catch (e: Exception) {
                     Log.e("BloodConnectRepo", "Error listening to Firebase donors: ${e.message}")
@@ -2068,21 +2099,25 @@ class BloodConnectRepository private constructor() {
         db.getReference("requests").addValueEventListener(object : com.google.firebase.database.ValueEventListener {
             override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
                 try {
-                    val list = mutableListOf<BloodRequest>()
-                    for (child in snapshot.children) {
-                        val req = child.getValue(BloodRequest::class.java)
-                        if (req != null) {
-                            val safeId = if (req.id.isBlank()) (child.key ?: "") else req.id
-                            val finalReq = req.copy(id = safeId)
-                            if (finalReq.id.isNotBlank()) {
-                                list.add(finalReq)
+                    if (snapshot.exists() && snapshot.childrenCount > 0) {
+                        val list = mutableListOf<BloodRequest>()
+                        for (child in snapshot.children) {
+                            val req = child.getValue(BloodRequest::class.java)
+                            if (req != null) {
+                                val safeId = if (req.id.isBlank()) (child.key ?: "") else req.id
+                                val finalReq = req.copy(id = safeId)
+                                if (finalReq.id.isNotBlank()) {
+                                    list.add(finalReq)
+                                }
                             }
                         }
-                    }
-                    if (snapshot.exists()) {
-                        _requests.value = list
-                        cleanExpiredRequests()
-                        saveRequestsLocal()
+                        if (list.isNotEmpty()) {
+                            _requests.value = list
+                            cleanExpiredRequests()
+                            saveRequestsLocal()
+                        }
+                    } else if (!snapshot.exists() || snapshot.childrenCount == 0L) {
+                        MockData.initialRequests.forEach { pushRequestToFirebase(it) }
                     }
                 } catch (e: Exception) {
                     Log.e("BloodConnectRepo", "Error listening to Firebase requests: ${e.message}")

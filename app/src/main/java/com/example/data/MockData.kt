@@ -642,7 +642,7 @@ object MockData {
             receiverName = "Tanjina Sajjad",
             message = "Okay, I am free tomorrow morning. I can donate. Please send me the contact person's number and exact time.",
             timestamp = "09:40 AM",
-            isRead = false
+            isRead = true
         ),
         ChatMessage(
             id = "m4",
