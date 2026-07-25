@@ -34,6 +34,9 @@ android {
   }
 
   buildTypes {
+    debug {
+      signingConfig = signingConfigs.getByName("release")
+    }
     release {
       isCrunchPngs = false
       isMinifyEnabled = false
