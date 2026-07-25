@@ -4401,11 +4401,32 @@ fun HomeScreen(viewModel: MainViewModel) {
         // Custom CPA/Affiliate banner ad (Affmine, etc.)
         val customAdsEnabled by viewModel.customAdsEnabled.collectAsState()
         val customAdConfigs by viewModel.customAdConfigs.collectAsState()
+        val customAdNetworkName by viewModel.customAdNetworkName.collectAsState()
+        val customAdTitle by viewModel.customAdTitle.collectAsState()
+        val customAdBannerUrl by viewModel.customAdBannerUrl.collectAsState()
+        val customAdTargetUrl by viewModel.customAdTargetUrl.collectAsState()
+        val customAdTargetCountries by viewModel.customAdTargetCountries.collectAsState()
 
-        val activeAdsForCountry = remember(customAdConfigs, detectedCountry) {
-            customAdConfigs.filter { ad ->
+        val activeAdsForCountry = remember(customAdConfigs, customAdTitle, customAdNetworkName, customAdBannerUrl, customAdTargetUrl, customAdTargetCountries, detectedCountry) {
+            val filtered = customAdConfigs.filter { ad ->
                 val countries = ad.targetCountries.split(",").map { it.trim() }
                 countries.any { it.equals("All", ignoreCase = true) || it.equals(detectedCountry, ignoreCase = true) }
+            }
+            if (filtered.isNotEmpty()) {
+                filtered
+            } else if (customAdTitle.isNotBlank()) {
+                listOf(
+                    com.example.data.CustomAdConfig(
+                        id = "default_single_ad",
+                        networkName = customAdNetworkName.ifBlank { "Affmine" },
+                        title = customAdTitle,
+                        bannerUrl = customAdBannerUrl,
+                        targetUrl = customAdTargetUrl,
+                        targetCountries = customAdTargetCountries
+                    )
+                )
+            } else {
+                emptyList()
             }
         }
 
@@ -7265,39 +7286,6 @@ fun DonorProfileScreen(viewModel: MainViewModel) {
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Button(
-            onClick = {
-                try {
-                    val smsIntent = Intent(Intent.ACTION_VIEW, Uri.parse("sms:${finalDonor.phone}"))
-                    context.startActivity(smsIntent)
-                } catch (e: Exception) {
-                    try {
-                        val sendToIntent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:${finalDonor.phone}"))
-                        context.startActivity(sendToIntent)
-                    } catch (ex: Exception) {
-                        android.widget.Toast.makeText(context, "Cannot open SMS app", android.widget.Toast.LENGTH_SHORT).show()
-                    }
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(54.dp)
-                .testTag("profile_direct_sms_btn"),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE8EAF6), contentColor = Color(0xFF283593)),
-            border = BorderStroke(1.dp, Color(0xFFC5CAE9)),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Icon(Icons.Filled.Send, contentDescription = "sms")
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = if (language == AppLanguage.BAN) "ফোনের এসএমএস অ্যাপ দিয়ে মেসেজ দিন" else "Send Direct SMS (Phone App)",
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp
-            )
-        }
-
         Spacer(modifier = Modifier.height(24.dp))
 
         // Scam Warning and Reporting Card
@@ -8258,6 +8246,9 @@ fun NotificationsScreen(viewModel: MainViewModel) {
     val strings by viewModel.strings.collectAsState()
     val notificationsList by viewModel.notifications.collectAsState()
     val language by viewModel.language.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    var selectedNotification by remember { mutableStateOf<com.example.data.DonationNotification?>(null) }
 
     // Flag notification count as read
     LaunchedEffect(Unit) {
@@ -8280,7 +8271,7 @@ fun NotificationsScreen(viewModel: MainViewModel) {
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = BloodRed)
                 )
                 Text(
-                    text = if (language == AppLanguage.ENG) "Nearby Blood Donor Alerts & Request status" else "নিকটবর্তী রক্তদাতার এলার্ট এবং অনুরোধের অবস্থা",
+                    text = if (language == AppLanguage.ENG) "Tap any notification to view full details" else "সম্পূর্ণ বিবরণ দেখতে যেকোনো নোটিফিকেশনে ট্যাপ করুন",
                     fontSize = 12.sp,
                     color = SecondaryText,
                     modifier = Modifier.padding(bottom = 16.dp)
@@ -8317,9 +8308,11 @@ fun NotificationsScreen(viewModel: MainViewModel) {
                     }
 
                     Card(
+                        onClick = { selectedNotification = notify },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .shadow(1.dp, RoundedCornerShape(12.dp)),
+                            .shadow(1.dp, RoundedCornerShape(12.dp))
+                            .testTag("notification_item_${notify.id}"),
                         colors = CardDefaults.cardColors(containerColor = containerColor),
                         shape = RoundedCornerShape(12.dp)
                     ) {
@@ -8355,20 +8348,144 @@ fun NotificationsScreen(viewModel: MainViewModel) {
                                     text = finalMessage,
                                     fontSize = 12.sp,
                                     color = DarkText.copy(alpha = 0.85f),
-                                    lineHeight = 15.sp
+                                    lineHeight = 16.sp,
+                                    maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis
                                 )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = notify.timestamp,
-                                    fontSize = 10.sp,
-                                    color = SecondaryText
-                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = notify.timestamp,
+                                        fontSize = 10.sp,
+                                        color = SecondaryText
+                                    )
+                                    Text(
+                                        text = if (language == AppLanguage.ENG) "View Details >" else "বিস্তারিত দেখুন >",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = BloodRed
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
         }
+    }
+
+    // Full Notification Details Modal Dialog
+    selectedNotification?.let { notify ->
+        val finalTitle = if (language == AppLanguage.ENG) notify.titleEn else notify.titleBn
+        val finalMessage = if (language == AppLanguage.ENG) notify.messageEn else notify.messageBn
+
+        val iconTint = when (notify.type) {
+            "ALERT" -> BloodRed
+            "REQUEST" -> Color(0xFFFF9800)
+            else -> Color(0xFF4CAF50)
+        }
+
+        val icon = when (notify.type) {
+            "ALERT" -> Icons.Filled.CrisisAlert
+            "REQUEST" -> Icons.Filled.LiveHelp
+            else -> Icons.Filled.CheckCircle
+        }
+
+        AlertDialog(
+            onDismissRequest = { selectedNotification = null },
+            icon = {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(iconTint.copy(alpha = 0.15f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = notify.type,
+                        tint = iconTint,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            },
+            title = {
+                Text(
+                    text = finalTitle,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = DarkText),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = iconTint.copy(alpha = 0.12f)
+                        ) {
+                            Text(
+                                text = notify.type,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = iconTint,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+
+                        Text(
+                            text = notify.timestamp,
+                            fontSize = 11.sp,
+                            color = SecondaryText
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider(color = LightBorder)
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = finalMessage,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = DarkText,
+                            fontSize = 14.sp,
+                            lineHeight = 20.sp
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { selectedNotification = null },
+                    colors = ButtonDefaults.buttonColors(containerColor = BloodRed)
+                ) {
+                    Text(if (language == AppLanguage.ENG) "Close" else "বন্ধ করুন")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = {
+                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                        val clip = android.content.ClipData.newPlainText("Notification", "$finalTitle\n$finalMessage")
+                        clipboard?.setPrimaryClip(clip)
+                        android.widget.Toast.makeText(context, if (language == AppLanguage.ENG) "Copied to clipboard" else "কপি করা হয়েছে", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                ) {
+                    Text(if (language == AppLanguage.ENG) "Copy Text" else "কপি করুন")
+                }
+            },
+            shape = RoundedCornerShape(16.dp)
+        )
     }
 }
 
@@ -12676,7 +12793,7 @@ fun RequestDetailScreen(viewModel: MainViewModel) {
             ) {
                 Icon(Icons.Default.Chat, contentDescription = null)
                 Spacer(modifier = Modifier.width(12.dp))
-                Text(text = if (language == AppLanguage.BAN) "চ্যাট" else "Chat", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(text = if (language == AppLanguage.BAN) "অ্যাপস চ্যাট" else "In-App Chat", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
 
             val isRequestOwner = currentUser?.phone == request.contactNumber

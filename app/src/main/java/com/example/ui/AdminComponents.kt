@@ -2976,7 +2976,7 @@ fun AdminSettingsTab(
         val customAdsEnabledState by viewModel.customAdsEnabled.collectAsState()
         val customAdConfigsState by viewModel.customAdConfigs.collectAsState()
 
-        var draftCustomAdsEnabled by remember { mutableStateOf(customAdsEnabledState) }
+        var draftCustomAdsEnabled by remember(customAdsEnabledState) { mutableStateOf(customAdsEnabledState) }
         var currentAdConfigsList by remember(customAdConfigsState) { mutableStateOf(customAdConfigsState) }
 
         // State variables for adding a new ad config

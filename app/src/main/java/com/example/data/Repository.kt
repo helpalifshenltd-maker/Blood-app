@@ -1223,6 +1223,142 @@ class BloodConnectRepository private constructor() {
         return if (sanitized.isBlank()) "item_${System.currentTimeMillis()}" else sanitized
     }
 
+    private fun parseDonorFromSnapshot(child: com.google.firebase.database.DataSnapshot): BloodDonor? {
+        try {
+            val direct = child.getValue(BloodDonor::class.java)
+            if (direct != null) {
+                val safeId = if (direct.id.isBlank()) (child.key ?: "") else direct.id
+                return direct.copy(id = safeId)
+            }
+        } catch (e: Exception) {
+            // Fallback to manual map parsing if direct deserialization fails
+        }
+
+        val map = child.value as? Map<*, *> ?: return null
+
+        fun getString(key: String, default: String = ""): String =
+            (map[key] as? String) ?: (map[key]?.toString()) ?: default
+
+        fun getBool(vararg keys: String, default: Boolean = true): Boolean {
+            for (k in keys) {
+                val v = map[k] ?: continue
+                when (v) {
+                    is Boolean -> return v
+                    is String -> return v.equals("true", ignoreCase = true) || v == "1"
+                    is Number -> return v.toInt() != 0
+                }
+            }
+            return default
+        }
+
+        fun getInt(key: String, default: Int = 0): Int {
+            val v = map[key] ?: return default
+            return when (v) {
+                is Number -> v.toInt()
+                is String -> v.toIntOrNull() ?: default
+                else -> default
+            }
+        }
+
+        fun getDouble(key: String, default: Double = 0.0): Double {
+            val v = map[key] ?: return default
+            return when (v) {
+                is Number -> v.toDouble()
+                is String -> v.toDoubleOrNull() ?: default
+                else -> default
+            }
+        }
+
+        val id = getString("id", child.key ?: "")
+        val name = getString("name", "Donor")
+        val phone = getString("phone")
+        val bloodGroup = getString("bloodGroup", "O+")
+        val email = getString("email")
+        val district = getString("district", "Bangladesh")
+        val upazila = getString("upazila")
+        val lastDonationDate = getString("lastDonationDate", "Available")
+        val isAvailable = getBool("isAvailable", "available", default = true)
+        val isApproved = getBool("isApproved", "approved", default = true)
+        val donationCount = getInt("donationCount", 0)
+        val isGoogleUser = getBool("isGoogleUser", "googleUser", default = false)
+        val country = getString("country", "Bangladesh")
+        val userId = getString("userId")
+        val isWarning = getBool("isWarning", "warning", default = false)
+        val warningReason = getString("warningReason")
+        val role = getString("role", "Donor")
+        val walletBalance = getDouble("walletBalance", 0.0)
+
+        return BloodDonor(
+            id = id,
+            name = name,
+            bloodGroup = bloodGroup,
+            phone = phone,
+            email = email,
+            district = district,
+            upazila = upazila,
+            lastDonationDate = lastDonationDate,
+            isAvailable = isAvailable,
+            isApproved = isApproved,
+            donationCount = donationCount,
+            isGoogleUser = isGoogleUser,
+            country = country,
+            userId = userId,
+            isWarning = isWarning,
+            warningReason = warningReason,
+            role = role,
+            walletBalance = walletBalance
+        )
+    }
+
+    private fun parseChatMessageFromSnapshot(child: com.google.firebase.database.DataSnapshot): ChatMessage? {
+        try {
+            val direct = child.getValue(ChatMessage::class.java)
+            if (direct != null) {
+                val safeId = if (direct.id.isBlank()) (child.key ?: "") else direct.id
+                return direct.copy(id = safeId)
+            }
+        } catch (e: Exception) {
+            // Fallback to map parsing
+        }
+
+        val map = child.value as? Map<*, *> ?: return null
+
+        fun getString(key: String, default: String = ""): String =
+            (map[key] as? String) ?: (map[key]?.toString()) ?: default
+
+        fun getBool(key: String, default: Boolean = false): Boolean {
+            val v = map[key] ?: return default
+            return when (v) {
+                is Boolean -> v
+                is String -> v.equals("true", ignoreCase = true) || v == "1"
+                is Number -> v.toInt() != 0
+                else -> default
+            }
+        }
+
+        val id = getString("id", child.key ?: "")
+        val senderPhone = getString("senderPhone")
+        val senderName = getString("senderName")
+        val receiverPhone = getString("receiverPhone")
+        val receiverName = getString("receiverName")
+        val message = getString("message")
+        val timestamp = getString("timestamp")
+        val isRead = getBool("isRead", false)
+
+        if (id.isBlank()) return null
+
+        return ChatMessage(
+            id = id,
+            senderPhone = senderPhone,
+            senderName = senderName,
+            receiverPhone = receiverPhone,
+            receiverName = receiverName,
+            message = message,
+            timestamp = timestamp,
+            isRead = isRead
+        )
+    }
+
     fun getDb(): com.google.firebase.database.FirebaseDatabase? {
         if (firebaseDb != null) return firebaseDb
         try {
@@ -1436,7 +1572,19 @@ class BloodConnectRepository private constructor() {
                     "terms_en" to _termsConditionsEn.value,
                     "terms_bn" to _termsConditionsBn.value,
                     "refund_en" to _refundPolicyEn.value,
-                    "refund_bn" to _refundPolicyBn.value
+                    "refund_bn" to _refundPolicyBn.value,
+                    "custom_ads_enabled" to _customAdsEnabled.value,
+                    "custom_ad_network_name" to _customAdNetworkName.value,
+                    "custom_ad_title" to _customAdTitle.value,
+                    "custom_ad_banner_url" to _customAdBannerUrl.value,
+                    "custom_ad_target_url" to _customAdTargetUrl.value,
+                    "custom_ad_target_countries" to _customAdTargetCountries.value,
+                    "custom_ad_configs_list" to serializeAds(_customAdConfigs.value),
+                    "admob_enabled" to _adMobEnabled.value,
+                    "admob_app_id" to _adMobAppId.value,
+                    "admob_banner_id" to _adMobBannerId.value,
+                    "admob_interstitial_id" to _adMobInterstitialId.value,
+                    "admob_native_id" to _adMobNativeId.value
                 )
                 db.getReference("app_config").setValue(configMap)
             } catch (e: Exception) {
@@ -1546,6 +1694,46 @@ class BloodConnectRepository private constructor() {
 
                     val termsBn = snapshot.child("terms_bn").getValue(String::class.java)
                     if (!termsBn.isNullOrBlank()) _termsConditionsBn.value = termsBn
+
+                    // Custom CPA / Affmine Ads Sync
+                    val customEnabled = snapshot.child("custom_ads_enabled").getValue(Boolean::class.java)
+                    if (customEnabled != null) _customAdsEnabled.value = customEnabled
+
+                    val netName = snapshot.child("custom_ad_network_name").getValue(String::class.java)
+                    if (netName != null) _customAdNetworkName.value = netName
+
+                    val adTitle = snapshot.child("custom_ad_title").getValue(String::class.java)
+                    if (adTitle != null) _customAdTitle.value = adTitle
+
+                    val bannerUrl = snapshot.child("custom_ad_banner_url").getValue(String::class.java)
+                    if (bannerUrl != null) _customAdBannerUrl.value = bannerUrl
+
+                    val targetUrl = snapshot.child("custom_ad_target_url").getValue(String::class.java)
+                    if (targetUrl != null) _customAdTargetUrl.value = targetUrl
+
+                    val targetCountries = snapshot.child("custom_ad_target_countries").getValue(String::class.java)
+                    if (targetCountries != null) _customAdTargetCountries.value = targetCountries
+
+                    val serializedAdList = snapshot.child("custom_ad_configs_list").getValue(String::class.java)
+                    if (!serializedAdList.isNullOrEmpty()) {
+                        _customAdConfigs.value = deserializeAds(serializedAdList)
+                    }
+
+                    // AdMob Sync
+                    val admobEnabled = snapshot.child("admob_enabled").getValue(Boolean::class.java)
+                    if (admobEnabled != null) _adMobEnabled.value = admobEnabled
+
+                    val admobApp = snapshot.child("admob_app_id").getValue(String::class.java)
+                    if (admobApp != null) _adMobAppId.value = admobApp
+
+                    val admobBanner = snapshot.child("admob_banner_id").getValue(String::class.java)
+                    if (admobBanner != null) _adMobBannerId.value = admobBanner
+
+                    val admobInter = snapshot.child("admob_interstitial_id").getValue(String::class.java)
+                    if (admobInter != null) _adMobInterstitialId.value = admobInter
+
+                    val admobNative = snapshot.child("admob_native_id").getValue(String::class.java)
+                    if (admobNative != null) _adMobNativeId.value = admobNative
                 } catch (e: Exception) {
                     Log.e("BloodConnectRepo", "Error listening to app_config: ${e.message}")
                 }
@@ -1559,25 +1747,17 @@ class BloodConnectRepository private constructor() {
                 try {
                     val list = mutableListOf<BloodDonor>()
                     for (child in snapshot.children) {
-                        val donor = child.getValue(BloodDonor::class.java)
-                        if (donor != null) {
-                            val safeId = if (donor.id.isBlank()) (child.key ?: "") else donor.id
-                            val finalDonor = donor.copy(id = safeId)
-                            if (finalDonor.id.isNotBlank()) {
-                                list.add(finalDonor)
-                            }
+                        val parsed = parseDonorFromSnapshot(child)
+                        if (parsed != null && parsed.id.isNotBlank()) {
+                            list.add(parsed)
                         }
                     }
-                    if (list.isNotEmpty()) {
-                        val currentLocal = _donors.value
-                        val merged = list + currentLocal.filter { local ->
-                            list.none { remote -> remote.id == local.id || (remote.phone.isNotBlank() && remote.phone == local.phone) }
-                        }
-                        _donors.value = merged
+                    if (snapshot.exists()) {
+                        _donors.value = list
                         saveDonorsLocal()
 
                         _currentUser.value?.let { current ->
-                            val remoteCurrent = merged.find { phonesMatch(it.phone, current.phone) }
+                            val remoteCurrent = list.find { phonesMatch(it.phone, current.phone) }
                             if (remoteCurrent != null && remoteCurrent != current) {
                                 setCurrentUser(remoteCurrent)
                             }
@@ -1605,12 +1785,8 @@ class BloodConnectRepository private constructor() {
                             }
                         }
                     }
-                    if (list.isNotEmpty()) {
-                        val currentLocal = _requests.value
-                        val merged = list + currentLocal.filter { local ->
-                            list.none { remote -> remote.id == local.id }
-                        }
-                        _requests.value = merged
+                    if (snapshot.exists()) {
+                        _requests.value = list
                         cleanExpiredRequests()
                         saveRequestsLocal()
                     }
@@ -1627,21 +1803,13 @@ class BloodConnectRepository private constructor() {
                 try {
                     val list = mutableListOf<ChatMessage>()
                     for (child in snapshot.children) {
-                        val msg = child.getValue(ChatMessage::class.java)
-                        if (msg != null) {
-                            val safeId = if (msg.id.isBlank()) (child.key ?: "") else msg.id
-                            val finalMsg = msg.copy(id = safeId)
-                            if (finalMsg.id.isNotBlank()) {
-                                list.add(finalMsg)
-                            }
+                        val parsed = parseChatMessageFromSnapshot(child)
+                        if (parsed != null && parsed.id.isNotBlank()) {
+                            list.add(parsed)
                         }
                     }
-                    if (list.isNotEmpty()) {
-                        val currentLocal = _messages.value
-                        val merged = list + currentLocal.filter { local ->
-                            list.none { remote -> remote.id == local.id }
-                        }
-                        _messages.value = merged
+                    if (snapshot.exists()) {
+                        _messages.value = list
                         saveMessagesLocal()
                     }
                 } catch (e: Exception) {
@@ -1666,12 +1834,8 @@ class BloodConnectRepository private constructor() {
                             }
                         }
                     }
-                    if (list.isNotEmpty()) {
-                        val currentLocal = _ambulances.value
-                        val merged = list + currentLocal.filter { local ->
-                            list.none { remote -> remote.id == local.id || (remote.phone.isNotBlank() && remote.phone == local.phone) }
-                        }
-                        _ambulances.value = merged
+                    if (snapshot.exists()) {
+                        _ambulances.value = list
                         saveAmbulancesLocal()
                     }
                 } catch (e: Exception) {
@@ -1696,12 +1860,8 @@ class BloodConnectRepository private constructor() {
                             }
                         }
                     }
-                    if (list.isNotEmpty()) {
-                        val currentLocal = _ambulanceBookings.value
-                        val merged = list + currentLocal.filter { local ->
-                            list.none { remote -> remote.id == local.id }
-                        }
-                        _ambulanceBookings.value = merged
+                    if (snapshot.exists()) {
+                        _ambulanceBookings.value = list
                         saveBookingsLocal()
                     }
                 } catch (e: Exception) {
