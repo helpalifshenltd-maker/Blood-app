@@ -99,7 +99,7 @@ class MainViewModel(
     val detectedCountryCode: StateFlow<String> = _detectedCountryCode.asStateFlow()
 
     // --- MOCK STATISTICS FOR LIVE DISPLAY ---
-    private val _useMockStats = MutableStateFlow(true)
+    private val _useMockStats = MutableStateFlow(false)
     val useMockStats: StateFlow<Boolean> = _useMockStats.asStateFlow()
 
     private val _mockTotalUsers = MutableStateFlow(80424)
@@ -142,27 +142,27 @@ class MainViewModel(
     val allAmbulanceBookings: StateFlow<List<AmbulanceBooking>> = repository.ambulanceBookings
 
     val donors: StateFlow<List<BloodDonor>> = combine(repository.donors, detectedCountry) { list, countryName ->
-        list.filter {
+        val filtered = list.filter {
             it.country.isBlank() ||
             it.country.equals(countryName, ignoreCase = true) ||
             (countryName.equals("Bangladesh", ignoreCase = true) && it.country.equals("BD", ignoreCase = true)) ||
             (countryName.equals("BD", ignoreCase = true) && it.country.equals("Bangladesh", ignoreCase = true)) ||
             countryName.equals("Global", ignoreCase = true) ||
-            countryName.equals("International", ignoreCase = true) ||
-            countryName.isBlank()
+            countryName.equals("International", ignoreCase = true)
         }
+        if (filtered.isEmpty() && list.isNotEmpty()) list else filtered
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val requests: StateFlow<List<BloodRequest>> = combine(repository.requests, detectedCountry) { list, countryName ->
-        list.filter {
+        val filtered = list.filter {
             it.country.isBlank() ||
             it.country.equals(countryName, ignoreCase = true) ||
             (countryName.equals("Bangladesh", ignoreCase = true) && it.country.equals("BD", ignoreCase = true)) ||
             (countryName.equals("BD", ignoreCase = true) && it.country.equals("Bangladesh", ignoreCase = true)) ||
             countryName.equals("Global", ignoreCase = true) ||
-            countryName.equals("International", ignoreCase = true) ||
-            countryName.isBlank()
+            countryName.equals("International", ignoreCase = true)
         }
+        if (filtered.isEmpty() && list.isNotEmpty()) list else filtered
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val notifications: StateFlow<List<DonationNotification>> = combine(repository.notifications, detectedCountry) { list, countryName ->
@@ -654,7 +654,8 @@ class MainViewModel(
             } else {
                 (upz == "All" || donor.upazila.equals(upz, ignoreCase = true))
             }
-            matchGroup && matchDist && matchUpz && donor.isApproved && donor.isAvailable && donor.role == "Donor"
+            val isRoleValid = donor.role.isBlank() || donor.role.equals("Donor", ignoreCase = true) || donor.role.equals("User", ignoreCase = true) || donor.role.equals("Admin", ignoreCase = true)
+            matchGroup && matchDist && matchUpz && donor.isApproved && donor.isAvailable && isRoleValid
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -675,33 +676,33 @@ class MainViewModel(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // --- STATISTICS CARD VALUES ---
-    val statistics = combine(donors, requests, useMockStats, mockTotalUsers, mockTotalDonors) { donorList, requestList, useMock, mockUsers, mockDonors ->
+    val statistics = combine(repository.donors, repository.requests, useMockStats, mockTotalUsers, mockTotalDonors) { donorsList, requestsList, useMock, mockUsers, mockDonors ->
         if (useMock) {
             mapOf(
                 "total_donors" to mockDonors,
                 "total_users" to mockUsers,
-                "active_requests" to 42, // Also some mock values for others if needed
+                "active_requests" to 42,
                 "lives_saved" to 2340,
                 "hospitals" to 14
             )
         } else {
-            val totalDonors = donorList.filter { it.isApproved }.size
-            val activeRequests = requestList.filter { it.status == "Active" }.size
-            val livesSaved = donorList.sumOf { it.donationCount }
-            val hospitalCount = if (detectedCountry.value.equals("Bangladesh", ignoreCase = true)) 14 else 5
+            val totalApprovedDonors = donorsList.count { it.isApproved }
+            val activeRequests = requestsList.count { it.status == "Active" }
+            val livesSaved = donorsList.sumOf { it.donationCount }
+            val hospitalCount = 14
             mapOf(
-                "total_donors" to totalDonors,
-                "total_users" to totalDonors + 120, // Real users = donors + some guests
+                "total_donors" to totalApprovedDonors,
+                "total_users" to totalApprovedDonors + 120,
                 "active_requests" to activeRequests,
                 "lives_saved" to livesSaved,
                 "hospitals" to hospitalCount
             )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), mapOf(
-        "total_donors" to 12300,
-        "total_users" to 80424,
-        "active_requests" to 4,
-        "lives_saved" to 23,
+        "total_donors" to 0,
+        "total_users" to 0,
+        "active_requests" to 0,
+        "lives_saved" to 0,
         "hospitals" to 14
     ))
 
@@ -1208,6 +1209,95 @@ class MainViewModel(
         repository.addOrUpdateSubscriptionPlan(plan)
     }
 
+    val donorTeams: StateFlow<List<com.example.data.DonorTeam>> = repository.donorTeams
+    val selectedTeamId = MutableStateFlow<String?>(null)
+
+    fun selectTeam(teamId: String) {
+        selectedTeamId.value = teamId
+    }
+
+    fun createDonorTeam(
+        teamName: String,
+        district: String,
+        upazila: String,
+        description: String,
+        context: android.content.Context
+    ) {
+        val currentUser = currentUser.value
+        if (currentUser == null) {
+            android.widget.Toast.makeText(context, if (language.value == AppLanguage.BAN) "টিম তৈরি করতে অনুগ্রহ করে প্রথমে সাইন ইন করুন" else "Please sign in to create a donor team", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val created = repository.createDonorTeam(
+            teamName = teamName,
+            district = district,
+            upazila = upazila,
+            description = description,
+            leaderName = currentUser.name,
+            leaderPhone = currentUser.phone,
+            leaderBloodGroup = currentUser.bloodGroup
+        )
+
+        selectedTeamId.value = created.id
+        android.widget.Toast.makeText(
+            context,
+            if (language.value == AppLanguage.BAN) "টিমের আবেদন সফলভাবে জমা দেওয়া হয়েছে! এডমিন অনুমোদনের পর টিম সক্রিয় হবে।" else "Team application submitted! Pending admin approval.",
+            android.widget.Toast.LENGTH_LONG
+        ).show()
+    }
+
+    fun approveDonorTeam(teamId: String) {
+        repository.approveDonorTeam(teamId)
+    }
+
+    fun rejectDonorTeam(teamId: String) {
+        repository.rejectDonorTeam(teamId)
+    }
+
+    fun deleteDonorTeam(teamId: String) {
+        repository.deleteDonorTeam(teamId)
+    }
+
+    fun joinDonorTeam(teamId: String, context: android.content.Context) {
+        val currentUser = currentUser.value
+        if (currentUser == null) {
+            android.widget.Toast.makeText(context, if (language.value == AppLanguage.BAN) "টিমে যোগ দিতে সাইন ইন করুন" else "Please sign in to join team", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        repository.joinDonorTeam(
+            teamId = teamId,
+            memberPhone = currentUser.phone,
+            memberName = currentUser.name,
+            bloodGroup = currentUser.bloodGroup
+        )
+
+        android.widget.Toast.makeText(
+            context,
+            if (language.value == AppLanguage.BAN) "আপনি সফলভাবে টিমে যোগ দিয়েছেন!" else "Joined team successfully!",
+            android.widget.Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    fun leaveDonorTeam(teamId: String, context: android.content.Context) {
+        val currentUser = currentUser.value ?: return
+        repository.leaveDonorTeam(teamId, currentUser.phone)
+        android.widget.Toast.makeText(
+            context,
+            if (language.value == AppLanguage.BAN) "আপনি টিম ত্যাগ করেছেন" else "Left team",
+            android.widget.Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    fun addMemberToTeam(teamId: String, memberPhone: String, memberName: String, bloodGroup: String) {
+        repository.addMemberToTeam(teamId, memberPhone, memberName, bloodGroup)
+    }
+
+    fun removeMemberFromTeam(teamId: String, memberPhone: String) {
+        repository.removeMemberFromTeam(teamId, memberPhone)
+    }
+
     fun triggerDeleteSubscriptionPlan(planId: String) {
         repository.deleteSubscriptionPlan(planId)
     }
@@ -1239,5 +1329,7 @@ enum class AppScreen {
     BOOK_AMBULANCE,
     AMBULANCE_BOOKINGS,
     AMBULANCE_DASHBOARD,
-    SUPPORT_CHAT
+    SUPPORT_CHAT,
+    DONOR_TEAMS,
+    TEAM_DETAIL
 }

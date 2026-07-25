@@ -734,4 +734,41 @@ object MockData {
             country = "United States"
         )
     )
+
+    val initialDonorTeams = listOf(
+        DonorTeam(
+            id = "team_1",
+            teamName = "মিরপুর ব্ল্যাড ডোনারস ক্লাব",
+            leaderName = "Tanvir Ahmed",
+            leaderPhone = "01811223344",
+            district = "Dhaka",
+            upazila = "Mirpur",
+            description = "মিরপুর ও আশেপাশের এলাকার স্বেচ্ছাসেবী রক্তদাতাদের ঐক্যবদ্ধ টিম। যেকোনো জরুরি প্রয়োজনে আমরা প্রস্তুত।",
+            isApproved = true,
+            status = "Approved",
+            createdAt = "2026-05-10",
+            members = listOf(
+                TeamMember("01811223344", "Tanvir Ahmed", "A+", "Leader", "2026-05-10"),
+                TeamMember("01711223344", "Siddique Hossain", "B+", "Member", "2026-05-11"),
+                TeamMember("01911223344", "Kamrul Hasan", "O+", "Member", "2026-05-12"),
+                TeamMember("01511223344", "Dr. Arif Chowdhury", "AB+", "Member", "2026-05-15")
+            )
+        ),
+        DonorTeam(
+            id = "team_2",
+            teamName = "রাজশাহী ব্লাড সেভারস",
+            leaderName = "Kamrul Hasan",
+            leaderPhone = "01912998877",
+            district = "Rajshahi",
+            upazila = "Boalia",
+            description = "রাজশাহী মেডিকেল ও আশেপাশের রোগীদের রক্তের চাহিদা মেটাতে জীবন রক্ষাকারী বন্ধুদের টিম।",
+            isApproved = true,
+            status = "Approved",
+            createdAt = "2026-06-01",
+            members = listOf(
+                TeamMember("01912998877", "Kamrul Hasan", "O+", "Leader", "2026-06-01"),
+                TeamMember("01712345678", "Rahim Uddin", "A+", "Member", "2026-06-02")
+            )
+        )
+    )
 }

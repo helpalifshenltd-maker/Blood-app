@@ -272,6 +272,8 @@ fun MainAppContainer(viewModel: MainViewModel) {
                                         AppScreen.BOOK_AMBULANCE -> strings["amb_booking_title"] ?: "Book Ambulance"
                                         AppScreen.AMBULANCE_BOOKINGS -> strings["amb_booking_history"] ?: "Booking History"
                                         AppScreen.AMBULANCE_DASHBOARD -> if (language == AppLanguage.BAN) "অ্যাম্বুলেন্স ড্যাশবোর্ড" else "Ambulance Dashboard"
+                                        AppScreen.DONOR_TEAMS -> if (language == AppLanguage.BAN) "স্বেচ্ছাসেবী রক্তদাতা টিম" else "Volunteer Donor Teams"
+                                        AppScreen.TEAM_DETAIL -> if (language == AppLanguage.BAN) "টিমের বিবরণ ও সদস্য" else "Team Details & Members"
                                         else -> appName
                                     },
                                     currentLang = language,
@@ -354,6 +356,8 @@ fun MainAppContainer(viewModel: MainViewModel) {
                                         AppScreen.BOOK_AMBULANCE -> BookAmbulanceScreen(viewModel)
                                         AppScreen.AMBULANCE_BOOKINGS -> AmbulanceBookingsScreen(viewModel)
                                         AppScreen.AMBULANCE_DASHBOARD -> AmbulanceDashboardScreen(viewModel)
+                                        AppScreen.DONOR_TEAMS -> DonorTeamsScreen(viewModel)
+                                        AppScreen.TEAM_DETAIL -> TeamDetailScreen(viewModel)
                                         else -> {}
                                     }
                                 }
@@ -1528,6 +1532,15 @@ fun ScrollableDrawerItems(
             Icons.Filled.AirportShuttle,
             AppScreen.AMBULANCE_LIST,
             "drawer_ambulance",
+            0
+        )
+
+        // 8. Donor Teams
+        drawerItem(
+            if (currentLanguage == AppLanguage.BAN) "রক্তদাতা স্বেচ্ছাসেবক টিম" else "Volunteer Donor Teams",
+            Icons.Filled.Groups,
+            AppScreen.DONOR_TEAMS,
+            "drawer_donor_teams",
             0
         )
 
@@ -6091,6 +6104,31 @@ fun HomeScreen(viewModel: MainViewModel) {
             )
         }
 
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            ServiceIconLink(
+                title = if (language == AppLanguage.BAN) "রক্তদাতা টিম" else "Donor Teams",
+                icon = Icons.Filled.Groups,
+                tag = "home_teams_service",
+                onClick = { viewModel.navigateTo(AppScreen.DONOR_TEAMS) },
+                color = Color(0xFF3F51B5),
+                modifier = Modifier.weight(1f)
+            )
+
+            ServiceIconLink(
+                title = strings["card_ambulance"] ?: "Ambulance",
+                icon = Icons.Filled.AirportShuttle,
+                tag = "home_ambulance_service",
+                onClick = { viewModel.navigateTo(AppScreen.AMBULANCE_LIST) },
+                color = Color(0xFF00897B),
+                modifier = Modifier.weight(1f)
+            )
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
 
         // --- ACTIVE EMERGENCY PREVIEWS ---
@@ -9849,6 +9887,7 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
     val messagesList by viewModel.messages.collectAsState()
     val ambulancesList by viewModel.allAmbulances.collectAsState()
     val ambulanceBookingsList by viewModel.allAmbulanceBookings.collectAsState()
+    val donorTeamsList by viewModel.donorTeams.collectAsState()
     val isConnected by viewModel.isFirebaseConnected.collectAsState()
 
     val context = LocalContext.current
@@ -9990,6 +10029,7 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
         Triple("REQUESTS", if (language == AppLanguage.ENG) "Blood Requests" else "রক্তের অনুরোধসমূহ", Icons.Default.Favorite),
         Triple("AMBULANCES", if (language == AppLanguage.ENG) "Ambulance Service" else "অ্যাম্বুলেন্স সার্ভিস", Icons.Default.LocalHospital),
         Triple("AMBULANCE_BOOKINGS", if (language == AppLanguage.ENG) "Ambulance Bookings" else "অ্যাম্বুলেন্স বুকিং সমূহ", Icons.Default.Book),
+        Triple("TEAMS", if (language == AppLanguage.ENG) "Donor Teams" else "রক্তদাতা স্বেচ্ছাসেবক টিম", Icons.Default.Groups),
         Triple("SUPPORT", if (language == AppLanguage.ENG) "Live Support" else "লাইভ সাপোর্ট", Icons.Default.Chat),
         Triple("POLICIES", if (language == AppLanguage.ENG) "Page Policies" else "পৃষ্ঠা নীতিসমূহ", Icons.Default.List),
         Triple("REPORTS", if (language == AppLanguage.ENG) "Fraud Reports" else "প্রতারণা রিপোর্ট", Icons.Default.Warning),
@@ -10059,7 +10099,8 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                                     Text(label, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                     val badgeValue = when (tag) {
                                         "DONORS" -> "${donorsList.size}"
-                                        "REQUESTS" -> "${requestsList.filter { it.status == "Active" }.size}"
+                                        "REQUESTS" -> "${requestsList.count { it.status == "Active" }}"
+                                        "TEAMS" -> "${donorTeamsList.count { !it.isApproved }}"
                                         "REPORTS" -> "${scamReportsList.size}"
                                         else -> null
                                     }
@@ -11486,6 +11527,9 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                                             Toast.makeText(context, "Booking Request Dismissed!", Toast.LENGTH_SHORT).show()
                                         }
                                     )
+                                }
+                                "TEAMS" -> {
+                                    AdminTeamsTab(viewModel = viewModel)
                                 }
                                 "SUPPORT" -> {
                                     AdminSupportTab(viewModel = viewModel, language = language)
@@ -17201,5 +17245,1242 @@ fun AdminSubscriptionsTab(
                 }
             }
         )
+    }
+}
+
+// =========================================================================
+// DONOR TEAMS SYSTEM (রক্তদাতা স্বেচ্ছাসেবক টিম ব্যবস্থাপনা)
+// =========================================================================
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DonorTeamsScreen(viewModel: MainViewModel) {
+    val context = LocalContext.current
+    val donorTeams by viewModel.donorTeams.collectAsState()
+    val language by viewModel.language.collectAsState()
+    val isBn = language == AppLanguage.BAN
+    val userSession by viewModel.currentUser.collectAsState()
+
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedDistrict by remember { mutableStateOf("All") }
+    var selectedTab by remember { mutableStateOf("APPROVED") } // "APPROVED", "MY_TEAMS", "PENDING"
+    var showCreateDialog by remember { mutableStateOf(false) }
+
+    val filteredTeams = remember(donorTeams, searchQuery, selectedDistrict, selectedTab, userSession) {
+        donorTeams.filter { team ->
+            val matchesSearch = searchQuery.isBlank() ||
+                team.teamName.contains(searchQuery, ignoreCase = true) ||
+                team.leaderName.contains(searchQuery, ignoreCase = true) ||
+                team.district.contains(searchQuery, ignoreCase = true) ||
+                team.upazila.contains(searchQuery, ignoreCase = true)
+
+            val matchesDistrict = selectedDistrict == "All" || team.district.equals(selectedDistrict, ignoreCase = true)
+
+            val matchesTab = when (selectedTab) {
+                "APPROVED" -> team.isApproved
+                "MY_TEAMS" -> userSession != null && (
+                    team.leaderPhone.equals(userSession?.phone, ignoreCase = true) ||
+                    team.members.any { it.memberPhone.equals(userSession?.phone, ignoreCase = true) }
+                )
+                "PENDING" -> !team.isApproved
+                else -> true
+            }
+
+            matchesSearch && matchesDistrict && matchesTab
+        }
+    }
+
+    Scaffold(
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = {
+                    if (userSession == null) {
+                        Toast.makeText(context, if (isBn) "টিম তৈরি করতে সাইন ইন করুন" else "Please sign in to create team", Toast.LENGTH_SHORT).show()
+                    } else {
+                        showCreateDialog = true
+                    }
+                },
+                containerColor = BloodRed,
+                contentColor = Color.White,
+                icon = { Icon(Icons.Filled.GroupAdd, contentDescription = "Create Team") },
+                text = { Text(if (isBn) "নতুন টিম তৈরি করুন" else "Create Team", fontWeight = FontWeight.Bold) },
+                modifier = Modifier.testTag("create_team_fab")
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .background(Color(0xFFF8F9FA))
+        ) {
+            // Hero Banner Header
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(Color(0xFF880E4F), BloodRed, Color(0xFF3F51B5))
+                        )
+                    )
+                    .padding(20.dp)
+            ) {
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.Groups,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = if (isBn) "স্বেচ্ছাসেবী রক্তদাতা টিম" else "Volunteer Donor Teams",
+                                color = Color.White,
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = if (isBn) "জেলা ও উপজেলা ভিত্তিক রক্তদাতা ক্লাব এবং সংগঠনসমূহ" else "District & Upazila Blood Donation Clubs",
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Surface(
+                        color = Color.White.copy(alpha = 0.18f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.VerifiedUser,
+                                contentDescription = null,
+                                tint = Color(0xFFFFD54F),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (isBn) "⚠️ দ্রষ্টব্য: ডোনার টিম তৈরি ও টিম লিডার/এডমিন হতে অবশ্যই অ্যাপ এডমিনের অনুমতি প্রয়োজন।" else "Note: App admin approval is strictly required to activate donor teams and lead them.",
+                                color = Color.White,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Search & District Filter Controls
+            Column(modifier = Modifier.padding(16.dp)) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text(if (isBn) "টিমের নাম, জেলা বা লিডারের নাম দিয়ে খুঁজুন..." else "Search team name, district or leader...") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Clear")
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().testTag("team_search_input"),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White
+                    ),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Filter Tabs (Approved / My Teams / Pending)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = selectedTab == "APPROVED",
+                        onClick = { selectedTab = "APPROVED" },
+                        label = { Text(if (isBn) "অনুমোদিত টিম (${donorTeams.count { it.isApproved }})" else "Approved (${donorTeams.count { it.isApproved }})") },
+                        leadingIcon = { Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(16.dp)) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFF2E7D32),
+                            selectedLabelColor = Color.White,
+                            selectedLeadingIconColor = Color.White
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    FilterChip(
+                        selected = selectedTab == "MY_TEAMS",
+                        onClick = { selectedTab = "MY_TEAMS" },
+                        label = { Text(if (isBn) "আমার টিম" else "My Teams") },
+                        leadingIcon = { Icon(Icons.Default.Person, null, modifier = Modifier.size(16.dp)) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = BloodRed,
+                            selectedLabelColor = Color.White,
+                            selectedLeadingIconColor = Color.White
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    FilterChip(
+                        selected = selectedTab == "PENDING",
+                        onClick = { selectedTab = "PENDING" },
+                        label = { Text(if (isBn) "অপেক্ষমান (${donorTeams.count { !it.isApproved }})" else "Pending (${donorTeams.count { !it.isApproved }})") },
+                        leadingIcon = { Icon(Icons.Default.HourglassEmpty, null, modifier = Modifier.size(16.dp)) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFFED6C02),
+                            selectedLabelColor = Color.White,
+                            selectedLeadingIconColor = Color.White
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
+            // Teams List
+            if (filteredTeams.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Filled.Groups,
+                            contentDescription = null,
+                            tint = Color.Gray,
+                            modifier = Modifier.size(64.dp)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = if (isBn) "কোনো টিম পাওয়া যায়নি" else "No donor teams found",
+                            color = Color.Gray,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = if (isBn) "আপনার নিজের এলাকার জন্য নতুন টিম তৈরি করতে নিচের বোতামে চাপুন" else "Tap the button below to create a team for your area",
+                            color = Color.Gray.copy(alpha = 0.7f),
+                            fontSize = 12.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 32.dp)
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    items(filteredTeams.size) { index ->
+                        val team = filteredTeams[index]
+                        TeamCard(
+                            team = team,
+                            isBn = isBn,
+                            userSession = userSession,
+                            onDetailClick = {
+                                viewModel.selectTeam(team.id)
+                                viewModel.navigateTo(AppScreen.TEAM_DETAIL)
+                            },
+                            onJoinClick = {
+                                viewModel.joinDonorTeam(team.id, context)
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (showCreateDialog) {
+        CreateTeamDialog(
+            viewModel = viewModel,
+            onDismiss = { showCreateDialog = false }
+        )
+    }
+}
+
+@Composable
+fun TeamCard(
+    team: DonorTeam,
+    isBn: Boolean,
+    userSession: BloodDonor?,
+    onDetailClick: () -> Unit,
+    onJoinClick: () -> Unit
+) {
+    val isMember = userSession != null && team.members.any { it.memberPhone.equals(userSession.phone, ignoreCase = true) }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onDetailClick() },
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, if (team.isApproved) Color(0xFFE0E0E0) else Color(0xFFFFCC80))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = team.teamName,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = DarkText
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(top = 2.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.LocationOn,
+                            contentDescription = null,
+                            tint = BloodRed,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "${team.upazila}, ${team.district}",
+                            fontSize = 12.sp,
+                            color = SecondaryText,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                // Status Badge
+                Surface(
+                    color = if (team.isApproved) Color(0xFFE8F5E9) else Color(0xFFFFF3E0),
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(if (team.isApproved) Color(0xFF2E7D32) else Color(0xFFEF6C00), CircleShape)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (team.isApproved) (if (isBn) "অনুমোদিত" else "Approved") else (if (isBn) "অনুমোদনের অপেক্ষায়" else "Pending Approval"),
+                            color = if (team.isApproved) Color(0xFF2E7D32) else Color(0xFFEF6C00),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Leader Info Box
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFFF5F5F5), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Stars,
+                    contentDescription = null,
+                    tint = Color(0xFF1976D2),
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (isBn) "টিম এডমিন/লিডার: " else "Team Admin: ",
+                    fontSize = 12.sp,
+                    color = SecondaryText
+                )
+                Text(
+                    text = team.leaderName,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = DarkText
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Member & Donor Stats
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    color = Color(0xFFE8EAF6),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.People, null, tint = Color(0xFF3F51B5), modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(if (isBn) "মোট সদস্য" else "Members", fontSize = 10.sp, color = SecondaryText)
+                            Text("${team.members.size} ${if (isBn) "জন" else ""}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF3F51B5))
+                        }
+                    }
+                }
+
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    color = LightPinkRed,
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Bloodtype, null, tint = BloodRed, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(if (isBn) "মোট রক্তদাতা" else "Donors", fontSize = 10.sp, color = SecondaryText)
+                            Text("${team.members.count { it.bloodGroup.isNotBlank() }} ${if (isBn) "জন" else ""}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = BloodRed)
+                        }
+                    }
+                }
+            }
+
+            if (team.description.isNotBlank()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = team.description,
+                    fontSize = 12.sp,
+                    color = SecondaryText,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Action Buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                FilledTonalButton(
+                    onClick = { onDetailClick() },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(if (isBn) "বিস্তারিত ও সদস্য" else "View Members", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+
+                if (team.isApproved) {
+                    if (isMember) {
+                        OutlinedButton(
+                            onClick = { onDetailClick() },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, Color(0xFF2E7D32))
+                        ) {
+                            Icon(Icons.Default.Check, contentDescription = null, tint = Color(0xFF2E7D32), modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(if (isBn) "আপনি সংযুক্ত" else "Joined", color = Color(0xFF2E7D32), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    } else {
+                        Button(
+                            onClick = { onJoinClick() },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = BloodRed)
+                        ) {
+                            Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(if (isBn) "টিমে যোগ দিন" else "Join Team", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CreateTeamDialog(
+    viewModel: MainViewModel,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val language by viewModel.language.collectAsState()
+    val isBn = language == AppLanguage.BAN
+
+    var teamName by remember { mutableStateOf("") }
+    var district by remember { mutableStateOf("Dhaka") }
+    var upazila by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.GroupAdd, contentDescription = null, tint = BloodRed, modifier = Modifier.size(24.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (isBn) "নতুন রক্তদাতা টিম গঠন করুন" else "Create New Donor Team",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Warning / Admin Permission Mandatory Box
+                Surface(
+                    color = Color(0xFFFFF3E0),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, Color(0xFFFFB74D))
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.AdminPanelSettings, contentDescription = null, tint = Color(0xFFE65100), modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (isBn) "এডমিন অনুমোদন বাধ্যতামূলক" else "Admin Approval Mandatory",
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFE65100),
+                                fontSize = 13.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = if (isBn) "একজন ডোনার চাইলে টিম তৈরি করতে পারবে এবং তার টিমে কতজন সদস্য আছে দেখতে পারবে। টিম সক্রিয় করতে অ্যাপ এডমিনের অনুমতি অবশ্যই লাগবে।"
+                            else "Donors can create teams and view members. To activate the team and become Team Admin, App Admin approval is required.",
+                            fontSize = 11.sp,
+                            color = Color(0xFF5D4037)
+                        )
+                    }
+                }
+
+                OutlinedTextField(
+                    value = teamName,
+                    onValueChange = { teamName = it },
+                    label = { Text(if (isBn) "টিমের নাম *" else "Team Name *") },
+                    modifier = Modifier.fillMaxWidth().testTag("team_name_input"),
+                    singleLine = true
+                )
+
+                OutlinedTextField(
+                    value = district,
+                    onValueChange = { district = it },
+                    label = { Text(if (isBn) "জেলা *" else "District *") },
+                    modifier = Modifier.fillMaxWidth().testTag("team_district_input"),
+                    singleLine = true
+                )
+
+                OutlinedTextField(
+                    value = upazila,
+                    onValueChange = { upazila = it },
+                    label = { Text(if (isBn) "উপজেলা / এলাকা *" else "Upazila / Area *") },
+                    modifier = Modifier.fillMaxWidth().testTag("team_upazila_input"),
+                    singleLine = true
+                )
+
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text(if (isBn) "টিমের বিবরণ ও উদ্দেশ্য" else "Description & Goals") },
+                    modifier = Modifier.fillMaxWidth().height(90.dp).testTag("team_desc_input"),
+                    maxLines = 3
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (teamName.isBlank() || district.isBlank() || upazila.isBlank()) {
+                        Toast.makeText(context, if (isBn) "অনুগ্রহ করে সকল প্রয়োজনীয় তথ্য পূরণ করুন" else "Please fill required fields", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+                    viewModel.createDonorTeam(
+                        teamName = teamName.trim(),
+                        district = district.trim(),
+                        upazila = upazila.trim(),
+                        description = description.trim(),
+                        context = context
+                    )
+                    onDismiss()
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = BloodRed)
+            ) {
+                Text(if (isBn) "আবেদন জমা দিন" else "Submit Application")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(if (isBn) "বাতিল" else "Cancel")
+            }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TeamDetailScreen(viewModel: MainViewModel) {
+    val context = LocalContext.current
+    val selectedTeamId by viewModel.selectedTeamId.collectAsState()
+    val donorTeams by viewModel.donorTeams.collectAsState()
+    val userSession by viewModel.currentUser.collectAsState()
+    val language by viewModel.language.collectAsState()
+    val isBn = language == AppLanguage.BAN
+    val isAdminMode by viewModel.isAdminMode.collectAsState()
+
+    val team = remember(donorTeams, selectedTeamId) {
+        donorTeams.find { it.id == selectedTeamId }
+    }
+
+    var showAddMemberDialog by remember { mutableStateOf(false) }
+
+    if (team == null) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(if (isBn) "টিম পাওয়া যায়নি" else "Team not found")
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(onClick = { viewModel.navigateBack() }) {
+                    Text(if (isBn) "ফিরে যান" else "Go Back")
+                }
+            }
+        }
+        return
+    }
+
+    val isLeader = userSession != null && team.leaderPhone.equals(userSession?.phone, ignoreCase = true)
+    val isMember = userSession != null && team.members.any { it.memberPhone.equals(userSession?.phone, ignoreCase = true) }
+    val canManage = isLeader || isAdminMode
+
+    Scaffold(
+        floatingActionButton = {
+            if (canManage) {
+                FloatingActionButton(
+                    onClick = { showAddMemberDialog = true },
+                    containerColor = BloodRed,
+                    contentColor = Color.White
+                ) {
+                    Icon(Icons.Filled.PersonAdd, contentDescription = "Add Member")
+                }
+            }
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .background(Color(0xFFF8F9FA))
+                .verticalScroll(rememberScrollState())
+        ) {
+            // Header Hero Box
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color(0xFF880E4F), BloodRed)
+                        )
+                    )
+                    .padding(20.dp)
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            color = if (team.isApproved) Color(0xFFE8F5E9) else Color(0xFFFFF3E0),
+                            shape = RoundedCornerShape(20.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(if (team.isApproved) Color(0xFF2E7D32) else Color(0xFFEF6C00), CircleShape)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (team.isApproved) (if (isBn) "অনুমোদিত টিম" else "Approved Team") else (if (isBn) "অনুমোদনের অপেক্ষায়" else "Pending Approval"),
+                                    color = if (team.isApproved) Color(0xFF2E7D32) else Color(0xFFEF6C00),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        Text(
+                            text = "${if (isBn) "তৈরি: " else "Created: "}${team.createdAt}",
+                            color = Color.White.copy(alpha = 0.8f),
+                            fontSize = 11.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = team.teamName,
+                        color = Color.White,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(top = 4.dp)
+                    ) {
+                        Icon(Icons.Default.LocationOn, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "${team.upazila}, ${team.district}",
+                            color = Color.White.copy(alpha = 0.9f),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+
+            Column(modifier = Modifier.padding(16.dp)) {
+                // Team Leader Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(14.dp),
+                    elevation = CardDefaults.cardElevation(2.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(Color(0xFFE3F2FD), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Stars, contentDescription = null, tint = Color(0xFF1976D2), modifier = Modifier.size(28.dp))
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (isBn) "টিম লিডার ও এডমিন" else "Team Leader & Admin",
+                                fontSize = 11.sp,
+                                color = Color(0xFF1976D2),
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = team.leaderName,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = DarkText
+                            )
+                            Text(
+                                text = team.leaderPhone,
+                                fontSize = 13.sp,
+                                color = SecondaryText
+                            )
+                        }
+
+                        IconButton(
+                            onClick = {
+                                val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${team.leaderPhone}"))
+                                context.startActivity(intent)
+                            },
+                            modifier = Modifier.background(Color(0xFFE8F5E9), CircleShape)
+                        ) {
+                            Icon(Icons.Default.Call, contentDescription = "Call Leader", tint = Color(0xFF2E7D32))
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Stats Cards Panel
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Card(
+                        modifier = Modifier.weight(1f),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8EAF6)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.People, contentDescription = null, tint = Color(0xFF3F51B5))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(if (isBn) "মোট সদস্য" else "Total Members", fontSize = 11.sp, color = SecondaryText)
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text("${team.members.size} ${if (isBn) "জন" else "members"}", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFF3F51B5))
+                        }
+                    }
+
+                    Card(
+                        modifier = Modifier.weight(1f),
+                        colors = CardDefaults.cardColors(containerColor = LightPinkRed),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Bloodtype, contentDescription = null, tint = BloodRed)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(if (isBn) "রক্তদাতা সদস্য" else "Active Donors", fontSize = 11.sp, color = SecondaryText)
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text("${team.members.count { it.bloodGroup.isNotBlank() }} ${if (isBn) "জন" else "donors"}", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = BloodRed)
+                        }
+                    }
+                }
+
+                if (team.description.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Text(if (isBn) "টিমের উদ্দেশ্য ও বিবরণ" else "Team Description", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = DarkText)
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(team.description, fontSize = 13.sp, color = SecondaryText, lineHeight = 18.sp)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Section Title: Members & Donors List
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (isBn) "টিম সদস্য ও রক্তদাতা তালিকা (${team.members.size})" else "Team Members & Donors (${team.members.size})",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = DarkText
+                    )
+
+                    if (canManage) {
+                        TextButton(onClick = { showAddMemberDialog = true }) {
+                            Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(if (isBn) "সদস্য যুক্ত করুন" else "Add Member")
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                if (team.members.isEmpty()) {
+                    Text(
+                        text = if (isBn) "এখনো কোনো সদস্য যুক্ত হয়নি" else "No members added yet",
+                        color = SecondaryText,
+                        fontSize = 13.sp
+                    )
+                } else {
+                    team.members.forEach { member ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            shape = RoundedCornerShape(12.dp),
+                            elevation = CardDefaults.cardElevation(1.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Blood group circle
+                                Box(
+                                    modifier = Modifier
+                                        .size(42.dp)
+                                        .background(if (member.bloodGroup.isNotBlank()) BloodRed else Color.Gray, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = member.bloodGroup.ifBlank { "?" },
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(12.dp))
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = member.memberName,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp,
+                                            color = DarkText
+                                        )
+                                        if (member.role == "Leader") {
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Surface(
+                                                color = Color(0xFFE3F2FD),
+                                                shape = RoundedCornerShape(4.dp)
+                                            ) {
+                                                Text(
+                                                    text = if (isBn) "টিম লিডার" else "Leader",
+                                                    fontSize = 10.sp,
+                                                    color = Color(0xFF1976D2),
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    Text(
+                                        text = member.memberPhone,
+                                        fontSize = 12.sp,
+                                        color = SecondaryText
+                                    )
+                                }
+
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(
+                                        onClick = {
+                                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${member.memberPhone}"))
+                                            context.startActivity(intent)
+                                        }
+                                    ) {
+                                        Icon(Icons.Default.Call, contentDescription = "Call", tint = Color(0xFF2E7D32))
+                                    }
+
+                                    if (canManage && member.role != "Leader") {
+                                        IconButton(
+                                            onClick = {
+                                                viewModel.removeMemberFromTeam(team.id, member.memberPhone)
+                                                Toast.makeText(context, if (isBn) "সদস্য সরানো হয়েছে" else "Member removed", Toast.LENGTH_SHORT).show()
+                                            }
+                                        ) {
+                                            Icon(Icons.Default.Delete, contentDescription = "Remove", tint = Color.Red)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Bottom Join / Leave button if applicable
+                if (team.isApproved) {
+                    if (isMember && !isLeader) {
+                        OutlinedButton(
+                            onClick = {
+                                viewModel.leaveDonorTeam(team.id, context)
+                            },
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, Color.Red)
+                        ) {
+                            Icon(Icons.Default.ExitToApp, contentDescription = null, tint = Color.Red)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(if (isBn) "টিম ত্যাগ করুন" else "Leave Team", color = Color.Red, fontWeight = FontWeight.Bold)
+                        }
+                    } else if (!isMember) {
+                        Button(
+                            onClick = {
+                                viewModel.joinDonorTeam(team.id, context)
+                            },
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = BloodRed)
+                        ) {
+                            Icon(Icons.Default.PersonAdd, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(if (isBn) "টিমে যোগ দিন" else "Join Team", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showAddMemberDialog) {
+        AddMemberDialog(
+            teamId = team.id,
+            viewModel = viewModel,
+            onDismiss = { showAddMemberDialog = false }
+        )
+    }
+}
+
+@Composable
+fun AddMemberDialog(
+    teamId: String,
+    viewModel: MainViewModel,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val language by viewModel.language.collectAsState()
+    val isBn = language == AppLanguage.BAN
+
+    var memberName by remember { mutableStateOf("") }
+    var memberPhone by remember { mutableStateOf("") }
+    var bloodGroup by remember { mutableStateOf("O+") }
+
+    val bloodGroups = listOf("A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (isBn) "নতুন সদস্য যুক্ত করুন" else "Add New Member", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = memberName,
+                    onValueChange = { memberName = it },
+                    label = { Text(if (isBn) "সদস্যের নাম *" else "Member Name *") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                OutlinedTextField(
+                    value = memberPhone,
+                    onValueChange = { memberPhone = it },
+                    label = { Text(if (isBn) "ফোন নম্বর *" else "Phone Number *") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                Text(if (isBn) "রক্তের গ্রুপ:" else "Blood Group:", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    bloodGroups.forEach { bg ->
+                        FilterChip(
+                            selected = bloodGroup == bg,
+                            onClick = { bloodGroup = bg },
+                            label = { Text(bg) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = BloodRed,
+                                selectedLabelColor = Color.White
+                            )
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (memberName.isBlank() || memberPhone.isBlank()) {
+                        Toast.makeText(context, if (isBn) "সকল প্রয়োজনীয় ফিল্ড দিন" else "Provide all fields", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+                    viewModel.addMemberToTeam(teamId, memberPhone.trim(), memberName.trim(), bloodGroup)
+                    Toast.makeText(context, if (isBn) "সদস্য যুক্ত করা হয়েছে" else "Member added", Toast.LENGTH_SHORT).show()
+                    onDismiss()
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = BloodRed)
+            ) {
+                Text(if (isBn) "যুক্ত করুন" else "Add")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(if (isBn) "বাতিল" else "Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun AdminTeamsTab(viewModel: MainViewModel) {
+    val donorTeams by viewModel.donorTeams.collectAsState()
+    val language by viewModel.language.collectAsState()
+    val isBn = language == AppLanguage.BAN
+
+    var selectedFilter by remember { mutableStateOf("Pending") } // "Pending", "Approved", "All"
+
+    val displayedTeams = remember(donorTeams, selectedFilter) {
+        when (selectedFilter) {
+            "Pending" -> donorTeams.filter { !it.isApproved }
+            "Approved" -> donorTeams.filter { it.isApproved }
+            else -> donorTeams
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = if (isBn) "রক্তদাতা টিম অনুমোদন ও ব্যবস্থাপনা" else "Donor Teams Approval & Management",
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                color = DarkText
+            )
+
+            Surface(
+                color = BloodRed,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = "${donorTeams.count { !it.isApproved }} ${if (isBn) "অপেক্ষমান" else "Pending"}",
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(
+                selected = selectedFilter == "Pending",
+                onClick = { selectedFilter = "Pending" },
+                label = { Text(if (isBn) "অনুমোদনের অপেক্ষায় (${donorTeams.count { !it.isApproved }})" else "Pending (${donorTeams.count { !it.isApproved }})") },
+                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Color(0xFFED6C02), selectedLabelColor = Color.White)
+            )
+            FilterChip(
+                selected = selectedFilter == "Approved",
+                onClick = { selectedFilter = "Approved" },
+                label = { Text(if (isBn) "অনুমোদিত (${donorTeams.count { it.isApproved }})" else "Approved (${donorTeams.count { it.isApproved }})") },
+                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Color(0xFF2E7D32), selectedLabelColor = Color.White)
+            )
+            FilterChip(
+                selected = selectedFilter == "All",
+                onClick = { selectedFilter = "All" },
+                label = { Text(if (isBn) "সকল টিম (${donorTeams.size})" else "All (${donorTeams.size})") }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (displayedTeams.isEmpty()) {
+            Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                Text(if (isBn) "কোনো টিম পাওয়া যায়নি" else "No teams in this status", color = SecondaryText)
+            }
+        } else {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                items(displayedTeams.size) { index ->
+                    val team = displayedTeams[index]
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        shape = RoundedCornerShape(12.dp),
+                        elevation = CardDefaults.cardElevation(2.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(team.teamName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                    Text("${team.upazila}, ${team.district}", fontSize = 12.sp, color = SecondaryText)
+                                    Text("${if (isBn) "লিডার: " else "Leader: "}${team.leaderName} (${team.leaderPhone})", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                }
+
+                                Surface(
+                                    color = if (team.isApproved) Color(0xFFE8F5E9) else Color(0xFFFFF3E0),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text(
+                                        text = if (team.isApproved) "Approved" else "Pending",
+                                        color = if (team.isApproved) Color(0xFF2E7D32) else Color(0xFFEF6C00),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+
+                            if (team.description.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(team.description, fontSize = 12.sp, color = SecondaryText)
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                if (!team.isApproved) {
+                                    Button(
+                                        onClick = { viewModel.approveDonorTeam(team.id) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(if (isBn) "অনুমোদন করুন" else "Approve")
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = { viewModel.rejectDonorTeam(team.id) },
+                                        colors = ButtonDefaults.buttonColors(contentColor = Color.Red),
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text(if (isBn) "বাতিল" else "Reject")
+                                    }
+                                }
+
+                                IconButton(
+                                    onClick = { viewModel.deleteDonorTeam(team.id) }
+                                ) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

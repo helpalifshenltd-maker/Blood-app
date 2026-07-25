@@ -55,6 +55,9 @@ class BloodConnectRepository private constructor() {
     private val _ambulances = MutableStateFlow<List<Ambulance>>(MockData.initialAmbulances)
     val ambulances: StateFlow<List<Ambulance>> = _ambulances.asStateFlow()
 
+    private val _donorTeams = MutableStateFlow<List<DonorTeam>>(MockData.initialDonorTeams)
+    val donorTeams: StateFlow<List<DonorTeam>> = _donorTeams.asStateFlow()
+
     private val _ambulanceBookings = MutableStateFlow<List<AmbulanceBooking>>(emptyList())
     val ambulanceBookings: StateFlow<List<AmbulanceBooking>> = _ambulanceBookings.asStateFlow()
 
@@ -974,6 +977,241 @@ class BloodConnectRepository private constructor() {
         }
     }
 
+    fun serializeDonorTeams(teams: List<DonorTeam>): String {
+        val array = org.json.JSONArray()
+        teams.forEach { team ->
+            val obj = org.json.JSONObject()
+            obj.put("id", team.id)
+            obj.put("teamName", team.teamName)
+            obj.put("leaderName", team.leaderName)
+            obj.put("leaderPhone", team.leaderPhone)
+            obj.put("district", team.district)
+            obj.put("upazila", team.upazila)
+            obj.put("description", team.description)
+            obj.put("isApproved", team.isApproved)
+            obj.put("status", team.status)
+            obj.put("createdAt", team.createdAt)
+            obj.put("country", team.country)
+
+            val membersArray = org.json.JSONArray()
+            team.members.forEach { m ->
+                val mObj = org.json.JSONObject()
+                mObj.put("memberPhone", m.memberPhone)
+                mObj.put("memberName", m.memberName)
+                mObj.put("bloodGroup", m.bloodGroup)
+                mObj.put("role", m.role)
+                mObj.put("joinedAt", m.joinedAt)
+                membersArray.put(mObj)
+            }
+            obj.put("members", membersArray)
+            array.put(obj)
+        }
+        return array.toString()
+    }
+
+    fun deserializeDonorTeams(jsonStr: String): List<DonorTeam> {
+        if (jsonStr.isBlank()) return emptyList()
+        val list = mutableListOf<DonorTeam>()
+        try {
+            val array = org.json.JSONArray(jsonStr)
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                val membersList = mutableListOf<TeamMember>()
+                val membersArray = obj.optJSONArray("members")
+                if (membersArray != null) {
+                    for (j in 0 until membersArray.length()) {
+                        val mObj = membersArray.getJSONObject(j)
+                        membersList.add(
+                            TeamMember(
+                                memberPhone = mObj.optString("memberPhone", ""),
+                                memberName = mObj.optString("memberName", ""),
+                                bloodGroup = mObj.optString("bloodGroup", ""),
+                                role = mObj.optString("role", "Member"),
+                                joinedAt = mObj.optString("joinedAt", "")
+                            )
+                        )
+                    }
+                }
+                list.add(
+                    DonorTeam(
+                        id = obj.optString("id", ""),
+                        teamName = obj.optString("teamName", ""),
+                        leaderName = obj.optString("leaderName", ""),
+                        leaderPhone = obj.optString("leaderPhone", ""),
+                        district = obj.optString("district", ""),
+                        upazila = obj.optString("upazila", ""),
+                        description = obj.optString("description", ""),
+                        isApproved = obj.optBoolean("isApproved", false),
+                        status = obj.optString("status", "Pending"),
+                        members = membersList,
+                        createdAt = obj.optString("createdAt", ""),
+                        country = obj.optString("country", "Bangladesh")
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return list
+    }
+
+    fun saveDonorTeamsLocal() {
+        appContext?.let { ctx ->
+            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putString("donor_teams_list", serializeDonorTeams(_donorTeams.value)).apply()
+        }
+    }
+
+    fun pushDonorTeamToFirebase(team: DonorTeam) {
+        appScope.launch {
+            try {
+                getDb()?.getReference("donor_teams")?.child(team.id)?.setValue(team)
+            } catch (e: Exception) {
+                Log.e("BloodConnectRepo", "Firebase push donor_team error: ${e.message}")
+            }
+        }
+    }
+
+    fun deleteDonorTeamFromFirebase(teamId: String) {
+        appScope.launch {
+            try {
+                getDb()?.getReference("donor_teams")?.child(teamId)?.removeValue()
+            } catch (e: Exception) {
+                Log.e("BloodConnectRepo", "Firebase delete donor_team error: ${e.message}")
+            }
+        }
+    }
+
+    fun createDonorTeam(
+        teamName: String,
+        district: String,
+        upazila: String,
+        description: String,
+        leaderName: String,
+        leaderPhone: String,
+        leaderBloodGroup: String = ""
+    ): DonorTeam {
+        val dateStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
+        val newTeam = DonorTeam(
+            id = "team_${System.currentTimeMillis()}",
+            teamName = teamName,
+            leaderName = leaderName,
+            leaderPhone = leaderPhone,
+            district = district,
+            upazila = upazila,
+            description = description,
+            isApproved = false, // Admin approval required!
+            status = "Pending",
+            createdAt = dateStr,
+            country = "Bangladesh",
+            members = listOf(
+                TeamMember(
+                    memberPhone = leaderPhone,
+                    memberName = leaderName,
+                    bloodGroup = leaderBloodGroup,
+                    role = "Leader",
+                    joinedAt = dateStr
+                )
+            )
+        )
+        _donorTeams.value = listOf(newTeam) + _donorTeams.value
+        saveDonorTeamsLocal()
+        pushDonorTeamToFirebase(newTeam)
+        
+        // Notify admin about pending team request
+        addNotification(
+            titleEn = "New Donor Team Application",
+            titleBn = "নতুন রক্তদাতা টিমের আবেদন",
+            messageEn = "Team '$teamName' applied by $leaderName. Pending Admin approval.",
+            messageBn = "$leaderName এর মাধ্যমে '$teamName' টিমের আবেদন জমা হয়েছে। এডমিনের অনুমোদন প্রয়োজন।",
+            type = "ALERT",
+            country = "Bangladesh"
+        )
+        return newTeam
+    }
+
+    fun approveDonorTeam(teamId: String) {
+        _donorTeams.value = _donorTeams.value.map { team ->
+            if (team.id == teamId) {
+                val updated = team.copy(isApproved = true, status = "Approved")
+                pushDonorTeamToFirebase(updated)
+                addNotification(
+                    titleEn = "Donor Team Approved!",
+                    titleBn = "টিম অনুমোদন লাভ করেছে!",
+                    messageEn = "Congratulations! Your team '${team.teamName}' has been approved by Admin.",
+                    messageBn = "অভিনন্দন! আপনার ব্লাড ডোনার টিম '${team.teamName}' এডমিন কর্তৃক অনুমোদিত হয়েছে।",
+                    type = "SUCCESS",
+                    country = team.country
+                )
+                updated
+            } else team
+        }
+        saveDonorTeamsLocal()
+    }
+
+    fun rejectDonorTeam(teamId: String) {
+        _donorTeams.value = _donorTeams.value.map { team ->
+            if (team.id == teamId) {
+                val updated = team.copy(isApproved = false, status = "Rejected")
+                pushDonorTeamToFirebase(updated)
+                updated
+            } else team
+        }
+        saveDonorTeamsLocal()
+    }
+
+    fun deleteDonorTeam(teamId: String) {
+        _donorTeams.value = _donorTeams.value.filter { it.id != teamId }
+        saveDonorTeamsLocal()
+        deleteDonorTeamFromFirebase(teamId)
+    }
+
+    fun joinDonorTeam(teamId: String, memberPhone: String, memberName: String, bloodGroup: String) {
+        val dateStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
+        _donorTeams.value = _donorTeams.value.map { team ->
+            if (team.id == teamId) {
+                if (team.members.any { phonesMatch(it.memberPhone, memberPhone) }) {
+                    team
+                } else {
+                    val newMember = TeamMember(memberPhone, memberName, bloodGroup, "Member", dateStr)
+                    val updated = team.copy(members = team.members + newMember)
+                    pushDonorTeamToFirebase(updated)
+                    updated
+                }
+            } else team
+        }
+        saveDonorTeamsLocal()
+    }
+
+    fun leaveDonorTeam(teamId: String, memberPhone: String) {
+        _donorTeams.value = _donorTeams.value.map { team ->
+            if (team.id == teamId) {
+                val updated = team.copy(members = team.members.filterNot { phonesMatch(it.memberPhone, memberPhone) })
+                pushDonorTeamToFirebase(updated)
+                updated
+            } else team
+        }
+        saveDonorTeamsLocal()
+    }
+
+    fun addMemberToTeam(teamId: String, memberPhone: String, memberName: String, bloodGroup: String, role: String = "Member") {
+        val dateStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
+        _donorTeams.value = _donorTeams.value.map { team ->
+            if (team.id == teamId) {
+                val existing = team.members.filterNot { phonesMatch(it.memberPhone, memberPhone) }
+                val newMember = TeamMember(memberPhone, memberName, bloodGroup, role, dateStr)
+                val updated = team.copy(members = existing + newMember)
+                pushDonorTeamToFirebase(updated)
+                updated
+            } else team
+        }
+        saveDonorTeamsLocal()
+    }
+
+    fun removeMemberFromTeam(teamId: String, memberPhone: String) {
+        leaveDonorTeam(teamId, memberPhone)
+    }
+
     fun deleteAmbulance(ambulanceId: String) {
         _ambulances.value = _ambulances.value.filter { it.id != ambulanceId }
         saveAmbulancesLocal()
@@ -1083,6 +1321,14 @@ class BloodConnectRepository private constructor() {
         val ambulancesStr = prefs.getString("ambulances_list", "") ?: ""
         if (ambulancesStr.isNotBlank()) {
             _ambulances.value = deserializeAmbulances(ambulancesStr)
+        }
+
+        val donorTeamsStr = prefs.getString("donor_teams_list", "") ?: ""
+        if (donorTeamsStr.isNotBlank()) {
+            val loadedTeams = deserializeDonorTeams(donorTeamsStr)
+            if (loadedTeams.isNotEmpty()) {
+                _donorTeams.value = loadedTeams
+            }
         }
 
         val messagesStr = prefs.getString("local_messages_list", "") ?: ""
@@ -1376,6 +1622,54 @@ class BloodConnectRepository private constructor() {
             }
         }
         return firebaseDb
+    }
+
+    private fun parseDonorTeamFromSnapshot(snapshot: com.google.firebase.database.DataSnapshot): DonorTeam? {
+        return try {
+            val id = snapshot.child("id").getValue(String::class.java) ?: snapshot.key ?: ""
+            val teamName = snapshot.child("teamName").getValue(String::class.java) ?: ""
+            val leaderName = snapshot.child("leaderName").getValue(String::class.java) ?: ""
+            val leaderPhone = snapshot.child("leaderPhone").getValue(String::class.java) ?: ""
+            val district = snapshot.child("district").getValue(String::class.java) ?: ""
+            val upazila = snapshot.child("upazila").getValue(String::class.java) ?: ""
+            val description = snapshot.child("description").getValue(String::class.java) ?: ""
+            val isApproved = snapshot.child("isApproved").getValue(Boolean::class.java) ?: false
+            val status = snapshot.child("status").getValue(String::class.java) ?: "Pending"
+            val createdAt = snapshot.child("createdAt").getValue(String::class.java) ?: ""
+            val country = snapshot.child("country").getValue(String::class.java) ?: "Bangladesh"
+
+            val membersList = mutableListOf<TeamMember>()
+            val membersSnap = snapshot.child("members")
+            if (membersSnap.exists()) {
+                for (mChild in membersSnap.children) {
+                    val memberPhone = mChild.child("memberPhone").getValue(String::class.java) ?: ""
+                    val memberName = mChild.child("memberName").getValue(String::class.java) ?: ""
+                    val bloodGroup = mChild.child("bloodGroup").getValue(String::class.java) ?: ""
+                    val role = mChild.child("role").getValue(String::class.java) ?: "Member"
+                    val joinedAt = mChild.child("joinedAt").getValue(String::class.java) ?: ""
+                    if (memberPhone.isNotBlank()) {
+                        membersList.add(TeamMember(memberPhone, memberName, bloodGroup, role, joinedAt))
+                    }
+                }
+            }
+
+            if (id.isBlank()) null else DonorTeam(
+                id = id,
+                teamName = teamName,
+                leaderName = leaderName,
+                leaderPhone = leaderPhone,
+                district = district,
+                upazila = upazila,
+                description = description,
+                isApproved = isApproved,
+                status = status,
+                members = membersList,
+                createdAt = createdAt,
+                country = country
+            )
+        } catch (e: Exception) {
+            null
+        }
     }
 
     fun initFirebaseDatabase() {
@@ -1840,6 +2134,28 @@ class BloodConnectRepository private constructor() {
                     }
                 } catch (e: Exception) {
                     Log.e("BloodConnectRepo", "Error listening to Firebase ambulances: ${e.message}")
+                }
+            }
+            override fun onCancelled(error: com.google.firebase.database.DatabaseError) {}
+        })
+
+        // Listen to Donor Teams
+        db.getReference("donor_teams").addValueEventListener(object : com.google.firebase.database.ValueEventListener {
+            override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
+                try {
+                    val list = mutableListOf<DonorTeam>()
+                    for (child in snapshot.children) {
+                        val team = parseDonorTeamFromSnapshot(child)
+                        if (team != null && team.id.isNotBlank()) {
+                            list.add(team)
+                        }
+                    }
+                    if (snapshot.exists()) {
+                        _donorTeams.value = list
+                        saveDonorTeamsLocal()
+                    }
+                } catch (e: Exception) {
+                    Log.e("BloodConnectRepo", "Error listening to Firebase donor_teams: ${e.message}")
                 }
             }
             override fun onCancelled(error: com.google.firebase.database.DatabaseError) {}

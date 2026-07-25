@@ -125,6 +125,29 @@ data class Ambulance(
     val country: String = "Bangladesh"
 )
 
+data class TeamMember(
+    val memberPhone: String = "",
+    val memberName: String = "",
+    val bloodGroup: String = "",
+    val role: String = "Member", // "Leader" or "Member"
+    val joinedAt: String = ""
+)
+
+data class DonorTeam(
+    val id: String = "",
+    val teamName: String = "",
+    val leaderName: String = "",
+    val leaderPhone: String = "",
+    val district: String = "",
+    val upazila: String = "",
+    val description: String = "",
+    val isApproved: Boolean = false, // Must be approved by App Admin to activate!
+    val status: String = "Pending", // "Pending", "Approved", "Rejected"
+    val members: List<TeamMember> = emptyList(),
+    val createdAt: String = "",
+    val country: String = "Bangladesh"
+)
+
 // Multilingual Localization Strings Source Dictionary
 object Loc {
     fun strings(lang: AppLanguage): Map<String, String> {
