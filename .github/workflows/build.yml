@@ -97,44 +97,13 @@ jobs:
         name: release-aab
         path: app/build/outputs/bundle/release/*.aab
 
-    - name: Prepare GitHub Pages Landing Site
+    - name: Prepare GitHub Pages Web App
       if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
       run: |
         mkdir -p site
+        cp -r web/* site/
         cp app/build/outputs/apk/release/*.apk site/app-release.apk
         cp app/build/outputs/apk/debug/*.apk site/app-debug.apk
-        cat << 'EOF' > site/index.html
-        <!DOCTYPE html>
-        <html lang="bn">
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Download Blood Bank App</title>
-          <style>
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background: #f4f6f9; padding: 40px 20px; color: #333; }
-            .card { background: #ffffff; max-width: 480px; margin: 0 auto; padding: 32px 24px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
-            .icon { font-size: 54px; margin-bottom: 10px; }
-            h1 { color: #c62828; margin: 0 0 10px 0; font-size: 26px; }
-            p { color: #555; font-size: 15px; line-height: 1.5; margin-bottom: 24px; }
-            .btn { display: block; background: #c62828; color: #ffffff; text-decoration: none; padding: 14px 20px; border-radius: 12px; font-weight: bold; font-size: 16px; margin: 12px 0; transition: background 0.2s ease; }
-            .btn:hover { background: #b71c1c; }
-            .btn-sec { background: #37474f; }
-            .btn-sec:hover { background: #263238; }
-            .note { font-size: 12px; color: #888; margin-top: 20px; }
-          </style>
-        </head>
-        <body>
-          <div class="card">
-            <div class="icon">🩸</div>
-            <h1>Blood Bank App</h1>
-            <p>অ্যাপটি আপনার ফোনে ডাউনলোড ও ইনস্টল করতে নিচের বাটনে ক্লিক করুন:</p>
-            <a class="btn" href="app-release.apk" download>📥 Download Release APK</a>
-            <a class="btn btn-sec" href="app-debug.apk" download>📥 Download Debug APK</a>
-            <p class="note">Version: Latest Auto-Build from GitHub Actions</p>
-          </div>
-        </body>
-        </html>
-        EOF
 
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v4
