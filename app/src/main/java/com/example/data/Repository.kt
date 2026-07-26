@@ -73,12 +73,56 @@ class BloodConnectRepository private constructor() {
     private val _userSubscriptions = MutableStateFlow<List<UserSubscription>>(emptyList())
     val userSubscriptions: StateFlow<List<UserSubscription>> = _userSubscriptions.asStateFlow()
 
-    fun updateAppName(newName: String) {
-        _appName.value = newName
+    fun saveAppConfigLocal() {
+        val now = System.currentTimeMillis()
         appContext?.let { ctx ->
             val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
-            prefs.edit().putString("app_name_pref", newName).apply()
+            prefs.edit().apply {
+                putLong("config_last_updated", now)
+                if (_appName.value.isNotBlank()) putString("app_name_pref", _appName.value)
+                if (_homeNotice.value.isNotBlank()) putString("home_notice", _homeNotice.value)
+                if (_popupNotice.value.isNotBlank()) putString("popup_notice", _popupNotice.value)
+                if (_bkashNumber.value.isNotBlank()) putString("payment_bkash", _bkashNumber.value)
+                if (_nagadNumber.value.isNotBlank()) putString("payment_nagad", _nagadNumber.value)
+                if (_rocketNumber.value.isNotBlank()) putString("payment_rocket", _rocketNumber.value)
+                if (_googlePlayMerchant.value.isNotBlank()) putString("payment_googleplay", _googlePlayMerchant.value)
+                putFloat("booking_acceptance_fee", _bookingAcceptanceFee.value.toFloat())
+                putFloat("standard_commission_rate", _standardCommissionRate.value.toFloat())
+                putFloat("mplus_commission_rate", _mPlusCommissionRate.value.toFloat())
+                if (_privacyPolicyEn.value.isNotBlank()) putString("policy_privacy_en", _privacyPolicyEn.value)
+                if (_privacyPolicyBn.value.isNotBlank()) putString("policy_privacy_bn", _privacyPolicyBn.value)
+                if (_privacyPolicyUrl.value.isNotBlank()) putString("policy_privacy_url", _privacyPolicyUrl.value)
+                if (_termsConditionsEn.value.isNotBlank()) putString("policy_terms_en", _termsConditionsEn.value)
+                if (_termsConditionsBn.value.isNotBlank()) putString("policy_terms_bn", _termsConditionsBn.value)
+                if (_refundPolicyEn.value.isNotBlank()) putString("policy_refund_en", _refundPolicyEn.value)
+                if (_refundPolicyBn.value.isNotBlank()) putString("policy_refund_bn", _refundPolicyBn.value)
+                putBoolean("custom_ads_enabled", _customAdsEnabled.value)
+                putString("custom_ad_network_name", _customAdNetworkName.value)
+                putString("custom_ad_title", _customAdTitle.value)
+                putString("custom_ad_banner_url", _customAdBannerUrl.value)
+                putString("custom_ad_target_url", _customAdTargetUrl.value)
+                putString("custom_ad_target_countries", _customAdTargetCountries.value)
+                putString("custom_ad_configs_list", serializeAds(_customAdConfigs.value))
+                putBoolean("admob_enabled", _adMobEnabled.value)
+                putString("admob_app_id", _adMobAppId.value)
+                putString("admob_banner_id", _adMobBannerId.value)
+                putString("admob_interstitial_id", _adMobInterstitialId.value)
+                putString("admob_native_id", _adMobNativeId.value)
+                putBoolean("email_notify_enabled", _emailNotifyEnabled.value)
+                putString("smtp_host", _smtpHost.value)
+                putString("smtp_port", _smtpPort.value)
+                putString("smtp_username", _smtpUsername.value)
+                putString("smtp_password", _smtpPassword.value)
+                putString("email_subject_template", _emailSubjectTemplate.value)
+                putString("email_body_template", _emailBodyTemplate.value)
+                apply()
+            }
         }
+    }
+
+    fun updateAppName(newName: String) {
+        _appName.value = newName
+        saveAppConfigLocal()
         pushAppConfigToRemote()
     }
 
@@ -147,33 +191,20 @@ class BloodConnectRepository private constructor() {
 
     fun updateBookingAcceptanceFee(fee: Double) {
         _bookingAcceptanceFee.value = fee
-        appContext?.let { ctx ->
-            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
-            prefs.edit().putFloat("booking_acceptance_fee", fee.toFloat()).apply()
-        }
+        saveAppConfigLocal()
         pushAppConfigToRemote()
     }
 
     fun updateCommissionRates(standardRate: Double, mPlusRate: Double) {
         _standardCommissionRate.value = standardRate
         _mPlusCommissionRate.value = mPlusRate
-        appContext?.let { ctx ->
-            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
-            prefs.edit().apply {
-                putFloat("standard_commission_rate", standardRate.toFloat())
-                putFloat("mplus_commission_rate", mPlusRate.toFloat())
-                apply()
-            }
-        }
+        saveAppConfigLocal()
         pushAppConfigToRemote()
     }
 
     fun updateHomeNotice(newNotice: String) {
         _homeNotice.value = newNotice
-        appContext?.let { ctx ->
-            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
-            prefs.edit().putString("home_notice", newNotice).apply()
-        }
+        saveAppConfigLocal()
         pushAppConfigToRemote()
     }
 
@@ -182,10 +213,7 @@ class BloodConnectRepository private constructor() {
 
     fun updatePopupNotice(newNotice: String) {
         _popupNotice.value = newNotice
-        appContext?.let { ctx ->
-            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
-            prefs.edit().putString("popup_notice", newNotice).apply()
-        }
+        saveAppConfigLocal()
         pushAppConfigToRemote()
     }
 
@@ -221,16 +249,7 @@ class BloodConnectRepository private constructor() {
         _nagadNumber.value = nagad
         _rocketNumber.value = rocket
         _googlePlayMerchant.value = googlePlay
-        appContext?.let { ctx ->
-            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
-            prefs.edit().apply {
-                putString("payment_bkash", bkash)
-                putString("payment_nagad", nagad)
-                putString("payment_rocket", rocket)
-                putString("payment_googleplay", googlePlay)
-                apply()
-            }
-        }
+        saveAppConfigLocal()
         pushAppConfigToRemote()
     }
 
@@ -537,17 +556,7 @@ class BloodConnectRepository private constructor() {
         _customAdBannerUrl.value = bannerUrl
         _customAdTargetUrl.value = targetUrl
         _customAdTargetCountries.value = targetCountries
-
-        val prefs = context.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
-        prefs.edit().apply {
-            putBoolean("custom_ads_enabled", enabled)
-            putString("custom_ad_network_name", networkName)
-            putString("custom_ad_title", adTitle)
-            putString("custom_ad_banner_url", bannerUrl)
-            putString("custom_ad_target_url", targetUrl)
-            putString("custom_ad_target_countries", targetCountries)
-            apply()
-        }
+        saveAppConfigLocal()
         pushAppConfigToRemote()
     }
 
@@ -564,16 +573,7 @@ class BloodConnectRepository private constructor() {
         _adMobBannerId.value = bannerId
         _adMobInterstitialId.value = interstitialId
         _adMobNativeId.value = nativeId
-
-        val prefs = context.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
-        prefs.edit().apply {
-            putBoolean("admob_enabled", enabled)
-            putString("admob_app_id", appId)
-            putString("admob_banner_id", bannerId)
-            putString("admob_interstitial_id", interstitialId)
-            putString("admob_native_id", nativeId)
-            apply()
-        }
+        saveAppConfigLocal()
         pushAppConfigToRemote()
     }
 
@@ -594,18 +594,8 @@ class BloodConnectRepository private constructor() {
         _smtpPassword.value = pass
         _emailSubjectTemplate.value = subject
         _emailBodyTemplate.value = body
-
-        val prefs = context.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
-        prefs.edit().apply {
-            putBoolean("email_notify_enabled", enabled)
-            putString("smtp_host", host)
-            putString("smtp_port", port)
-            putString("smtp_username", user)
-            putString("smtp_password", pass)
-            putString("email_subject_template", subject)
-            putString("email_body_template", body)
-            apply()
-        }
+        saveAppConfigLocal()
+        pushAppConfigToRemote()
     }
 
     private val _language = MutableStateFlow(AppLanguage.ENG)
@@ -1850,6 +1840,8 @@ class BloodConnectRepository private constructor() {
         appScope.launch {
             try {
                 val db = getDb() ?: return@launch
+                val prefs = appContext?.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+                val lastUpdated = prefs?.getLong("config_last_updated", System.currentTimeMillis()) ?: System.currentTimeMillis()
                 val configMap = mapOf(
                     "app_name" to _appName.value,
                     "home_notice" to _homeNotice.value,
@@ -1877,7 +1869,8 @@ class BloodConnectRepository private constructor() {
                     "admob_app_id" to _adMobAppId.value,
                     "admob_banner_id" to _adMobBannerId.value,
                     "admob_interstitial_id" to _adMobInterstitialId.value,
-                    "admob_native_id" to _adMobNativeId.value
+                    "admob_native_id" to _adMobNativeId.value,
+                    "updated_at" to lastUpdated
                 )
                 db.getReference("app_config").setValue(configMap)
             } catch (e: Exception) {
@@ -1928,7 +1921,13 @@ class BloodConnectRepository private constructor() {
         db.getReference("app_config").addValueEventListener(object : com.google.firebase.database.ValueEventListener {
             override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
                 try {
-                    if (snapshot.exists() && snapshot.childrenCount > 0) {
+                    val remoteUpdatedAt = snapshot.child("updated_at").getValue(Long::class.java) ?: 0L
+                    val prefs = appContext?.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+                    val localUpdatedAt = prefs?.getLong("config_last_updated", 0L) ?: 0L
+
+                    if (localUpdatedAt > 0L && remoteUpdatedAt < localUpdatedAt) {
+                        pushAppConfigToFirebase()
+                    } else if (snapshot.exists() && snapshot.childrenCount > 0) {
                         val name = snapshot.child("app_name").getValue(String::class.java)
                         if (!name.isNullOrBlank()) _appName.value = name
 
@@ -1989,7 +1988,6 @@ class BloodConnectRepository private constructor() {
                         val termsBn = snapshot.child("terms_bn").getValue(String::class.java)
                         if (!termsBn.isNullOrBlank()) _termsConditionsBn.value = termsBn
 
-                        // Custom CPA / Affmine Ads Sync
                         val customEnabled = snapshot.child("custom_ads_enabled").getValue(Boolean::class.java)
                         if (customEnabled != null) _customAdsEnabled.value = customEnabled
 
@@ -2013,7 +2011,6 @@ class BloodConnectRepository private constructor() {
                             _customAdConfigs.value = deserializeAds(serializedAdList)
                         }
 
-                        // AdMob Sync
                         val admobEnabled = snapshot.child("admob_enabled").getValue(Boolean::class.java)
                         if (admobEnabled != null) _adMobEnabled.value = admobEnabled
 
@@ -2029,28 +2026,7 @@ class BloodConnectRepository private constructor() {
                         val admobNative = snapshot.child("admob_native_id").getValue(String::class.java)
                         if (admobNative != null) _adMobNativeId.value = admobNative
 
-                        // Persist to local preferences so local cache remains synced
-                        appContext?.let { ctx ->
-                            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
-                            prefs.edit().apply {
-                                if (_appName.value.isNotBlank()) putString("app_name_pref", _appName.value)
-                                if (_homeNotice.value.isNotBlank()) putString("home_notice", _homeNotice.value)
-                                if (_popupNotice.value.isNotBlank()) putString("popup_notice", _popupNotice.value)
-                                if (_bkashNumber.value.isNotBlank()) putString("payment_bkash", _bkashNumber.value)
-                                if (_nagadNumber.value.isNotBlank()) putString("payment_nagad", _nagadNumber.value)
-                                if (_rocketNumber.value.isNotBlank()) putString("payment_rocket", _rocketNumber.value)
-                                putFloat("booking_acceptance_fee", _bookingAcceptanceFee.value.toFloat())
-                                putFloat("standard_commission_rate", _standardCommissionRate.value.toFloat())
-                                putFloat("mplus_commission_rate", _mPlusCommissionRate.value.toFloat())
-                                if (_privacyPolicyEn.value.isNotBlank()) putString("policy_privacy_en", _privacyPolicyEn.value)
-                                if (_privacyPolicyBn.value.isNotBlank()) putString("policy_privacy_bn", _privacyPolicyBn.value)
-                                if (_termsConditionsEn.value.isNotBlank()) putString("policy_terms_en", _termsConditionsEn.value)
-                                if (_termsConditionsBn.value.isNotBlank()) putString("policy_terms_bn", _termsConditionsBn.value)
-                                if (_refundPolicyEn.value.isNotBlank()) putString("policy_refund_en", _refundPolicyEn.value)
-                                if (_refundPolicyBn.value.isNotBlank()) putString("policy_refund_bn", _refundPolicyBn.value)
-                                apply()
-                            }
-                        }
+                        saveAppConfigLocal()
                     } else {
                         // Seed Firebase config only if config node is missing
                         pushAppConfigToFirebase()
@@ -2332,32 +2308,22 @@ class BloodConnectRepository private constructor() {
             if (configResult.isSuccess) {
                 val remoteConfig = configResult.getOrNull()
                 if (remoteConfig != null) {
-                    if (remoteConfig.app_name.isNotBlank()) _appName.value = remoteConfig.app_name
-                    if (remoteConfig.home_notice.isNotBlank()) _homeNotice.value = remoteConfig.home_notice
-                    if (remoteConfig.popup_notice.isNotBlank()) _popupNotice.value = remoteConfig.popup_notice
-                    if (remoteConfig.privacy_policy_en.isNotBlank()) _privacyPolicyEn.value = remoteConfig.privacy_policy_en
-                    if (remoteConfig.privacy_policy_bn.isNotBlank()) _privacyPolicyBn.value = remoteConfig.privacy_policy_bn
-                    if (remoteConfig.privacy_policy_url.isNotBlank()) _privacyPolicyUrl.value = remoteConfig.privacy_policy_url
-                    if (remoteConfig.terms_conditions_en.isNotBlank()) _termsConditionsEn.value = remoteConfig.terms_conditions_en
-                    if (remoteConfig.terms_conditions_bn.isNotBlank()) _termsConditionsBn.value = remoteConfig.terms_conditions_bn
-                    if (remoteConfig.refund_policy_en.isNotBlank()) _refundPolicyEn.value = remoteConfig.refund_policy_en
-                    if (remoteConfig.refund_policy_bn.isNotBlank()) _refundPolicyBn.value = remoteConfig.refund_policy_bn
-
-                    // Back up non-blank values to local preferences
-                    appContext?.let { ctx ->
-                        val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
-                        prefs.edit().apply {
-                            if (_appName.value.isNotBlank()) putString("app_name_pref", _appName.value)
-                            if (_homeNotice.value.isNotBlank()) putString("home_notice", _homeNotice.value)
-                            if (_popupNotice.value.isNotBlank()) putString("popup_notice", _popupNotice.value)
-                            if (_privacyPolicyEn.value.isNotBlank()) putString("policy_privacy_en", _privacyPolicyEn.value)
-                            if (_privacyPolicyBn.value.isNotBlank()) putString("policy_privacy_bn", _privacyPolicyBn.value)
-                            if (_termsConditionsEn.value.isNotBlank()) putString("policy_terms_en", _termsConditionsEn.value)
-                            if (_termsConditionsBn.value.isNotBlank()) putString("policy_terms_bn", _termsConditionsBn.value)
-                            if (_refundPolicyEn.value.isNotBlank()) putString("policy_refund_en", _refundPolicyEn.value)
-                            if (_refundPolicyBn.value.isNotBlank()) putString("policy_refund_bn", _refundPolicyBn.value)
-                            apply()
-                        }
+                    val prefs = appContext?.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+                    val localUpdatedAt = prefs?.getLong("config_last_updated", 0L) ?: 0L
+                    if (localUpdatedAt == 0L) {
+                        if (remoteConfig.app_name.isNotBlank()) _appName.value = remoteConfig.app_name
+                        if (remoteConfig.home_notice.isNotBlank()) _homeNotice.value = remoteConfig.home_notice
+                        if (remoteConfig.popup_notice.isNotBlank()) _popupNotice.value = remoteConfig.popup_notice
+                        if (remoteConfig.privacy_policy_en.isNotBlank()) _privacyPolicyEn.value = remoteConfig.privacy_policy_en
+                        if (remoteConfig.privacy_policy_bn.isNotBlank()) _privacyPolicyBn.value = remoteConfig.privacy_policy_bn
+                        if (remoteConfig.privacy_policy_url.isNotBlank()) _privacyPolicyUrl.value = remoteConfig.privacy_policy_url
+                        if (remoteConfig.terms_conditions_en.isNotBlank()) _termsConditionsEn.value = remoteConfig.terms_conditions_en
+                        if (remoteConfig.terms_conditions_bn.isNotBlank()) _termsConditionsBn.value = remoteConfig.terms_conditions_bn
+                        if (remoteConfig.refund_policy_en.isNotBlank()) _refundPolicyEn.value = remoteConfig.refund_policy_en
+                        if (remoteConfig.refund_policy_bn.isNotBlank()) _refundPolicyBn.value = remoteConfig.refund_policy_bn
+                        saveAppConfigLocal()
+                    } else {
+                        pushAppConfigToRemote()
                     }
                 }
             }
@@ -3105,20 +3071,7 @@ class BloodConnectRepository private constructor() {
         _termsConditionsBn.value = termsBn
         _refundPolicyEn.value = refundEn
         _refundPolicyBn.value = refundBn
-
-        appContext?.let { ctx ->
-            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
-            prefs.edit().apply {
-                putString("policy_privacy_en", privacyEn)
-                putString("policy_privacy_bn", privacyBn)
-                putString("policy_privacy_url", privacyUrl)
-                putString("policy_terms_en", termsEn)
-                putString("policy_terms_bn", termsBn)
-                putString("policy_refund_en", refundEn)
-                putString("policy_refund_bn", refundBn)
-                apply()
-            }
-        }
+        saveAppConfigLocal()
         pushAppConfigToRemote()
     }
 
