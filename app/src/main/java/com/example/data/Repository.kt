@@ -2075,6 +2075,50 @@ class BloodConnectRepository private constructor() {
             override fun onCancelled(error: com.google.firebase.database.DatabaseError) {}
         })
 
+        // Listen to Broadcast Notifications
+        db.getReference("broadcast_notifications").addValueEventListener(object : com.google.firebase.database.ValueEventListener {
+            override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
+                try {
+                    if (snapshot.exists() && snapshot.childrenCount > 0) {
+                        val list = mutableListOf<DonationNotification>()
+                        for (child in snapshot.children) {
+                            val id = child.child("id").getValue(String::class.java) ?: child.key ?: ""
+                            val titleEn = child.child("titleEn").getValue(String::class.java) ?: ""
+                            val titleBn = child.child("titleBn").getValue(String::class.java) ?: ""
+                            val messageEn = child.child("messageEn").getValue(String::class.java) ?: ""
+                            val messageBn = child.child("messageBn").getValue(String::class.java) ?: ""
+                            val timestamp = child.child("timestamp").getValue(String::class.java) ?: "Just now"
+                            val type = child.child("type").getValue(String::class.java) ?: "URGENT"
+                            val country = child.child("country").getValue(String::class.java) ?: "Bangladesh"
+                            val isRead = child.child("isRead").getValue(Boolean::class.java) ?: false
+                            if (id.isNotBlank()) {
+                                list.add(
+                                    DonationNotification(
+                                        id = id,
+                                        titleEn = titleEn,
+                                        titleBn = titleBn,
+                                        messageEn = messageEn,
+                                        messageBn = messageBn,
+                                        timestamp = timestamp,
+                                        isRead = isRead,
+                                        type = type,
+                                        country = country
+                                    )
+                                )
+                            }
+                        }
+                        if (list.isNotEmpty()) {
+                            val combined = (list + _notifications.value).distinctBy { it.id }
+                            _notifications.value = combined
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("BloodConnectRepo", "Error reading notifications: ${e.message}")
+                }
+            }
+            override fun onCancelled(error: com.google.firebase.database.DatabaseError) {}
+        })
+
         // Listen to Donors
         db.getReference("donors").addValueEventListener(object : com.google.firebase.database.ValueEventListener {
             override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
@@ -2750,6 +2794,16 @@ class BloodConnectRepository private constructor() {
             country = country
         )
         _notifications.value = listOf(newNotification) + _notifications.value
+        
+        appScope.launch {
+            try {
+                val db = getDb() ?: return@launch
+                val key = cleanKey(newNotification.id)
+                db.getReference("broadcast_notifications").child(key).setValue(newNotification)
+            } catch (e: Exception) {
+                Log.e("BloodConnectRepo", "Error pushing notification: ${e.message}")
+            }
+        }
         
         // Trigger OS Status Bar Notification
         val currentLang = language.value

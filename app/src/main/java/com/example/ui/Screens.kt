@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -4006,10 +4007,31 @@ fun HomeScreen(viewModel: MainViewModel) {
     ) {
         // Dynamic Home Notice
         if (homeNotice.isNotEmpty() && !isNoticeDismissed) {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+            val fallbackTargetUrl by viewModel.customAdTargetUrl.collectAsState()
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 16.dp),
+                    .padding(bottom = 16.dp)
+                    .clickable {
+                        val rawText = displayHomeNotice
+                        val urlInNotice = rawText.split("\\s+".toRegex()).firstOrNull { 
+                            it.startsWith("http://") || it.startsWith("https://") || it.startsWith("www.") 
+                        } ?: fallbackTargetUrl.ifBlank { null }
+                        
+                        if (urlInNotice != null) {
+                            val formattedUrl = if (!urlInNotice.startsWith("http://") && !urlInNotice.startsWith("https://")) "https://$urlInNotice" else urlInNotice
+                            try {
+                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(formattedUrl)).apply {
+                                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                try { uriHandler.openUri(formattedUrl) } catch (_: Exception) {}
+                            }
+                        }
+                    },
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = BloodRed.copy(alpha = 0.05f)),
                 border = BorderStroke(1.dp, BloodRed.copy(alpha = 0.2f))
@@ -4463,19 +4485,46 @@ fun HomeScreen(viewModel: MainViewModel) {
                 }
             }
 
+            val context = androidx.compose.ui.platform.LocalContext.current
             val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+
+            val openCpaLink = {
+                val rawUrl = selectedAd.targetUrl.trim()
+                if (rawUrl.isNotEmpty()) {
+                    val formattedUrl = if (!rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
+                        "https://$rawUrl"
+                    } else {
+                        rawUrl
+                    }
+                    try {
+                        val intent = android.content.Intent(
+                            android.content.Intent.ACTION_VIEW,
+                            android.net.Uri.parse(formattedUrl)
+                        ).apply {
+                            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        try {
+                            uriHandler.openUri(formattedUrl)
+                        } catch (ex: Exception) {
+                            ex.printStackTrace()
+                            android.widget.Toast.makeText(
+                                context,
+                                if (language == AppLanguage.BAN) "লিংক খুলতে ব্যর্থ হয়েছে: $formattedUrl" else "Could not open link: $formattedUrl",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                }
+            }
 
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp)
-                    .clickable {
-                        try {
-                            uriHandler.openUri(selectedAd.targetUrl)
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                    }
+                    .clickable { openCpaLink() }
                     .shadow(4.dp, RoundedCornerShape(12.dp)),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -4593,13 +4642,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                         }
 
                         Button(
-                            onClick = {
-                                try {
-                                    uriHandler.openUri(selectedAd.targetUrl)
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
-                                }
-                            },
+                            onClick = { openCpaLink() },
                             colors = ButtonDefaults.buttonColors(containerColor = BloodRed),
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                             shape = RoundedCornerShape(8.dp),
@@ -17260,11 +17303,34 @@ fun DonorTeamsScreen(viewModel: MainViewModel) {
     val language by viewModel.language.collectAsState()
     val isBn = language == AppLanguage.BAN
     val userSession by viewModel.currentUser.collectAsState()
+    val isAdminMode by viewModel.isAdminMode.collectAsState()
+    val isAdmin = isAdminMode || userSession?.role.equals("Admin", ignoreCase = true) || userSession?.phone == "admin"
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedDistrict by remember { mutableStateOf("All") }
-    var selectedTab by remember { mutableStateOf("APPROVED") } // "APPROVED", "MY_TEAMS", "PENDING"
+    var selectedTab by remember(donorTeams, isAdmin) {
+        val hasPending = donorTeams.any { !it.isApproved }
+        mutableStateOf(if (isAdmin && hasPending) "PENDING" else "APPROVED")
+    } // "APPROVED", "MY_TEAMS", "PENDING"
     var showCreateDialog by remember { mutableStateOf(false) }
+
+    // Scroll Connection to hide/show top header when scrolling list up/down
+    var isHeaderVisible by remember { mutableStateOf(true) }
+    val nestedScrollConnection = remember {
+        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+            override fun onPreScroll(
+                available: androidx.compose.ui.geometry.Offset,
+                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource
+            ): androidx.compose.ui.geometry.Offset {
+                if (available.y < -12f) {
+                    if (isHeaderVisible) isHeaderVisible = false
+                } else if (available.y > 12f) {
+                    if (!isHeaderVisible) isHeaderVisible = true
+                }
+                return androidx.compose.ui.geometry.Offset.Zero
+            }
+        }
+    }
 
     val filteredTeams = remember(donorTeams, searchQuery, selectedDistrict, selectedTab, userSession) {
         donorTeams.filter { team ->
@@ -17313,65 +17379,72 @@ fun DonorTeamsScreen(viewModel: MainViewModel) {
                 .fillMaxSize()
                 .padding(paddingValues)
                 .background(Color(0xFFF8F9FA))
+                .nestedScroll(nestedScrollConnection)
         ) {
-            // Hero Banner Header
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        Brush.horizontalGradient(
-                            listOf(Color(0xFF880E4F), BloodRed, Color(0xFF3F51B5))
-                        )
-                    )
-                    .padding(20.dp)
+            // Collapsible Hero Banner Header
+            androidx.compose.animation.AnimatedVisibility(
+                visible = isHeaderVisible,
+                enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
+                exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut()
             ) {
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Filled.Groups,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(32.dp)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(Color(0xFF880E4F), BloodRed, Color(0xFF3F51B5))
+                            )
                         )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                text = if (isBn) "স্বেচ্ছাসেবী রক্তদাতা টিম" else "Volunteer Donor Teams",
-                                color = Color.White,
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = if (isBn) "জেলা ও উপজেলা ভিত্তিক রক্তদাতা ক্লাব এবং সংগঠনসমূহ" else "District & Upazila Blood Donation Clubs",
-                                color = Color.White.copy(alpha = 0.85f),
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Surface(
-                        color = Color.White.copy(alpha = 0.18f),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        .padding(20.dp)
+                ) {
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = Icons.Filled.VerifiedUser,
+                                imageVector = Icons.Filled.Groups,
                                 contentDescription = null,
-                                tint = Color(0xFFFFD54F),
-                                modifier = Modifier.size(18.dp)
+                                tint = Color.White,
+                                modifier = Modifier.size(32.dp)
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = if (isBn) "⚠️ দ্রষ্টব্য: ডোনার টিম তৈরি ও টিম লিডার/এডমিন হতে অবশ্যই অ্যাপ এডমিনের অনুমতি প্রয়োজন।" else "Note: App admin approval is strictly required to activate donor teams and lead them.",
-                                color = Color.White,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium
-                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = if (isBn) "স্বেচ্ছাসেবী রক্তদাতা টিম" else "Volunteer Donor Teams",
+                                    color = Color.White,
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = if (isBn) "জেলা ও উপজেলা ভিত্তিক রক্তদাতা ক্লাব এবং সংগঠনসমূহ" else "District & Upazila Blood Donation Clubs",
+                                    color = Color.White.copy(alpha = 0.85f),
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Surface(
+                            color = Color.White.copy(alpha = 0.18f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.VerifiedUser,
+                                    contentDescription = null,
+                                    tint = Color(0xFFFFD54F),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (isBn) "⚠️ দ্রষ্টব্য: ডোনার টিম তৈরি ও টিম লিডার/এডমিন হতে অবশ্যই অ্যাপ এডমিনের অনুমতি প্রয়োজন।" else "Note: App admin approval is strictly required to activate donor teams and lead them.",
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                         }
                     }
                 }
@@ -17490,12 +17563,21 @@ fun DonorTeamsScreen(viewModel: MainViewModel) {
                             team = team,
                             isBn = isBn,
                             userSession = userSession,
+                            isAdmin = isAdmin,
                             onDetailClick = {
                                 viewModel.selectTeam(team.id)
                                 viewModel.navigateTo(AppScreen.TEAM_DETAIL)
                             },
                             onJoinClick = {
                                 viewModel.joinDonorTeam(team.id, context)
+                            },
+                            onApproveClick = {
+                                viewModel.approveDonorTeam(team.id)
+                                Toast.makeText(context, if (isBn) "টিম সফলভাবে অনুমোদন করা হয়েছে!" else "Team approved successfully!", Toast.LENGTH_SHORT).show()
+                            },
+                            onRejectClick = {
+                                viewModel.rejectDonorTeam(team.id)
+                                Toast.makeText(context, if (isBn) "টিম আবেদন বাতিল করা হয়েছে" else "Team application rejected", Toast.LENGTH_SHORT).show()
                             }
                         )
                     }
@@ -17517,8 +17599,11 @@ fun TeamCard(
     team: DonorTeam,
     isBn: Boolean,
     userSession: BloodDonor?,
+    isAdmin: Boolean = false,
     onDetailClick: () -> Unit,
-    onJoinClick: () -> Unit
+    onJoinClick: () -> Unit,
+    onApproveClick: (() -> Unit)? = null,
+    onRejectClick: (() -> Unit)? = null
 ) {
     val isMember = userSession != null && team.members.any { it.memberPhone.equals(userSession.phone, ignoreCase = true) }
 
@@ -17715,6 +17800,26 @@ fun TeamCard(
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(if (isBn) "টিমে যোগ দিন" else "Join Team", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
+                    }
+                } else if (isAdmin) {
+                    Button(
+                        onClick = { onApproveClick?.invoke() },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
+                    ) {
+                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(if (isBn) "অনুমোদন করুন" else "Approve", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    OutlinedButton(
+                        onClick = { onRejectClick?.invoke() },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, Color.Red)
+                    ) {
+                        Text(if (isBn) "বাতিল" else "Reject", color = Color.Red, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -17970,6 +18075,64 @@ fun TeamDetailScreen(viewModel: MainViewModel) {
             }
 
             Column(modifier = Modifier.padding(16.dp)) {
+                val isAdmin = isAdminMode || userSession?.role.equals("Admin", ignoreCase = true) || userSession?.phone == "admin"
+                if (!team.isApproved && isAdmin) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, Color(0xFFFFB74D))
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.AdminPanelSettings, contentDescription = null, tint = Color(0xFFE65100))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (isBn) "এডমিন একশন: টিম অনুমোদন" else "Admin Action: Team Approval",
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFE65100),
+                                    fontSize = 14.sp
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = if (isBn) "এই টিম আবেদনটি বর্তমানে অনুমোদনের অপেক্ষায় রয়েছে। আপনি এটিকে অনুমোদন দিয়ে সক্রিয় করতে পারেন।"
+                                       else "This team application is pending approval. You can approve it to publish it.",
+                                fontSize = 12.sp,
+                                color = Color(0xFF5D4037)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = {
+                                        viewModel.approveDonorTeam(team.id)
+                                        Toast.makeText(context, if (isBn) "টিম সফলভাবে অনুমোদন করা হয়েছে!" else "Team approved successfully!", Toast.LENGTH_SHORT).show()
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(if (isBn) "অনুমোদন করুন" else "Approve Team", fontWeight = FontWeight.Bold)
+                                }
+                                OutlinedButton(
+                                    onClick = {
+                                        viewModel.rejectDonorTeam(team.id)
+                                        Toast.makeText(context, if (isBn) "টিম আবেদন বাতিল করা হয়েছে" else "Team rejected", Toast.LENGTH_SHORT).show()
+                                        viewModel.navigateBack()
+                                    },
+                                    border = BorderStroke(1.dp, Color.Red),
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(if (isBn) "বাতিল করুন" else "Reject Team", color = Color.Red, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Team Leader Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),

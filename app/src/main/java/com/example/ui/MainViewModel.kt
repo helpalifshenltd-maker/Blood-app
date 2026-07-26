@@ -1227,12 +1227,23 @@ class MainViewModel(
             leaderBloodGroup = currentUser.bloodGroup
         )
 
+        val isAdmin = _isAdminMode.value || currentUser.role.equals("Admin", ignoreCase = true) || currentUser.phone == "admin"
+        if (isAdmin) {
+            repository.approveDonorTeam(created.id)
+            android.widget.Toast.makeText(
+                context,
+                if (language.value == AppLanguage.BAN) "এডমিন একাউন্ট থেকে তৈরি করায় টিমটি সরাসরি অনুমোদিত ও সক্রিয় হয়েছে!" else "Team created and automatically approved as Admin!",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+        } else {
+            android.widget.Toast.makeText(
+                context,
+                if (language.value == AppLanguage.BAN) "টিমের আবেদন সফলভাবে জমা দেওয়া হয়েছে! এডমিন অনুমোদনের পর টিম সক্রিয় হবে।" else "Team application submitted! Pending admin approval.",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+        }
+
         selectedTeamId.value = created.id
-        android.widget.Toast.makeText(
-            context,
-            if (language.value == AppLanguage.BAN) "টিমের আবেদন সফলভাবে জমা দেওয়া হয়েছে! এডমিন অনুমোদনের পর টিম সক্রিয় হবে।" else "Team application submitted! Pending admin approval.",
-            android.widget.Toast.LENGTH_LONG
-        ).show()
     }
 
     fun approveDonorTeam(teamId: String) {

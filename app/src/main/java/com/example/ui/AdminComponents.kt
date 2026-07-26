@@ -47,6 +47,25 @@ val AdminAccGreen = Color(0xFF10B981)
 val AdminAccOrange = Color(0xFFF59E0B)
 val AdminAccPink = Color(0xFFEC4899)
 
+fun saveMediaUriToInternalStorage(context: Context, uri: Uri, isVideo: Boolean): String {
+    return try {
+        val timeStamp = System.currentTimeMillis()
+        val ext = if (isVideo) "mp4" else "jpg"
+        val dir = java.io.File(context.filesDir, "cpa_ads")
+        if (!dir.exists()) dir.mkdirs()
+        val destFile = java.io.File(dir, "ad_media_$timeStamp.$ext")
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            java.io.FileOutputStream(destFile).use { output ->
+                input.copyTo(output)
+            }
+        }
+        destFile.absolutePath
+    } catch (e: Exception) {
+        e.printStackTrace()
+        uri.toString()
+    }
+}
+
 @Composable
 fun AdminStatCard(
     title: String,
@@ -2979,7 +2998,10 @@ fun AdminSettingsTab(
         var draftCustomAdsEnabled by remember(customAdsEnabledState) { mutableStateOf(customAdsEnabledState) }
         var currentAdConfigsList by remember(customAdConfigsState) { mutableStateOf(customAdConfigsState) }
 
-        // State variables for adding a new ad config
+        // Editing state for updating existing ads
+        var editingAdId by remember { mutableStateOf<String?>(null) }
+
+        // State variables for adding/editing an ad config
         var newAdNetworkName by remember { mutableStateOf("") }
         var newAdTitle by remember { mutableStateOf("") }
         var newAdWeight by remember { mutableStateOf("1") }
@@ -2992,12 +3014,13 @@ fun AdminSettingsTab(
         var customMediaUrlInput by remember { mutableStateOf("") }
         var selectedGalleryUri by remember { mutableStateOf<Uri?>(null) }
 
-        // Setup image/video picker launcher from gallery
+        // Setup image/video picker launcher from gallery with persistent storage saving
         val adMediaPickerLauncher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.GetContent()
         ) { uri: Uri? ->
             if (uri != null) {
-                selectedGalleryUri = uri
+                val persistentPath = saveMediaUriToInternalStorage(context, uri, isVideoType)
+                selectedGalleryUri = Uri.parse(persistentPath)
                 mediaSourceType = "gallery"
             }
         }
@@ -3134,18 +3157,55 @@ fun AdminSettingsTab(
                                         overflow = TextOverflow.Ellipsis
                                     )
                                 }
-                                IconButton(
-                                    onClick = {
-                                        currentAdConfigsList = currentAdConfigsList.filter { it.id != ad.id }
-                                    },
-                                    modifier = Modifier.size(28.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = "Delete",
-                                        tint = AdminAccRed,
-                                        modifier = Modifier.size(16.dp)
-                                    )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    // EDIT BUTTON
+                                    IconButton(
+                                        onClick = {
+                                            editingAdId = ad.id
+                                            newAdNetworkName = ad.networkName
+                                            newAdTitle = ad.title
+                                            newAdWeight = ad.weight.toString()
+                                            newAdTargetUrl = ad.targetUrl
+                                            newAdTargetCountries = ad.targetCountries
+                                            isVideoType = ad.isVideo
+                                            val mediaPath = if (ad.isVideo) ad.videoUrl else ad.bannerUrl
+                                            if (mediaPath.startsWith("http://") || mediaPath.startsWith("https://")) {
+                                                mediaSourceType = "url"
+                                                customMediaUrlInput = mediaPath
+                                                selectedGalleryUri = null
+                                            } else {
+                                                mediaSourceType = "gallery"
+                                                customMediaUrlInput = mediaPath
+                                                selectedGalleryUri = if (mediaPath.isNotEmpty()) Uri.parse(mediaPath) else null
+                                            }
+                                        },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = "Edit",
+                                            tint = AdminPrimaryBlue,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+
+                                    // DELETE BUTTON
+                                    IconButton(
+                                        onClick = {
+                                            if (editingAdId == ad.id) {
+                                                editingAdId = null
+                                            }
+                                            currentAdConfigsList = currentAdConfigsList.filter { it.id != ad.id }
+                                        },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "Delete",
+                                            tint = AdminAccRed,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -3155,14 +3215,55 @@ fun AdminSettingsTab(
                     HorizontalDivider(color = AdminBorder)
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // SECTION 2: ADD NEW AD FORM
-                    Text(
-                        text = if (language == AppLanguage.ENG) "Add New Network / Offer" else "নতুন নেটওয়ার্ক / অফার যোগ করুন",
-                        fontWeight = FontWeight.Bold,
-                        color = AdminTextWhite,
-                        fontSize = 13.sp
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
+                    // SECTION 2: ADD / EDIT AD FORM
+                    if (editingAdId != null) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(AdminPrimaryBlue.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                .border(1.dp, AdminPrimaryBlue, RoundedCornerShape(8.dp))
+                                .padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = if (language == AppLanguage.ENG) "Editing Ad (ID: ${editingAdId?.take(8)})" else "বিজ্ঞাপন এডিট করা হচ্ছে (আইডি: ${editingAdId?.take(8)})",
+                                color = AdminPrimaryBlue,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                            TextButton(
+                                onClick = {
+                                    editingAdId = null
+                                    newAdNetworkName = ""
+                                    newAdTitle = ""
+                                    newAdWeight = "1"
+                                    newAdTargetUrl = ""
+                                    newAdTargetCountries = "All"
+                                    customMediaUrlInput = ""
+                                    selectedGalleryUri = null
+                                    mediaSourceType = "url"
+                                    isVideoType = false
+                                }
+                            ) {
+                                Text(
+                                    text = if (language == AppLanguage.ENG) "Cancel Edit" else "বাতিল করুন",
+                                    color = AdminAccRed,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                    } else {
+                        Text(
+                            text = if (language == AppLanguage.ENG) "Add New Network / Offer" else "নতুন নেটওয়ার্ক / অফার যোগ করুন",
+                            fontWeight = FontWeight.Bold,
+                            color = AdminTextWhite,
+                            fontSize = 13.sp
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                    }
 
                     Text(if (language == AppLanguage.ENG) "Ad Network Name" else "বিজ্ঞাপন নেটওয়ার্কের নাম (যেমন: Affmine)", fontSize = 11.sp, color = AdminTextMuted)
                     OutlinedTextField(
@@ -3413,7 +3514,7 @@ fun AdminSettingsTab(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // BUTTON TO ADD THIS NETWORK TO LIST (+)
+                    // BUTTON TO ADD / UPDATE NETWORK IN LIST
                     Button(
                         onClick = {
                             if (newAdNetworkName.isBlank() || newAdTitle.isBlank() || newAdTargetUrl.isBlank()) {
@@ -3424,7 +3525,7 @@ fun AdminSettingsTab(
                             val finalMediaUrl = if (mediaSourceType == "url") {
                                 customMediaUrlInput
                             } else {
-                                selectedGalleryUri?.toString() ?: ""
+                                selectedGalleryUri?.toString() ?: customMediaUrlInput
                             }
 
                             if (finalMediaUrl.isBlank()) {
@@ -3434,8 +3535,8 @@ fun AdminSettingsTab(
 
                             val weightVal = newAdWeight.toIntOrNull() ?: 1
 
-                            val newAd = CustomAdConfig(
-                                id = java.util.UUID.randomUUID().toString(),
+                            val adConfig = CustomAdConfig(
+                                id = editingAdId ?: java.util.UUID.randomUUID().toString(),
                                 networkName = newAdNetworkName,
                                 title = newAdTitle,
                                 bannerUrl = finalMediaUrl,
@@ -3446,7 +3547,16 @@ fun AdminSettingsTab(
                                 weight = weightVal
                             )
 
-                            currentAdConfigsList = currentAdConfigsList + newAd
+                            if (editingAdId != null) {
+                                currentAdConfigsList = currentAdConfigsList.map {
+                                    if (it.id == editingAdId) adConfig else it
+                                }
+                                Toast.makeText(context, "Ad updated in list! Save settings below to apply.", Toast.LENGTH_SHORT).show()
+                                editingAdId = null
+                            } else {
+                                currentAdConfigsList = currentAdConfigsList + adConfig
+                                Toast.makeText(context, "Ad added to list! Save settings below to apply.", Toast.LENGTH_SHORT).show()
+                            }
 
                             // Clear add form fields
                             newAdNetworkName = ""
@@ -3455,16 +3565,24 @@ fun AdminSettingsTab(
                             newAdTargetUrl = ""
                             customMediaUrlInput = ""
                             selectedGalleryUri = null
-                            Toast.makeText(context, "Ad added to list! Save settings below to apply.", Toast.LENGTH_SHORT).show()
                         },
                         modifier = Modifier.fillMaxWidth().height(38.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = AdminPrimaryBlue),
+                        colors = ButtonDefaults.buttonColors(containerColor = if (editingAdId != null) AdminAccGreen else AdminPrimaryBlue),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = "Add", tint = Color.White, modifier = Modifier.size(16.dp))
+                        Icon(
+                            imageVector = if (editingAdId != null) Icons.Default.Check else Icons.Default.Add,
+                            contentDescription = "Action",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = if (language == AppLanguage.ENG) "Add Ad Network to List (+)" else "বিজ্ঞাপন নেটওয়ার্ক রোটেশন তালিকায় যোগ করুন (+)",
+                            text = if (editingAdId != null) {
+                                if (language == AppLanguage.ENG) "Update Ad Network in List (✓)" else "বিজ্ঞাপন নেটওয়ার্ক আপডেট করুন (✓)"
+                            } else {
+                                if (language == AppLanguage.ENG) "Add Ad Network to List (+)" else "বিজ্ঞাপন নেটওয়ার্ক রোটেশন তালিকায় যোগ করুন (+)"
+                            },
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp,
                             color = Color.White
