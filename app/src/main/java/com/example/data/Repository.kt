@@ -73,6 +73,23 @@ class BloodConnectRepository private constructor() {
     private val _userSubscriptions = MutableStateFlow<List<UserSubscription>>(emptyList())
     val userSubscriptions: StateFlow<List<UserSubscription>> = _userSubscriptions.asStateFlow()
 
+    private val _useMockStats = MutableStateFlow(false)
+    val useMockStats: StateFlow<Boolean> = _useMockStats.asStateFlow()
+
+    private val _mockTotalUsers = MutableStateFlow(80424)
+    val mockTotalUsers: StateFlow<Int> = _mockTotalUsers.asStateFlow()
+
+    private val _mockTotalDonors = MutableStateFlow(12300)
+    val mockTotalDonors: StateFlow<Int> = _mockTotalDonors.asStateFlow()
+
+    fun updateMockStats(use: Boolean, users: Int, donors: Int) {
+        _useMockStats.value = use
+        _mockTotalUsers.value = users
+        _mockTotalDonors.value = donors
+        saveAppConfigLocal()
+        pushAppConfigToRemote()
+    }
+
     fun saveAppConfigLocal() {
         val now = System.currentTimeMillis()
         appContext?.let { ctx ->
@@ -115,6 +132,9 @@ class BloodConnectRepository private constructor() {
                 putString("smtp_password", _smtpPassword.value)
                 putString("email_subject_template", _emailSubjectTemplate.value)
                 putString("email_body_template", _emailBodyTemplate.value)
+                putBoolean("use_mock_stats", _useMockStats.value)
+                putInt("mock_total_users", _mockTotalUsers.value)
+                putInt("mock_total_donors", _mockTotalDonors.value)
                 apply()
             }
         }
@@ -353,6 +373,7 @@ class BloodConnectRepository private constructor() {
             _customAdTargetUrl.value = first.targetUrl
             _customAdTargetCountries.value = first.targetCountries
         }
+        saveAppConfigLocal()
         pushAppConfigToRemote()
     }
 
@@ -1380,6 +1401,10 @@ class BloodConnectRepository private constructor() {
         }
         _customAdConfigs.value = loadedAdsList
 
+        _useMockStats.value = prefs.getBoolean("use_mock_stats", false)
+        _mockTotalUsers.value = prefs.getInt("mock_total_users", 80424)
+        _mockTotalDonors.value = prefs.getInt("mock_total_donors", 12300)
+
         _homeNotice.value = prefs.getString("home_notice", _homeNotice.value) ?: _homeNotice.value
         _popupNotice.value = prefs.getString("popup_notice", _popupNotice.value) ?: _popupNotice.value
         _appName.value = prefs.getString("app_name_pref", _appName.value) ?: _appName.value
@@ -1870,6 +1895,9 @@ class BloodConnectRepository private constructor() {
                     "admob_banner_id" to _adMobBannerId.value,
                     "admob_interstitial_id" to _adMobInterstitialId.value,
                     "admob_native_id" to _adMobNativeId.value,
+                    "use_mock_stats" to _useMockStats.value,
+                    "mock_total_users" to _mockTotalUsers.value,
+                    "mock_total_donors" to _mockTotalDonors.value,
                     "updated_at" to lastUpdated
                 )
                 db.getReference("app_config").setValue(configMap)
@@ -2025,6 +2053,15 @@ class BloodConnectRepository private constructor() {
 
                         val admobNative = snapshot.child("admob_native_id").getValue(String::class.java)
                         if (admobNative != null) _adMobNativeId.value = admobNative
+
+                        val useMock = snapshot.child("use_mock_stats").getValue(Boolean::class.java)
+                        if (useMock != null) _useMockStats.value = useMock
+
+                        val mockUsers = snapshot.child("mock_total_users").getValue(Int::class.java)
+                        if (mockUsers != null) _mockTotalUsers.value = mockUsers
+
+                        val mockDonors = snapshot.child("mock_total_donors").getValue(Int::class.java)
+                        if (mockDonors != null) _mockTotalDonors.value = mockDonors
 
                         saveAppConfigLocal()
                     } else {

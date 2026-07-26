@@ -4584,7 +4584,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                             )
                             Text(
-                                text = selectedAd.targetUrl,
+                                text = if (language == AppLanguage.BAN) "অফিসিয়াল স্পন্সরড অফার • " + selectedAd.networkName else "Official Partner Offer • " + selectedAd.networkName,
                                 fontSize = 10.sp,
                                 color = SecondaryText,
                                 maxLines = 1,

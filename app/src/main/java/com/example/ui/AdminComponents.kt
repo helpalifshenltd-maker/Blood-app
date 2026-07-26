@@ -3438,7 +3438,7 @@ fun AdminSettingsTab(
                                 id = java.util.UUID.randomUUID().toString(),
                                 networkName = newAdNetworkName,
                                 title = newAdTitle,
-                                bannerUrl = if (isVideoType) "" else finalMediaUrl,
+                                bannerUrl = finalMediaUrl,
                                 isVideo = isVideoType,
                                 videoUrl = if (isVideoType) finalMediaUrl else "",
                                 targetUrl = newAdTargetUrl,

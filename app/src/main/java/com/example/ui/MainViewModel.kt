@@ -99,22 +99,16 @@ class MainViewModel(
     val detectedCountryCode: StateFlow<String> = _detectedCountryCode.asStateFlow()
 
     // --- MOCK STATISTICS FOR LIVE DISPLAY ---
-    private val _useMockStats = MutableStateFlow(false)
-    val useMockStats: StateFlow<Boolean> = _useMockStats.asStateFlow()
-
-    private val _mockTotalUsers = MutableStateFlow(80424)
-    val mockTotalUsers: StateFlow<Int> = _mockTotalUsers.asStateFlow()
-
-    private val _mockTotalDonors = MutableStateFlow(12300)
-    val mockTotalDonors: StateFlow<Int> = _mockTotalDonors.asStateFlow()
+    val useMockStats: StateFlow<Boolean> = repository.useMockStats
+    val mockTotalUsers: StateFlow<Int> = repository.mockTotalUsers
+    val mockTotalDonors: StateFlow<Int> = repository.mockTotalDonors
 
     fun setUseMockStats(use: Boolean) {
-        _useMockStats.value = use
+        repository.updateMockStats(use, mockTotalUsers.value, mockTotalDonors.value)
     }
 
     fun updateMockStats(users: Int, donors: Int) {
-        _mockTotalUsers.value = users
-        _mockTotalDonors.value = donors
+        repository.updateMockStats(useMockStats.value, users, donors)
     }
 
     private val _isUserInBangladesh = MutableStateFlow(true)
