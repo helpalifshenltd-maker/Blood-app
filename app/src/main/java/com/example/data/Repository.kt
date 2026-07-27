@@ -2702,6 +2702,36 @@ class BloodConnectRepository private constructor() {
         pushAppConfigToFirebase()
     }
 
+    fun testFirebaseConnection(onResult: (Boolean, String) -> Unit) {
+        val db = getDb()
+        if (db == null) {
+            _isFirebaseConnected.value = false
+            onResult(false, "ফায়ারবেস ডাটাবেস ইনিশিয়ালাইজ করা যায়নি। (Firebase Instance Null)")
+            return
+        }
+
+        try {
+            val pingRef = db.getReference("_connection_test").child("ping")
+            pingRef.setValue(System.currentTimeMillis())
+                .addOnSuccessListener {
+                    _isFirebaseConnected.value = true
+                    onResult(true, "✅ ফায়ারবেস ডাটাবেসের সাথে সফলভাবে কানেক্ট হয়েছে! (Data Write Successful)")
+                }
+                .addOnFailureListener { error ->
+                    _isFirebaseConnected.value = false
+                    val msg = error.message ?: "Unknown Error"
+                    if (msg.contains("Permission denied", ignoreCase = true)) {
+                        onResult(false, "❌ সিকিউরিটি রুলস ব্লক করা আছে! Firebase Console -> Realtime Database -> Rules এ গিয়ে 'Start in test mode' (.read: true, .write: true) সিলেক্ট করে Enable ক্লিক করুন।")
+                    } else {
+                        onResult(false, "❌ কানেকশন টেস্ট ব্যর্থ হয়েছে: $msg")
+                    }
+                }
+        } catch (e: Exception) {
+            _isFirebaseConnected.value = false
+            onResult(false, "❌ ত্রুটি: ${e.message}")
+        }
+    }
+
     fun registerDonor(
         name: String,
         phone: String,

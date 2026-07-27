@@ -2224,6 +2224,9 @@ fun AdminSettingsTab(
 
         // Firebase Realtime Database Configuration & Sync Card
         val isFbConnected by viewModel.isFirebaseConnected.collectAsState()
+        var testResultMessage by remember { mutableStateOf<String?>(null) }
+        var isTesting by remember { mutableStateOf(false) }
+
         Card(
             modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp).testTag("firebase_sync_card_admin"),
             colors = CardDefaults.cardColors(containerColor = AdminCardBg),
@@ -2242,7 +2245,7 @@ fun AdminSettingsTab(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (language == AppLanguage.ENG) "Firebase Realtime Sync" else "ফায়ারবেস রিয়েলটাইম সিঙ্ক (Firebase Status)",
+                        text = if (language == AppLanguage.ENG) "Firebase Realtime Sync" else "ফায়ারবেস ডাটাবেস স্ট্যাটাস ও টেস্ট (Firebase Connection)",
                         fontWeight = FontWeight.Bold,
                         color = AdminAccOrange,
                         fontSize = 15.sp
@@ -2251,9 +2254,9 @@ fun AdminSettingsTab(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = if (language == AppLanguage.ENG) {
-                        "Firebase Project: alif-blood-bank-2bc68 | Realtime Database is synchronized with app data."
+                        "Firebase Project: alif-blood-bank-2bc68 | Test live connection or re-sync all database nodes."
                     } else {
-                        "ফায়ারবেস প্রজেক্ট: alif-blood-bank-2bc68 | অ্যাপের সমস্ত ডাটাবেস ফায়ারবেসের সাথে স্বয়ংক্রিয়ভাবে লাইভ সিঙ্ক হয়।"
+                        "ফায়ারবেস প্রজেক্ট: alif-blood-bank-2bc68 | ডাটাবেস কানেকশন সঠিক আছে কিনা টেস্ট করুন এবং ডাটাবেস সিঙ্ক করুন।"
                     },
                     fontSize = 11.sp,
                     color = AdminTextMuted
@@ -2275,9 +2278,9 @@ fun AdminSettingsTab(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = if (isFbConnected) 
-                            (if (language == AppLanguage.ENG) "Status: Connected to Firebase" else "স্ট্যাটাস: ফায়ারবেসের সাথে সংযুক্ত (Connected)")
+                            (if (language == AppLanguage.ENG) "Status: Connected to Firebase" else "স্ট্যাটাস: ফায়ারবেসের সাথে কানেক্টেড (Connected)")
                         else 
-                            (if (language == AppLanguage.ENG) "Status: Disconnected" else "স্ট্যাটাস: সংযোগ বিচ্ছিন্ন (Disconnected)"),
+                            (if (language == AppLanguage.ENG) "Status: Disconnected" else "স্ট্যাটাস: ডিসকানেক্টেড ( disconnected / rule issue)"),
                         color = if (isFbConnected) AdminAccGreen else AdminAccRed,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
@@ -2286,26 +2289,78 @@ fun AdminSettingsTab(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Button(
-                    onClick = {
-                        viewModel.syncFirebaseData()
-                        Toast.makeText(
-                            context,
-                            if (language == AppLanguage.ENG) "Firebase sync triggered!" else "ফায়ারবেস সিঙ্ক চালু হয়েছে!",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    },
-                    modifier = Modifier.fillMaxWidth().height(42.dp).testTag("firebase_sync_btn_admin"),
-                    colors = ButtonDefaults.buttonColors(containerColor = AdminPrimaryBlue),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Icon(Icons.Filled.Sync, contentDescription = "sync", modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = if (language == AppLanguage.ENG) "Re-Sync Firebase Now" else "ফায়ারবেস ডাটাবেস পুনঃসিঙ্ক করুন",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Button(
+                        onClick = {
+                            isTesting = true
+                            testResultMessage = null
+                            viewModel.testFirebaseConnection { success, message ->
+                                isTesting = false
+                                testResultMessage = message
+                            }
+                        },
+                        modifier = Modifier.weight(1f).height(42.dp).testTag("test_firebase_conn_btn"),
+                        colors = ButtonDefaults.buttonColors(containerColor = if (isFbConnected) AdminAccGreen else AdminAccOrange),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        if (isTesting) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
+                        } else {
+                            Icon(Icons.Filled.CheckCircle, contentDescription = "test", modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (language == AppLanguage.ENG) "Test Connection" else "কানেকশন টেস্ট করুন",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Button(
+                        onClick = {
+                            viewModel.syncFirebaseData()
+                            Toast.makeText(
+                                context,
+                                if (language == AppLanguage.ENG) "Firebase sync triggered!" else "ফায়ারবেস সিঙ্ক চালু হয়েছে!",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        },
+                        modifier = Modifier.weight(1f).height(42.dp).testTag("firebase_sync_btn_admin"),
+                        colors = ButtonDefaults.buttonColors(containerColor = AdminPrimaryBlue),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Filled.Sync, contentDescription = "sync", modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (language == AppLanguage.ENG) "Re-Sync Data" else "ডাটা পুনঃসিঙ্ক করুন",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                val currentResult = testResultMessage
+                if (currentResult != null) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (currentResult.contains("✅")) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
+                        ),
+                        border = BorderStroke(1.dp, if (currentResult.contains("✅")) Color(0xFFA5D6A7) else Color(0xFFFFCDD2)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = currentResult,
+                                fontSize = 12.sp,
+                                color = if (currentResult.contains("✅")) Color(0xFF2E7D32) else Color(0xFFC62828),
+                                fontWeight = FontWeight.Bold,
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
                 }
             }
         }

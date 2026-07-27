@@ -352,6 +352,10 @@ class MainViewModel(
         repository.syncAllWithFirebase()
     }
 
+    fun testFirebaseConnection(onResult: (Boolean, String) -> Unit) {
+        repository.testFirebaseConnection(onResult)
+    }
+
     // --- SCREEN TRANSLATION ACCESSOR ---
     val strings: StateFlow<Map<String, String>> = repository.language.map { lang ->
         Loc.strings(lang)
