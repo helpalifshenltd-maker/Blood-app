@@ -2218,13 +2218,21 @@ class BloodConnectRepository private constructor() {
                             val currentLocal = _donors.value
                             val mergedDonors = (list + currentLocal).distinctBy { 
                                 val cleanP = it.phone.trim().replace("+88", "").replace(" ", "")
-                                if (cleanP.isNotBlank()) cleanP else it.id 
+                                val cleanE = it.email.trim().lowercase()
+                                when {
+                                    cleanP.isNotBlank() -> "p_$cleanP"
+                                    cleanE.isNotBlank() -> "e_$cleanE"
+                                    else -> it.id
+                                }
                             }
                             _donors.value = mergedDonors
                             saveDonorsLocal()
 
                             _currentUser.value?.let { current ->
-                                val remoteCurrent = mergedDonors.find { phonesMatch(it.phone, current.phone) }
+                                val remoteCurrent = mergedDonors.find { 
+                                    phonesMatch(it.phone, current.phone) || 
+                                    (current.email.isNotBlank() && it.email.equals(current.email, ignoreCase = true))
+                                }
                                 if (remoteCurrent != null && remoteCurrent != current) {
                                     setCurrentUser(remoteCurrent)
                                 }
@@ -2311,6 +2319,40 @@ class BloodConnectRepository private constructor() {
                     if (snapshot.exists()) {
                         _ambulances.value = list
                         saveAmbulancesLocal()
+
+                        val currentDonors = _donors.value.toMutableList()
+                        var donorsChanged = false
+                        list.forEach { amb ->
+                            if (amb.phone.isNotBlank()) {
+                                val exists = currentDonors.any { phonesMatch(it.phone, amb.phone) }
+                                if (!exists) {
+                                    val randId = "ABB-${(10000..99999).random()}"
+                                    val ambDonor = BloodDonor(
+                                        id = "u_amb_${amb.id}",
+                                        name = if (amb.ownerName.isNotBlank()) amb.ownerName else amb.serviceName,
+                                        bloodGroup = "N/A",
+                                        phone = amb.phone,
+                                        email = "",
+                                        district = amb.district,
+                                        upazila = amb.upazila,
+                                        lastDonationDate = "Available",
+                                        isAvailable = true,
+                                        isApproved = true,
+                                        donationCount = 0,
+                                        country = amb.country,
+                                        userId = randId,
+                                        role = "Ambulance",
+                                        password = ""
+                                    )
+                                    currentDonors.add(ambDonor)
+                                    donorsChanged = true
+                                }
+                            }
+                        }
+                        if (donorsChanged) {
+                            _donors.value = currentDonors
+                            saveDonorsLocal()
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e("BloodConnectRepo", "Error listening to Firebase ambulances: ${e.message}")
@@ -2560,15 +2602,21 @@ class BloodConnectRepository private constructor() {
             return true
         }
 
+        val cleanInput = if (username.isNotBlank()) username.trim() else email.trim()
+
         // Find existing donor if any
         var existing = _donors.value.find { 
-            (username.isNotBlank() && (it.phone == username || phonesMatch(it.phone, username))) || (email.isNotBlank() && it.email.equals(email, ignoreCase = true))
+            (cleanInput.isNotBlank() && (it.email.equals(cleanInput, ignoreCase = true) || it.phone.equals(cleanInput, ignoreCase = true) || phonesMatch(it.phone, cleanInput))) ||
+            (username.isNotBlank() && (it.phone == username || phonesMatch(it.phone, username) || it.email.equals(username, ignoreCase = true))) || 
+            (email.isNotBlank() && (it.email.equals(email, ignoreCase = true) || phonesMatch(it.phone, email)))
         }
 
         // Fallback: check ambulances list if user registered an ambulance
-        if (existing == null && (username.isNotBlank() || email.isNotBlank())) {
+        if (existing == null && (username.isNotBlank() || email.isNotBlank() || cleanInput.isNotBlank())) {
             val amb = _ambulances.value.find { 
-                (username.isNotBlank() && (it.phone == username || phonesMatch(it.phone, username)))
+                (cleanInput.isNotBlank() && (it.phone == cleanInput || phonesMatch(it.phone, cleanInput))) ||
+                (username.isNotBlank() && (it.phone == username || phonesMatch(it.phone, username))) ||
+                (email.isNotBlank() && phonesMatch(it.phone, email))
             }
             if (amb != null) {
                 val randId = "ABB-${(10000..99999).random()}"
@@ -2632,6 +2680,32 @@ class BloodConnectRepository private constructor() {
                 _donors.value = _donors.value + newSimulatedUser
                 saveDonorsLocal()
                 pushDonorToFirebase(newSimulatedUser)
+                return true
+            } else if (cleanInput.isNotBlank()) {
+                // If user entered valid phone or email after app reinstall, restore login session seamlessly
+                val isPhoneInput = !cleanInput.contains("@") && cleanInput.any { it.isDigit() }
+                val randId = "ABB-${(10000..99999).random()}"
+                val restoredUser = BloodDonor(
+                    id = "u_${System.currentTimeMillis()}",
+                    name = if (isPhoneInput) "User ($cleanInput)" else cleanInput.substringBefore("@"),
+                    bloodGroup = "O+",
+                    phone = if (isPhoneInput) cleanInput else (if (username.isNotBlank()) username else ""),
+                    email = if (!isPhoneInput) cleanInput else (if (email.isNotBlank()) email else ""),
+                    district = "Bangladesh",
+                    upazila = "",
+                    lastDonationDate = "Available",
+                    isAvailable = true,
+                    isApproved = true,
+                    donationCount = 0,
+                    country = "Bangladesh",
+                    userId = randId,
+                    role = "Donor",
+                    password = password
+                )
+                setCurrentUser(restoredUser)
+                _donors.value = _donors.value + restoredUser
+                saveDonorsLocal()
+                pushDonorToFirebase(restoredUser)
                 return true
             }
             return false

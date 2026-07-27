@@ -822,31 +822,20 @@ class MainViewModel(
     // --- ACTION DISPATCHERS ---
 
     fun triggerLogin(isGoogle: Boolean = false): Int {
-        val emailToUse = if (isGoogle) "help.alifshen.ltd@gmail.com" else loginEmail.trim()
-        val phoneToUse = if (isGoogle) "01781223344" else loginPhone.trim()
-        
+        val rawInput = (if (loginEmail.isNotBlank()) loginEmail else loginPhone).trim()
+        val emailToUse = if (isGoogle) "help.alifshen.ltd@gmail.com" else if (rawInput.contains("@")) rawInput else loginEmail.trim()
+        val phoneToUse = if (isGoogle) "01781223344" else if (!rawInput.contains("@") && rawInput.isNotBlank()) rawInput else loginPhone.trim()
+
         // Find if user exists in donors OR ambulances
         val matchedDonor = repository.donors.value.find {
-            (emailToUse.isNotBlank() && it.email.equals(emailToUse, ignoreCase = true)) ||
-            (phoneToUse.isNotBlank() && (it.phone == phoneToUse || phonesMatch(it.phone, phoneToUse)))
-        }
-        val matchedAmbulance = if (matchedDonor == null) {
-            repository.ambulances.value.find {
-                (phoneToUse.isNotBlank() && (it.phone == phoneToUse || phonesMatch(it.phone, phoneToUse)))
-            }
-        } else null
-
-        val userExists = matchedDonor != null || matchedAmbulance != null ||
-            emailToUse.equals("Alifsheenshopping@gmail.com", ignoreCase = true) ||
-            emailToUse.equals("help.alifshen.ltd@gmail.com", ignoreCase = true)
-
-        if (!userExists && !isGoogle) {
-            return -2 // Account not found
+            (rawInput.isNotBlank() && (it.email.equals(rawInput, ignoreCase = true) || it.phone.equals(rawInput, ignoreCase = true) || phonesMatch(it.phone, rawInput))) ||
+            (emailToUse.isNotBlank() && (it.email.equals(emailToUse, ignoreCase = true) || it.phone.equals(emailToUse, ignoreCase = true) || phonesMatch(it.phone, emailToUse))) ||
+            (phoneToUse.isNotBlank() && (it.phone.equals(phoneToUse, ignoreCase = true) || phonesMatch(it.phone, phoneToUse) || it.email.equals(phoneToUse, ignoreCase = true)))
         }
 
-        // Enforce password verification if password is set
-        if (!isGoogle) {
-            val expectedPassword = matchedDonor?.password?.takeIf { it.isNotBlank() }
+        // Enforce password verification if matched donor exists with a password set
+        if (!isGoogle && matchedDonor != null) {
+            val expectedPassword = matchedDonor.password.takeIf { it.isNotBlank() }
                 ?: _userPasswords.value[emailToUse.lowercase()]
                 ?: _userPasswords.value[phoneToUse]
 
@@ -863,6 +852,7 @@ class MainViewModel(
                 seedProfileForm(user)
                 if (user.email.equals("alifsheenshopping@gmail.com", ignoreCase = true) || 
                     user.email.equals("help.alifshen.ltd@gmail.com", ignoreCase = true) ||
+                    user.role == "Admin" ||
                     user.email.contains("admin", ignoreCase = true) ||
                     user.name.contains("Alif", ignoreCase = true)) {
                     setAdminMode(true)
@@ -870,7 +860,7 @@ class MainViewModel(
             }
             return 1 // Success
         }
-        return -2 // Default error
+        return -2 // Account not found
     }
 
     fun triggerSignup(): Boolean {
