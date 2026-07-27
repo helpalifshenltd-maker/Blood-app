@@ -154,7 +154,9 @@ class BloodConnectRepository private constructor() {
         upazila: String,
         ambulanceType: String,
         description: String,
-        country: String = "Bangladesh"
+        country: String = "Bangladesh",
+        email: String = "",
+        password: String = ""
     ) {
         val newAmbulance = Ambulance(
             id = "amb_${System.currentTimeMillis()}",
@@ -170,7 +172,44 @@ class BloodConnectRepository private constructor() {
         _ambulances.value = listOf(newAmbulance) + _ambulances.value
         saveAmbulancesLocal()
         pushAmbulanceToFirebase(newAmbulance)
-        
+
+        // Ensure user/donor account exists for this ambulance driver so they can log in
+        val existingDonor = _donors.value.find { phonesMatch(it.phone, phone) || (email.isNotBlank() && it.email.equals(email, ignoreCase = true)) }
+        if (existingDonor == null) {
+            val randId = "ABB-${(10000..99999).random()}"
+            val ambUser = BloodDonor(
+                id = "u_${System.currentTimeMillis()}",
+                name = if (ownerName.isNotBlank()) ownerName else serviceName,
+                bloodGroup = "N/A",
+                phone = phone,
+                email = email,
+                district = district,
+                upazila = upazila,
+                lastDonationDate = "Available",
+                isAvailable = true,
+                isApproved = true,
+                donationCount = 0,
+                country = country,
+                userId = randId,
+                role = "Ambulance",
+                password = password
+            )
+            _donors.value = _donors.value + ambUser
+            saveDonorsLocal()
+            pushDonorToFirebase(ambUser)
+            setCurrentUser(ambUser)
+        } else {
+            val updatedDonor = existingDonor.copy(
+                role = "Ambulance",
+                password = if (password.isNotBlank()) password else existingDonor.password,
+                email = if (email.isNotBlank()) email else existingDonor.email
+            )
+            _donors.value = _donors.value.map { if (it.id == existingDonor.id) updatedDonor else it }
+            saveDonorsLocal()
+            pushDonorToFirebase(updatedDonor)
+            setCurrentUser(updatedDonor)
+        }
+
         // Notification
         addNotification(
             titleEn = "New Ambulance added!",
@@ -1548,6 +1587,7 @@ class BloodConnectRepository private constructor() {
         val warningReason = getString("warningReason")
         val role = getString("role", "Donor")
         val walletBalance = getDouble("walletBalance", 0.0)
+        val password = getString("password")
 
         return BloodDonor(
             id = id,
@@ -1567,7 +1607,8 @@ class BloodConnectRepository private constructor() {
             isWarning = isWarning,
             warningReason = warningReason,
             role = role,
-            walletBalance = walletBalance
+            walletBalance = walletBalance,
+            password = password
         )
     }
 
@@ -2508,40 +2549,89 @@ class BloodConnectRepository private constructor() {
                     isAvailable = true,
                     isApproved = true,
                     donationCount = 10,
-                    isGoogleUser = false
+                    isGoogleUser = false,
+                    password = password,
+                    role = "Admin"
                 )
                 setCurrentUser(newAdmin)
                 _donors.value = _donors.value + newAdmin
+                pushDonorToFirebase(newAdmin)
             }
             return true
         }
 
-        // Find existing donor if any, otherwise return false for standard login
-        val existing = _donors.value.find { 
+        // Find existing donor if any
+        var existing = _donors.value.find { 
             (username.isNotBlank() && (it.phone == username || phonesMatch(it.phone, username))) || (email.isNotBlank() && it.email.equals(email, ignoreCase = true))
         }
+
+        // Fallback: check ambulances list if user registered an ambulance
+        if (existing == null && (username.isNotBlank() || email.isNotBlank())) {
+            val amb = _ambulances.value.find { 
+                (username.isNotBlank() && (it.phone == username || phonesMatch(it.phone, username)))
+            }
+            if (amb != null) {
+                val randId = "ABB-${(10000..99999).random()}"
+                val ambDonor = BloodDonor(
+                    id = "u_${System.currentTimeMillis()}",
+                    name = if (amb.ownerName.isNotBlank()) amb.ownerName else amb.serviceName,
+                    bloodGroup = "N/A",
+                    phone = amb.phone,
+                    email = email,
+                    district = amb.district,
+                    upazila = amb.upazila,
+                    lastDonationDate = "Available",
+                    isAvailable = true,
+                    isApproved = true,
+                    donationCount = 0,
+                    country = amb.country,
+                    userId = randId,
+                    role = "Ambulance",
+                    password = password
+                )
+                _donors.value = _donors.value + ambDonor
+                saveDonorsLocal()
+                pushDonorToFirebase(ambDonor)
+                existing = ambDonor
+            }
+        }
+
         if (existing != null) {
-            setCurrentUser(existing)
+            // Update password or email if missing
+            val updatedPassword = if (password.isNotBlank() && existing.password.isBlank()) password else existing.password
+            val updatedEmail = if (email.isNotBlank() && existing.email.isBlank()) email else existing.email
+            if (updatedPassword != existing.password || updatedEmail != existing.email) {
+                val updatedDonor = existing.copy(password = updatedPassword, email = updatedEmail)
+                _donors.value = _donors.value.map { if (it.id == existing.id) updatedDonor else it }
+                saveDonorsLocal()
+                pushDonorToFirebase(updatedDonor)
+                setCurrentUser(updatedDonor)
+            } else {
+                setCurrentUser(existing)
+            }
             return true
         } else {
             if (isGoogle) {
                 // Log in as a newly simulated user for Google Sign-in if simulated
                 val newSimulatedUser = BloodDonor(
-                    id = "u_sim",
+                    id = "u_${System.currentTimeMillis()}",
                     name = "Alif Shen",
                     bloodGroup = "B+",
-                    phone = "01781223344",
-                    email = "help.alifshen.ltd@gmail.com",
+                    phone = if (username.isNotBlank()) username else "01781223344",
+                    email = if (email.isNotBlank()) email else "help.alifshen.ltd@gmail.com",
                     district = "Dhaka",
                     upazila = "Dhanmondi",
                     lastDonationDate = "Available",
                     isAvailable = true,
                     isApproved = true,
                     donationCount = 1,
-                    isGoogleUser = true
+                    isGoogleUser = true,
+                    password = password
                 )
                 setCurrentUser(newSimulatedUser)
                 _donors.value = _donors.value + newSimulatedUser
+                saveDonorsLocal()
+                pushDonorToFirebase(newSimulatedUser)
                 return true
             }
             return false
@@ -2557,7 +2647,8 @@ class BloodConnectRepository private constructor() {
         upazila: String,
         lastDonationDate: String,
         country: String = "Bangladesh",
-        role: String = "Donor"
+        role: String = "Donor",
+        password: String = ""
     ) {
         val randId = "ABB-${(10000..99999).random()}"
         val newUser = BloodDonor(
@@ -2574,7 +2665,8 @@ class BloodConnectRepository private constructor() {
             donationCount = 0,
             country = country,
             userId = randId,
-            role = role
+            role = role,
+            password = password
         )
         setCurrentUser(newUser)
         _donors.value = _donors.value + newUser

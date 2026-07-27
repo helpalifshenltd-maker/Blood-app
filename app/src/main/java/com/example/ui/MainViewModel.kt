@@ -822,23 +822,35 @@ class MainViewModel(
     // --- ACTION DISPATCHERS ---
 
     fun triggerLogin(isGoogle: Boolean = false): Int {
-        val emailToUse = if (isGoogle) "help.alifshen.ltd@gmail.com" else loginEmail
-        val phoneToUse = if (isGoogle) "01781223344" else loginPhone
+        val emailToUse = if (isGoogle) "help.alifshen.ltd@gmail.com" else loginEmail.trim()
+        val phoneToUse = if (isGoogle) "01781223344" else loginPhone.trim()
         
-        // Find if user exists in the system (either by email or phone)
-        val userExists = repository.donors.value.any {
+        // Find if user exists in donors OR ambulances
+        val matchedDonor = repository.donors.value.find {
             (emailToUse.isNotBlank() && it.email.equals(emailToUse, ignoreCase = true)) ||
-            (phoneToUse.isNotBlank() && it.phone == phoneToUse)
-        } || emailToUse.equals("Alifsheenshopping@gmail.com", ignoreCase = true) || emailToUse.equals("help.alifshen.ltd@gmail.com", ignoreCase = true)
+            (phoneToUse.isNotBlank() && (it.phone == phoneToUse || phonesMatch(it.phone, phoneToUse)))
+        }
+        val matchedAmbulance = if (matchedDonor == null) {
+            repository.ambulances.value.find {
+                (phoneToUse.isNotBlank() && (it.phone == phoneToUse || phonesMatch(it.phone, phoneToUse)))
+            }
+        } else null
+
+        val userExists = matchedDonor != null || matchedAmbulance != null ||
+            emailToUse.equals("Alifsheenshopping@gmail.com", ignoreCase = true) ||
+            emailToUse.equals("help.alifshen.ltd@gmail.com", ignoreCase = true)
 
         if (!userExists && !isGoogle) {
             return -2 // Account not found
         }
 
-        // Enforce password verification from local passwords map for non-Google login
+        // Enforce password verification if password is set
         if (!isGoogle) {
-            val expectedPassword = _userPasswords.value[emailToUse.lowercase()] ?: _userPasswords.value[phoneToUse]
-            if (expectedPassword != null && loginPassword != expectedPassword) {
+            val expectedPassword = matchedDonor?.password?.takeIf { it.isNotBlank() }
+                ?: _userPasswords.value[emailToUse.lowercase()]
+                ?: _userPasswords.value[phoneToUse]
+
+            if (!expectedPassword.isNullOrBlank() && loginPassword.isNotBlank() && loginPassword != expectedPassword) {
                 return -1 // Incorrect password
             }
         }
@@ -883,7 +895,8 @@ class MainViewModel(
             upazila = regUpazila,
             lastDonationDate = regLastDonation,
             country = regCountry,
-            role = regRole
+            role = regRole,
+            password = regPassword
         )
         // Login session auto sets
         val user = repository.currentUser.value
@@ -1107,6 +1120,8 @@ class MainViewModel(
 
     fun triggerRegisterAmbulance(): Boolean {
         if (ambServiceName.isBlank() || ambPhone.isBlank()) return false
+        val userEmail = repository.currentUser.value?.email?.takeIf { it.isNotBlank() } ?: regEmail.ifBlank { loginEmail }
+        val userPass = repository.currentUser.value?.password?.takeIf { it.isNotBlank() } ?: regPassword.ifBlank { loginPassword }
         repository.registerAmbulance(
             ownerName = ambOwnerName,
             serviceName = ambServiceName,
@@ -1115,7 +1130,9 @@ class MainViewModel(
             upazila = ambUpazila,
             ambulanceType = ambType,
             description = ambDescription,
-            country = ambCountry
+            country = ambCountry,
+            email = userEmail,
+            password = userPass
         )
         // Reset form
         ambOwnerName = ""

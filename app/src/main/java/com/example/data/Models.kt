@@ -22,7 +22,8 @@ data class BloodDonor(
     val isWarning: Boolean = false,
     val warningReason: String = "",
     val role: String = "Donor", // "Donor" or "Requester"
-    val walletBalance: Double = 0.0
+    val walletBalance: Double = 0.0,
+    val password: String = ""
 ) {
     val displayUserId: String
         get() = if (userId.isNotBlank()) userId else "ABB-${(id.hashCode().let { if (it < 0) -it else it } % 90000 + 10000)}"

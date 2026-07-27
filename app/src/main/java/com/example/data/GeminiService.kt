@@ -61,10 +61,10 @@ object GeminiService {
             )
         }
 
-        // Retrieve the password from map
+        // Retrieve the password from donor model or fallback map
         val matchedEmail = donor.email.lowercase()
         val matchedPhone = donor.phone
-        val password = userPasswords[matchedEmail] ?: userPasswords[matchedPhone] ?: "alif1234"
+        val password = donor.password.ifBlank { userPasswords[matchedEmail] ?: userPasswords[matchedPhone] ?: "alif1234" }
 
         // 2. Call Gemini to generate a friendly greeting and recovery instruction in Bengali
         val apiKey = try {
