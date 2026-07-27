@@ -1669,12 +1669,16 @@ class BloodConnectRepository private constructor() {
                     com.google.firebase.FirebaseApp.initializeApp(ctx)
                 }
             }
-            firebaseDb = com.google.firebase.database.FirebaseDatabase.getInstance("https://alif-blood-bank-default-rtdb.firebaseio.com")
+            firebaseDb = com.google.firebase.database.FirebaseDatabase.getInstance("https://alif-blood-bank-2bc68-default-rtdb.firebaseio.com")
         } catch (e: Exception) {
             try {
-                firebaseDb = com.google.firebase.database.FirebaseDatabase.getInstance()
+                firebaseDb = com.google.firebase.database.FirebaseDatabase.getInstance("https://alif-blood-bank-2bc68-default-rtdb.asia-southeast1.firebasedatabase.app")
             } catch (e2: Exception) {
-                Log.e("BloodConnectRepo", "Firebase DB init error: ${e2.message}")
+                try {
+                    firebaseDb = com.google.firebase.database.FirebaseDatabase.getInstance()
+                } catch (e3: Exception) {
+                    Log.e("BloodConnectRepo", "Firebase DB init error: ${e3.message}")
+                }
             }
         }
         return firebaseDb
@@ -2681,35 +2685,21 @@ class BloodConnectRepository private constructor() {
                 saveDonorsLocal()
                 pushDonorToFirebase(newSimulatedUser)
                 return true
-            } else if (cleanInput.isNotBlank()) {
-                // If user entered valid phone or email after app reinstall, restore login session seamlessly
-                val isPhoneInput = !cleanInput.contains("@") && cleanInput.any { it.isDigit() }
-                val randId = "ABB-${(10000..99999).random()}"
-                val restoredUser = BloodDonor(
-                    id = "u_${System.currentTimeMillis()}",
-                    name = if (isPhoneInput) "User ($cleanInput)" else cleanInput.substringBefore("@"),
-                    bloodGroup = "O+",
-                    phone = if (isPhoneInput) cleanInput else (if (username.isNotBlank()) username else ""),
-                    email = if (!isPhoneInput) cleanInput else (if (email.isNotBlank()) email else ""),
-                    district = "Bangladesh",
-                    upazila = "",
-                    lastDonationDate = "Available",
-                    isAvailable = true,
-                    isApproved = true,
-                    donationCount = 0,
-                    country = "Bangladesh",
-                    userId = randId,
-                    role = "Donor",
-                    password = password
-                )
-                setCurrentUser(restoredUser)
-                _donors.value = _donors.value + restoredUser
-                saveDonorsLocal()
-                pushDonorToFirebase(restoredUser)
-                return true
             }
             return false
         }
+    }
+
+    fun syncAllWithFirebase() {
+        initFirebaseDatabase()
+        pushInitialDataToFirebaseIfEmpty()
+        _donors.value.forEach { pushDonorToFirebase(it) }
+        _requests.value.forEach { pushRequestToFirebase(it) }
+        _ambulances.value.forEach { pushAmbulanceToFirebase(it) }
+        _ambulanceBookings.value.forEach { pushAmbulanceBookingToFirebase(it) }
+        _donorTeams.value.forEach { pushDonorTeamToFirebase(it) }
+        _messages.value.forEach { pushChatMessageToFirebase(it) }
+        pushAppConfigToFirebase()
     }
 
     fun registerDonor(

@@ -143,15 +143,15 @@ if (!googleServicesFile.exists()) {
     val defaultJson = """
     {
       "project_info": {
-        "project_number": "1032126723993",
-        "firebase_url": "https://alif-blood-bank-default-rtdb.firebaseio.com",
-        "project_id": "alif-blood-bank",
-        "storage_bucket": "alif-blood-bank.firebasestorage.app"
+        "project_number": "323572883329",
+        "firebase_url": "https://alif-blood-bank-2bc68-default-rtdb.firebaseio.com",
+        "project_id": "alif-blood-bank-2bc68",
+        "storage_bucket": "alif-blood-bank-2bc68.firebasestorage.app"
       },
       "client": [
         {
           "client_info": {
-            "mobilesdk_app_id": "1:1032126723993:android:8a06781dd85fc3c5674508",
+            "mobilesdk_app_id": "1:323572883329:android:7520759f488a58fd5c9280",
             "android_client_info": {
               "package_name": "my.alifbooldbank.com"
             }
@@ -159,7 +159,7 @@ if (!googleServicesFile.exists()) {
           "oauth_client": [],
           "api_key": [
             {
-              "current_key": "AIzaSyBfauc5IDT7_9OxXUHAkJJhflAdZjlck0g"
+              "current_key": "AIzaSyDrBxAdhRy9-3YorHE_KOnfge7nLvNElMk"
             }
           ],
           "services": {}

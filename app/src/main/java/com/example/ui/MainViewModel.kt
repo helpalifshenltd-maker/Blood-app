@@ -348,6 +348,10 @@ class MainViewModel(
         repository.triggerRemoteSync()
     }
 
+    fun syncFirebaseData() {
+        repository.syncAllWithFirebase()
+    }
+
     // --- SCREEN TRANSLATION ACCESSOR ---
     val strings: StateFlow<Map<String, String>> = repository.language.map { lang ->
         Loc.strings(lang)

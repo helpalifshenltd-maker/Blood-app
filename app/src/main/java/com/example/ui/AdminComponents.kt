@@ -2222,9 +2222,10 @@ fun AdminSettingsTab(
         var editApiUrl by remember(activeApiUrl) { mutableStateOf(activeApiUrl) }
         var editApiKey by remember(activeApiKey) { mutableStateOf(activeApiKey) }
 
-        // Cloud Web API Configuration Card (Admin Only)
+        // Firebase Realtime Database Configuration & Sync Card
+        val isFbConnected by viewModel.isFirebaseConnected.collectAsState()
         Card(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp).testTag("api_sync_card_admin"),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp).testTag("firebase_sync_card_admin"),
             colors = CardDefaults.cardColors(containerColor = AdminCardBg),
             border = BorderStroke(1.dp, AdminBorder),
             shape = RoundedCornerShape(12.dp)
@@ -2235,13 +2236,13 @@ fun AdminSettingsTab(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.CloudSync,
-                        contentDescription = "Sync",
-                        tint = if (isRemoteConnected) AdminAccGreen else AdminAccRed,
+                        contentDescription = "Firebase",
+                        tint = if (isFbConnected) AdminAccGreen else AdminAccRed,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (language == AppLanguage.ENG) "Cloud Web API Sync (Retrofit)" else "ক্লাউড এপিআই সিঙ্ক (Retrofit সেটিংস)",
+                        text = if (language == AppLanguage.ENG) "Firebase Realtime Sync" else "ফায়ারবেস রিয়েলটাইম সিঙ্ক (Firebase Status)",
                         fontWeight = FontWeight.Bold,
                         color = AdminAccOrange,
                         fontSize = 15.sp
@@ -2250,135 +2251,60 @@ fun AdminSettingsTab(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = if (language == AppLanguage.ENG) {
-                        "Specify a Base REST API URL to perform live uploads and sync blood requests."
+                        "Firebase Project: alif-blood-bank-2bc68 | Realtime Database is synchronized with app data."
                     } else {
-                        "আপনার রক্তদাতা ও রক্ত অনুরোধের তথ্য রিমোট ডাটাবেজে লাইভ সিঙ্ক করার জন্য Base REST API URL প্রদান করুন।"
+                        "ফায়ারবেস প্রজেক্ট: alif-blood-bank-2bc68 | অ্যাপের সমস্ত ডাটাবেস ফায়ারবেসের সাথে স্বয়ংক্রিয়ভাবে লাইভ সিঙ্ক হয়।"
                     },
                     fontSize = 11.sp,
                     color = AdminTextMuted
                 )
                 Spacer(modifier = Modifier.height(12.dp))
 
-                OutlinedTextField(
-                    value = editApiUrl,
-                    onValueChange = { editApiUrl = it },
-                    label = { Text(if (language == AppLanguage.ENG) "Base API URL (HTTP/HTTPS)" else "এপিআই বেস ইউআরএল", color = AdminTextMuted, fontSize = 12.sp) },
-                    placeholder = { Text("https://myapi.example.com/api/", color = AdminTextMuted.copy(alpha = 0.5f)) },
-                    modifier = Modifier.fillMaxWidth().testTag("api_url_input_admin"),
-                    shape = RoundedCornerShape(8.dp),
-                    singleLine = true,
-                    textStyle = androidx.compose.ui.text.TextStyle(color = AdminTextWhite),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AdminPrimaryBlue,
-                        unfocusedBorderColor = AdminBorder,
-                        focusedContainerColor = AdminDarkBg,
-                        unfocusedContainerColor = AdminDarkBg
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(AdminDarkBg, RoundedCornerShape(8.dp))
+                        .padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .background(if (isFbConnected) AdminAccGreen else AdminAccRed, CircleShape)
                     )
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                OutlinedTextField(
-                    value = editApiKey,
-                    onValueChange = { editApiKey = it },
-                    label = { Text(if (language == AppLanguage.ENG) "API Key / Auth Header (Optional)" else "এপিআই কী (ঐচ্ছিক)", color = AdminTextMuted, fontSize = 12.sp) },
-                    placeholder = { Text("Bearer ... / Supabase Anon Key", color = AdminTextMuted.copy(alpha = 0.5f)) },
-                    modifier = Modifier.fillMaxWidth().testTag("api_key_input_admin"),
-                    shape = RoundedCornerShape(8.dp),
-                    singleLine = true,
-                    textStyle = androidx.compose.ui.text.TextStyle(color = AdminTextWhite),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AdminPrimaryBlue,
-                        unfocusedBorderColor = AdminBorder,
-                        focusedContainerColor = AdminDarkBg,
-                        unfocusedContainerColor = AdminDarkBg
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (isFbConnected) 
+                            (if (language == AppLanguage.ENG) "Status: Connected to Firebase" else "স্ট্যাটাস: ফায়ারবেসের সাথে সংযুক্ত (Connected)")
+                        else 
+                            (if (language == AppLanguage.ENG) "Status: Disconnected" else "স্ট্যাটাস: সংযোগ বিচ্ছিন্ন (Disconnected)"),
+                        color = if (isFbConnected) AdminAccGreen else AdminAccRed,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
                     )
-                )
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    Button(
-                        onClick = {
-                            val success = viewModel.updateRemoteApiUrl(context, editApiUrl, editApiKey)
-                            if (success) {
-                                Toast.makeText(
-                                    context,
-                                    if (language == AppLanguage.ENG) "API settings updated successfully!" else "এপিআই সেটিংস আপডেট সম্পন্ন হয়েছে!",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            } else {
-                                Toast.makeText(
-                                    context,
-                                    if (language == AppLanguage.ENG) "Connection/URL formatting error!" else "ভুল ইউআরএল ফরম্যাট! অবশ্যই সঠিক হতে হবে।",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
-                        },
-                        modifier = Modifier.weight(1f).height(42.dp).testTag("save_api_url_btn_admin"),
-                        colors = ButtonDefaults.buttonColors(containerColor = if (isRemoteConnected) AdminAccGreen else AdminPrimaryBlue),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Icon(Icons.Filled.Link, contentDescription = "link", modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(if (language == AppLanguage.ENG) "Connect API" else "সংযুক্ত করুন", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
-
-                    if (isRemoteConnected) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Button(
-                            onClick = { viewModel.triggerRemoteSync() },
-                            modifier = Modifier.weight(1f).height(42.dp).testTag("sync_now_btn_admin"),
-                            colors = ButtonDefaults.buttonColors(containerColor = AdminAccOrange),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            if (isSyncing) {
-                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
-                            } else {
-                                Icon(Icons.Filled.Sync, contentDescription = "sync", modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(if (language == AppLanguage.ENG) "Sync Now" else "সিঙ্ক করুন", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
                 }
 
-                val currentSyncError = syncError
-                if (currentSyncError != null) {
-                    Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(
+                    onClick = {
+                        viewModel.syncFirebaseData()
+                        Toast.makeText(
+                            context,
+                            if (language == AppLanguage.ENG) "Firebase sync triggered!" else "ফায়ারবেস সিঙ্ক চালু হয়েছে!",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    },
+                    modifier = Modifier.fillMaxWidth().height(42.dp).testTag("firebase_sync_btn_admin"),
+                    colors = ButtonDefaults.buttonColors(containerColor = AdminPrimaryBlue),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Filled.Sync, contentDescription = "sync", modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (language == AppLanguage.ENG) "Sync Error: ${currentSyncError}" else "ত্রুটি: ${currentSyncError}",
-                        color = AdminAccRed,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    
-                    if (currentSyncError.contains("404") || currentSyncError.contains("not found", ignoreCase = true)) {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
-                            border = BorderStroke(1.dp, Color(0xFFFFCDD2)),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(10.dp)) {
-                                Text(
-                                    text = if (language == AppLanguage.ENG)
-                                        "💡 Tip: HTTP 404 means the 'donors' or 'requests' table does not exist in your Supabase database schema yet. Please run the SQL migration schema in your Supabase SQL Editor!"
-                                        else "💡 পরামর্শ: HTTP 404 এর অর্থ হলো আপনার সুপাবেস (Supabase) ডাটাবেসে 'donors' অথবা 'requests' টেবিলটি তৈরি করা হয়নি। দয়া করে সুপাবেস এসকিউএল এডিটরে টেবিল তৈরির এসকিউএল স্ক্রিপ্টটি রান করুন!",
-                                    fontSize = 10.sp,
-                                    color = Color(0xFFC62828),
-                                    fontWeight = FontWeight.Medium,
-                                    lineHeight = 14.sp
-                                )
-                            }
-                        }
-                    }
-                } else if (isRemoteConnected && !isSyncing) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = if (language == AppLanguage.ENG) "🟢 Connected. Cloud syncing is active and ready." else "🟢 রিমোট এপিআই সিঙ্ক সক্রিয় এবং ডাটাবেস প্রস্তুত।",
-                        color = AdminAccGreen,
-                        fontSize = 11.sp
+                        text = if (language == AppLanguage.ENG) "Re-Sync Firebase Now" else "ফায়ারবেস ডাটাবেস পুনঃসিঙ্ক করুন",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
