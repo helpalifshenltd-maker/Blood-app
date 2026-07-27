@@ -3007,6 +3007,7 @@ fun AdminSettingsTab(
         var newAdWeight by remember { mutableStateOf("1") }
         var newAdTargetUrl by remember { mutableStateOf("") }
         var newAdTargetCountries by remember { mutableStateOf("All") }
+        var cpaCountryDropdownExpanded by remember { mutableStateOf(false) }
         
         // Media upload mode state: "url" or "gallery"
         var mediaSourceType by remember { mutableStateOf("url") } // "url" or "gallery"
@@ -3195,7 +3196,10 @@ fun AdminSettingsTab(
                                             if (editingAdId == ad.id) {
                                                 editingAdId = null
                                             }
-                                            currentAdConfigsList = currentAdConfigsList.filter { it.id != ad.id }
+                                            val updatedList = currentAdConfigsList.filter { it.id != ad.id }
+                                            currentAdConfigsList = updatedList
+                                            viewModel.updateCustomAdConfigsList(context, updatedList)
+                                            Toast.makeText(context, "Ad removed and saved!", Toast.LENGTH_SHORT).show()
                                         },
                                         modifier = Modifier.size(28.dp)
                                     ) {
@@ -3303,14 +3307,133 @@ fun AdminSettingsTab(
                         }
 
                         Column(modifier = Modifier.weight(1.2f)) {
-                            Text(if (language == AppLanguage.ENG) "Target Countries" else "টার্গেট দেশসমূহ", fontSize = 11.sp, color = AdminTextMuted)
-                            OutlinedTextField(
-                                value = newAdTargetCountries,
-                                onValueChange = { newAdTargetCountries = it },
-                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = AdminTextWhite),
-                                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AdminPrimaryBlue, unfocusedBorderColor = AdminBorder, focusedContainerColor = AdminDarkBg, unfocusedContainerColor = AdminDarkBg)
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(if (language == AppLanguage.ENG) "Target Countries" else "টার্গেট দেশসমূহ", fontSize = 11.sp, color = AdminTextMuted)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = if (language == AppLanguage.ENG) "(Select ▾)" else "(ড্রপডাউন ▾)",
+                                    fontSize = 10.sp,
+                                    color = AdminPrimaryBlue,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.clickable { cpaCountryDropdownExpanded = true }
+                                )
+                            }
+                            
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                OutlinedTextField(
+                                    value = newAdTargetCountries,
+                                    onValueChange = { newAdTargetCountries = it },
+                                    placeholder = { Text("e.g. Bangladesh, All", color = AdminTextMuted.copy(alpha = 0.5f), fontSize = 12.sp) },
+                                    trailingIcon = {
+                                        IconButton(onClick = { cpaCountryDropdownExpanded = !cpaCountryDropdownExpanded }) {
+                                            Icon(Icons.Default.ArrowDropDown, contentDescription = "Countries Dropdown", tint = AdminPrimaryBlue)
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = AdminTextWhite),
+                                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AdminPrimaryBlue, unfocusedBorderColor = AdminBorder, focusedContainerColor = AdminDarkBg, unfocusedContainerColor = AdminDarkBg)
+                                )
+
+                                DropdownMenu(
+                                    expanded = cpaCountryDropdownExpanded,
+                                    onDismissRequest = { cpaCountryDropdownExpanded = false },
+                                    modifier = Modifier
+                                        .background(AdminCardBg)
+                                        .border(1.dp, AdminBorder, RoundedCornerShape(8.dp))
+                                ) {
+                                    val cpaCountryOptions = listOf(
+                                        Pair("All", if (language == AppLanguage.ENG) "All Countries (সকল দেশ)" else "সকল দেশ (All)"),
+                                        Pair("Bangladesh", if (language == AppLanguage.ENG) "Bangladesh (বাংলাদেশ)" else "বাংলাদেশ (Bangladesh)"),
+                                        Pair("India", "India (ভারত)"),
+                                        Pair("Pakistan", "Pakistan (পাকিস্তান)"),
+                                        Pair("Saudi Arabia", "Saudi Arabia (সৌদি আরব)"),
+                                        Pair("United Arab Emirates", "UAE (ইউএই)"),
+                                        Pair("Qatar", "Qatar (কাতার)"),
+                                        Pair("Kuwait", "Kuwait (কুয়েত)"),
+                                        Pair("Oman", "Oman (ওমান)"),
+                                        Pair("Malaysia", "Malaysia (মালয়েশিয়া)"),
+                                        Pair("United States", "USA (যুক্তরাষ্ট্র)"),
+                                        Pair("United Kingdom", "UK (যুক্তরাজ্য)"),
+                                        Pair("Canada", "Canada (কানাডা)"),
+                                        Pair("Australia", "Australia (অস্ট্রেলিয়া)"),
+                                        Pair("International", "International (অন্যান্য সকল দেশ)")
+                                    )
+
+                                    cpaCountryOptions.forEach { (code, label) ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    val isSelected = newAdTargetCountries.split(",").map { it.trim() }.any { it.equals(code, ignoreCase = true) }
+                                                    Text(
+                                                        text = label,
+                                                        color = if (isSelected) AdminAccGreen else AdminTextWhite,
+                                                        fontSize = 12.sp,
+                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                                    )
+                                                    if (isSelected) {
+                                                        Spacer(modifier = Modifier.width(6.dp))
+                                                        Icon(Icons.Default.Check, contentDescription = null, tint = AdminAccGreen, modifier = Modifier.size(14.dp))
+                                                    }
+                                                }
+                                            },
+                                            onClick = {
+                                                cpaCountryDropdownExpanded = false
+                                                if (code == "All") {
+                                                    newAdTargetCountries = "All"
+                                                } else {
+                                                    val currentList = newAdTargetCountries.split(",").map { it.trim() }.filter { it.isNotBlank() && !it.equals("All", ignoreCase = true) }.toMutableList()
+                                                    if (currentList.any { it.equals(code, ignoreCase = true) }) {
+                                                        currentList.removeAll { it.equals(code, ignoreCase = true) }
+                                                    } else {
+                                                        currentList.add(code)
+                                                    }
+                                                    newAdTargetCountries = if (currentList.isEmpty()) "All" else currentList.joinToString(", ")
+                                                }
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Quick Country Chips Selection
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf("All", "Bangladesh", "Saudi Arabia", "United Arab Emirates", "India", "United States", "International").forEach { country ->
+                            val isSel = newAdTargetCountries.split(",").map { it.trim() }.any { it.equals(country, ignoreCase = true) }
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        color = if (isSel) AdminPrimaryBlue else AdminDarkBg,
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                    .border(1.dp, if (isSel) AdminPrimaryBlue else AdminBorder, RoundedCornerShape(12.dp))
+                                    .clickable {
+                                        if (country == "All") {
+                                            newAdTargetCountries = "All"
+                                        } else {
+                                            val currentList = newAdTargetCountries.split(",").map { it.trim() }.filter { it.isNotBlank() && !it.equals("All", ignoreCase = true) }.toMutableList()
+                                            if (currentList.any { it.equals(country, ignoreCase = true) }) {
+                                                currentList.removeAll { it.equals(country, ignoreCase = true) }
+                                            } else {
+                                                currentList.add(country)
+                                            }
+                                            newAdTargetCountries = if (currentList.isEmpty()) "All" else currentList.joinToString(", ")
+                                        }
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = if (country == "All") "সকল দেশ (All)" else country,
+                                    fontSize = 10.sp,
+                                    color = if (isSel) Color.White else AdminTextMuted,
+                                    fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
                         }
                     }
 
@@ -3547,16 +3670,26 @@ fun AdminSettingsTab(
                                 weight = weightVal
                             )
 
-                            if (editingAdId != null) {
-                                currentAdConfigsList = currentAdConfigsList.map {
+                            val updatedList = if (editingAdId != null) {
+                                currentAdConfigsList.map {
                                     if (it.id == editingAdId) adConfig else it
                                 }
-                                Toast.makeText(context, "Ad updated in list! Save settings below to apply.", Toast.LENGTH_SHORT).show()
-                                editingAdId = null
                             } else {
-                                currentAdConfigsList = currentAdConfigsList + adConfig
-                                Toast.makeText(context, "Ad added to list! Save settings below to apply.", Toast.LENGTH_SHORT).show()
+                                currentAdConfigsList + adConfig
                             }
+                            currentAdConfigsList = updatedList
+                            viewModel.updateCustomAdConfigsList(context, updatedList)
+                            viewModel.updateCustomAdsConfig(
+                                context,
+                                draftCustomAdsEnabled,
+                                if (updatedList.isNotEmpty()) updatedList.first().networkName else "Affmine",
+                                if (updatedList.isNotEmpty()) updatedList.first().title else "Earn with Affmine CPA Network!",
+                                if (updatedList.isNotEmpty()) (if (updatedList.first().isVideo) updatedList.first().videoUrl else updatedList.first().bannerUrl) else "",
+                                if (updatedList.isNotEmpty()) updatedList.first().targetUrl else "https://www.affmine.com",
+                                if (updatedList.isNotEmpty()) updatedList.first().targetCountries else "All"
+                            )
+                            Toast.makeText(context, "Ad saved & synced to server!", Toast.LENGTH_SHORT).show()
+                            editingAdId = null
 
                             // Clear add form fields
                             newAdNetworkName = ""

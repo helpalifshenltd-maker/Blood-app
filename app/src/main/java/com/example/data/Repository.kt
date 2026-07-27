@@ -1874,11 +1874,13 @@ class BloodConnectRepository private constructor() {
                     "bkash_number" to _bkashNumber.value,
                     "nagad_number" to _nagadNumber.value,
                     "rocket_number" to _rocketNumber.value,
+                    "google_play_merchant" to _googlePlayMerchant.value,
                     "booking_acceptance_fee" to _bookingAcceptanceFee.value,
                     "standard_commission_rate" to _standardCommissionRate.value,
                     "mplus_commission_rate" to _mPlusCommissionRate.value,
                     "privacy_policy_en" to _privacyPolicyEn.value,
                     "privacy_policy_bn" to _privacyPolicyBn.value,
+                    "privacy_policy_url" to _privacyPolicyUrl.value,
                     "terms_en" to _termsConditionsEn.value,
                     "terms_bn" to _termsConditionsBn.value,
                     "refund_en" to _refundPolicyEn.value,
@@ -1895,6 +1897,13 @@ class BloodConnectRepository private constructor() {
                     "admob_banner_id" to _adMobBannerId.value,
                     "admob_interstitial_id" to _adMobInterstitialId.value,
                     "admob_native_id" to _adMobNativeId.value,
+                    "email_notify_enabled" to _emailNotifyEnabled.value,
+                    "smtp_host" to _smtpHost.value,
+                    "smtp_port" to _smtpPort.value,
+                    "smtp_username" to _smtpUsername.value,
+                    "smtp_password" to _smtpPassword.value,
+                    "email_subject_template" to _emailSubjectTemplate.value,
+                    "email_body_template" to _emailBodyTemplate.value,
                     "use_mock_stats" to _useMockStats.value,
                     "mock_total_users" to _mockTotalUsers.value,
                     "mock_total_donors" to _mockTotalDonors.value,
@@ -1957,22 +1966,25 @@ class BloodConnectRepository private constructor() {
                         pushAppConfigToFirebase()
                     } else if (snapshot.exists() && snapshot.childrenCount > 0) {
                         val name = snapshot.child("app_name").getValue(String::class.java)
-                        if (!name.isNullOrBlank()) _appName.value = name
+                        if (name != null) _appName.value = name
 
                         val homeNot = snapshot.child("home_notice").getValue(String::class.java)
-                        if (!homeNot.isNullOrBlank()) _homeNotice.value = homeNot
+                        if (homeNot != null) _homeNotice.value = homeNot
 
                         val popNot = snapshot.child("popup_notice").getValue(String::class.java)
-                        if (!popNot.isNullOrBlank()) _popupNotice.value = popNot
+                        if (popNot != null) _popupNotice.value = popNot
 
                         val bkash = snapshot.child("bkash_number").getValue(String::class.java)
-                        if (!bkash.isNullOrBlank()) _bkashNumber.value = bkash
+                        if (bkash != null) _bkashNumber.value = bkash
 
                         val nagad = snapshot.child("nagad_number").getValue(String::class.java)
-                        if (!nagad.isNullOrBlank()) _nagadNumber.value = nagad
+                        if (nagad != null) _nagadNumber.value = nagad
 
                         val rocket = snapshot.child("rocket_number").getValue(String::class.java)
-                        if (!rocket.isNullOrBlank()) _rocketNumber.value = rocket
+                        if (rocket != null) _rocketNumber.value = rocket
+
+                        val googlePlay = snapshot.child("google_play_merchant").getValue(String::class.java)
+                        if (googlePlay != null) _googlePlayMerchant.value = googlePlay
 
                         val feeObj = snapshot.child("booking_acceptance_fee").value
                         if (feeObj != null) {
@@ -2005,16 +2017,25 @@ class BloodConnectRepository private constructor() {
                         }
 
                         val privEn = snapshot.child("privacy_policy_en").getValue(String::class.java)
-                        if (!privEn.isNullOrBlank()) _privacyPolicyEn.value = privEn
+                        if (privEn != null) _privacyPolicyEn.value = privEn
 
                         val privBn = snapshot.child("privacy_policy_bn").getValue(String::class.java)
-                        if (!privBn.isNullOrBlank()) _privacyPolicyBn.value = privBn
+                        if (privBn != null) _privacyPolicyBn.value = privBn
+
+                        val privUrl = snapshot.child("privacy_policy_url").getValue(String::class.java)
+                        if (privUrl != null) _privacyPolicyUrl.value = privUrl
 
                         val termsEn = snapshot.child("terms_en").getValue(String::class.java)
-                        if (!termsEn.isNullOrBlank()) _termsConditionsEn.value = termsEn
+                        if (termsEn != null) _termsConditionsEn.value = termsEn
 
                         val termsBn = snapshot.child("terms_bn").getValue(String::class.java)
-                        if (!termsBn.isNullOrBlank()) _termsConditionsBn.value = termsBn
+                        if (termsBn != null) _termsConditionsBn.value = termsBn
+
+                        val refundEn = snapshot.child("refund_en").getValue(String::class.java)
+                        if (refundEn != null) _refundPolicyEn.value = refundEn
+
+                        val refundBn = snapshot.child("refund_bn").getValue(String::class.java)
+                        if (refundBn != null) _refundPolicyBn.value = refundBn
 
                         val customEnabled = snapshot.child("custom_ads_enabled").getValue(Boolean::class.java)
                         if (customEnabled != null) _customAdsEnabled.value = customEnabled
@@ -2053,6 +2074,27 @@ class BloodConnectRepository private constructor() {
 
                         val admobNative = snapshot.child("admob_native_id").getValue(String::class.java)
                         if (admobNative != null) _adMobNativeId.value = admobNative
+
+                        val emailEnabled = snapshot.child("email_notify_enabled").getValue(Boolean::class.java)
+                        if (emailEnabled != null) _emailNotifyEnabled.value = emailEnabled
+
+                        val sHost = snapshot.child("smtp_host").getValue(String::class.java)
+                        if (sHost != null) _smtpHost.value = sHost
+
+                        val sPort = snapshot.child("smtp_port").getValue(String::class.java)
+                        if (sPort != null) _smtpPort.value = sPort
+
+                        val sUser = snapshot.child("smtp_username").getValue(String::class.java)
+                        if (sUser != null) _smtpUsername.value = sUser
+
+                        val sPass = snapshot.child("smtp_password").getValue(String::class.java)
+                        if (sPass != null) _smtpPassword.value = sPass
+
+                        val eSubject = snapshot.child("email_subject_template").getValue(String::class.java)
+                        if (eSubject != null) _emailSubjectTemplate.value = eSubject
+
+                        val eBody = snapshot.child("email_body_template").getValue(String::class.java)
+                        if (eBody != null) _emailBodyTemplate.value = eBody
 
                         val useMock = snapshot.child("use_mock_stats").getValue(Boolean::class.java)
                         if (useMock != null) _useMockStats.value = useMock
@@ -2132,11 +2174,16 @@ class BloodConnectRepository private constructor() {
                             }
                         }
                         if (list.isNotEmpty()) {
-                            _donors.value = list
+                            val currentLocal = _donors.value
+                            val mergedDonors = (list + currentLocal).distinctBy { 
+                                val cleanP = it.phone.trim().replace("+88", "").replace(" ", "")
+                                if (cleanP.isNotBlank()) cleanP else it.id 
+                            }
+                            _donors.value = mergedDonors
                             saveDonorsLocal()
 
                             _currentUser.value?.let { current ->
-                                val remoteCurrent = list.find { phonesMatch(it.phone, current.phone) }
+                                val remoteCurrent = mergedDonors.find { phonesMatch(it.phone, current.phone) }
                                 if (remoteCurrent != null && remoteCurrent != current) {
                                     setCurrentUser(remoteCurrent)
                                 }
@@ -2471,7 +2518,7 @@ class BloodConnectRepository private constructor() {
 
         // Find existing donor if any, otherwise return false for standard login
         val existing = _donors.value.find { 
-            (username.isNotBlank() && it.phone == username) || (email.isNotBlank() && it.email.equals(email, ignoreCase = true))
+            (username.isNotBlank() && (it.phone == username || phonesMatch(it.phone, username))) || (email.isNotBlank() && it.email.equals(email, ignoreCase = true))
         }
         if (existing != null) {
             setCurrentUser(existing)
