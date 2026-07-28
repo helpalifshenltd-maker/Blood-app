@@ -1581,6 +1581,7 @@ class BloodConnectRepository private constructor() {
         val email = getString("email")
         val district = getString("district", "Bangladesh")
         val upazila = getString("upazila")
+        val village = getString("village")
         val lastDonationDate = getString("lastDonationDate", "Available")
         val isAvailable = getBool("isAvailable", "available", default = true)
         val isApproved = getBool("isApproved", "approved", default = true)
@@ -1602,6 +1603,7 @@ class BloodConnectRepository private constructor() {
             email = email,
             district = district,
             upazila = upazila,
+            village = village,
             lastDonationDate = lastDonationDate,
             isAvailable = isAvailable,
             isApproved = isApproved,
@@ -2295,6 +2297,26 @@ class BloodConnectRepository private constructor() {
                             }
                         }
                     }
+
+                    // Check for new incoming unread messages for current user
+                    val currentUsersPhone = _currentUser.value?.phone ?: ""
+                    fun cleanPhone(p: String): String = p.replace(Regex("[^0-9]"), "").takeLast(10)
+                    val myClean = cleanPhone(currentUsersPhone)
+
+                    if (myClean.isNotEmpty()) {
+                        val previousIds = _messages.value.map { it.id }.toSet()
+                        val newIncomingUnread = list.filter { msg ->
+                            !msg.isRead && 
+                            !previousIds.contains(msg.id) &&
+                            cleanPhone(msg.receiverPhone) == myClean &&
+                            cleanPhone(msg.senderPhone) != myClean
+                        }
+                        for (msg in newIncomingUnread) {
+                            val title = if (msg.senderName.isNotBlank()) msg.senderName else "নতুন মেসেজ 💬"
+                            showSystemStatusBarNotification(title, msg.message)
+                        }
+                    }
+
                     _messages.value = list
                     saveMessagesLocal()
                 } catch (e: Exception) {
@@ -2707,7 +2729,8 @@ class BloodConnectRepository private constructor() {
         lastDonationDate: String,
         country: String = "Bangladesh",
         role: String = "Donor",
-        password: String = ""
+        password: String = "",
+        village: String = ""
     ) {
         val randId = "ABB-${(10000..99999).random()}"
         val newUser = BloodDonor(
@@ -2718,6 +2741,7 @@ class BloodConnectRepository private constructor() {
             email = email,
             district = district,
             upazila = upazila,
+            village = village,
             lastDonationDate = if (lastDonationDate.isBlank()) "Available" else lastDonationDate,
             isAvailable = true,
             isApproved = true, // Auto-approved for standard users, admin screen can still moderate!
@@ -2790,7 +2814,8 @@ class BloodConnectRepository private constructor() {
         lastDonation: String,
         available: Boolean,
         country: String = "Bangladesh",
-        role: String? = null
+        role: String? = null,
+        village: String = ""
     ) {
         val current = _currentUser.value ?: return
         val updated = current.copy(
@@ -2800,6 +2825,7 @@ class BloodConnectRepository private constructor() {
             bloodGroup = bloodGroup,
             district = district,
             upazila = upazila,
+            village = village,
             lastDonationDate = lastDonation,
             isAvailable = available,
             country = country,
@@ -3208,7 +3234,7 @@ class BloodConnectRepository private constructor() {
         val cleanUser = cleanPhone(userPhone)
         val cleanPeer = cleanPhone(peerPhone)
 
-        _messages.value = _messages.value.map {
+        val updatedList = _messages.value.map {
             val msgSenderClean = cleanPhone(it.senderPhone)
             val msgReceiverClean = cleanPhone(it.receiverPhone)
 
@@ -3219,11 +3245,14 @@ class BloodConnectRepository private constructor() {
                                       it.receiverPhone.equals("LIVE_SUPPORT", ignoreCase = true)
 
             if (matchesPeerSender && matchesUserReceiver && !it.isRead) {
-                it.copy(isRead = true)
+                val updated = it.copy(isRead = true)
+                pushChatMessageToFirebase(updated)
+                updated
             } else {
                 it
             }
         }
+        _messages.value = updatedList
         saveMessagesLocal()
     }
 

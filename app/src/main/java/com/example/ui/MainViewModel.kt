@@ -786,6 +786,7 @@ class MainViewModel(
     var profileEditBlood = ""
     var profileEditDistrict = ""
     var profileEditUpazila = ""
+    var profileEditVillage = ""
     var profileEditLastDonation = ""
     var profileEditAvailable = true
     var profileEditCountry = "Bangladesh"
@@ -813,6 +814,7 @@ class MainViewModel(
     var regBloodGroup = "A+"
     var regDistrict = "Dhaka"
     var regUpazila = "Mirpur"
+    var regVillage = ""
     var regLastDonation = "Never"
     var regCountry = "Bangladesh"
     var regRole = "Donor"
@@ -894,7 +896,8 @@ class MainViewModel(
             lastDonationDate = regLastDonation,
             country = regCountry,
             role = regRole,
-            password = regPassword
+            password = regPassword,
+            village = regVillage
         )
         // Login session auto sets
         val user = repository.currentUser.value
@@ -911,6 +914,7 @@ class MainViewModel(
         profileEditBlood = user.bloodGroup
         profileEditDistrict = user.district
         profileEditUpazila = user.upazila
+        profileEditVillage = user.village
         profileEditLastDonation = user.lastDonationDate
         profileEditAvailable = user.isAvailable
         profileEditCountry = user.country
@@ -928,7 +932,8 @@ class MainViewModel(
             lastDonation = profileEditLastDonation,
             available = profileEditAvailable,
             country = profileEditCountry,
-            role = profileEditRole
+            role = profileEditRole,
+            village = profileEditVillage
         )
     }
 

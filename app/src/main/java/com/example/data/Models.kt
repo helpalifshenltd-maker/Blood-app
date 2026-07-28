@@ -12,6 +12,7 @@ data class BloodDonor(
     val email: String = "",
     val district: String = "",
     val upazila: String = "",
+    val village: String = "",
     val lastDonationDate: String = "Available", // e.g., "2026-03-12" or "Available"
     val isAvailable: Boolean = true,
     val isApproved: Boolean = true,

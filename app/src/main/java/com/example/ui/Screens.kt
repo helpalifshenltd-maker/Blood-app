@@ -1954,6 +1954,7 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
     var regBloodInput by remember { mutableStateOf("A+") }
     var regDistrictInput by remember { mutableStateOf("") }
     var regUpazilaInput by remember { mutableStateOf("") }
+    var regVillageInput by remember { mutableStateOf("") }
     var regLastDonationInput by remember { mutableStateOf("Never") }
     val initialDetectedCountry = viewModel.detectedCountry.value
     var regCountryInput by remember { mutableStateOf(initialDetectedCountry) }
@@ -2954,6 +2955,17 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
                 }
             }
 
+            Spacer(modifier = Modifier.height(10.dp))
+
+            OutlinedTextField(
+                value = regVillageInput,
+                onValueChange = { regVillageInput = it },
+                label = { Text(if (language == AppLanguage.BAN) "গ্রাম / ইউনিয়ন / সুনির্দিষ্ট ঠিকানা" else "Village / Union / Detailed Address") },
+                placeholder = { Text(if (language == AppLanguage.BAN) "আপনার গ্রাম বা সুনির্দিষ্ট এলাকার নাম লিখুন" else "e.g., Moddhopara, Ward 3") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
+
             Spacer(modifier = Modifier.height(12.dp))
 
             Box(
@@ -3049,6 +3061,7 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
                         viewModel.regBloodGroup = regBloodInput
                         viewModel.regDistrict = regDistrictInput
                         viewModel.regUpazila = regUpazilaInput
+                        viewModel.regVillage = regVillageInput
                         viewModel.regLastDonation = if (regRoleInput == "Donor") regLastDonationInput else "N/A"
                         viewModel.regCountry = regCountryInput
                         viewModel.regRole = regRoleInput
@@ -3613,7 +3626,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                                                 color = DarkText
                                             )
                                             Text(
-                                                text = "${donor.upazila}, ${donor.district}",
+                                                text = "${if (donor.village.isNotBlank()) "${donor.village}, " else ""}${donor.upazila}, ${donor.district}",
                                                 fontSize = 11.sp,
                                                 color = SecondaryText
                                             )
@@ -7376,7 +7389,7 @@ fun DonorProfileScreen(viewModel: MainViewModel) {
                 ProfileInfoRow(
                     icon = Icons.Filled.LocationOn,
                     label = strings["profile_loc"] ?: "Location",
-                    value = "${finalDonor.upazila}, ${finalDonor.district}, ${finalDonor.country}"
+                    value = "${if (finalDonor.village.isNotBlank()) "${finalDonor.village}, " else ""}${finalDonor.upazila}, ${finalDonor.district}, ${finalDonor.country}"
                 )
 
                 Divider(modifier = Modifier.padding(vertical = 12.dp), color = LightBorder)
@@ -8758,6 +8771,7 @@ fun UserProfileScreen(viewModel: MainViewModel) {
     var editBlood by remember { mutableStateOf(viewModel.profileEditBlood) }
     var editDistrict by remember { mutableStateOf(viewModel.profileEditDistrict) }
     var editUpazila by remember { mutableStateOf(viewModel.profileEditUpazila) }
+    var editVillage by remember { mutableStateOf(viewModel.profileEditVillage) }
     var editLastDonation by remember { mutableStateOf(viewModel.profileEditLastDonation) }
     var editAvailable by remember { mutableStateOf(viewModel.profileEditAvailable) }
     var editCountry by remember { mutableStateOf(viewModel.profileEditCountry) }
@@ -9982,20 +9996,25 @@ fun UserProfileScreen(viewModel: MainViewModel) {
 
         val isBD = editCountry.equals("Bangladesh", ignoreCase = true)
 
-        // Dynamic location inputs based on country
+        // Dynamic location inputs based on country - Allows typing or selecting from dropdown
         Row(modifier = Modifier.fillMaxWidth()) {
-            if (isBD) {
-                // Bangladesh District selection dropdown
-                Box(modifier = Modifier.weight(1f)) {
-                    OutlinedTextField(
-                        value = editDistrict,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text(strings["district_label"] ?: "District") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    Box(modifier = Modifier.matchParentSize().clickable { expandedDistrict = true })
+            Box(modifier = Modifier.weight(1f)) {
+                OutlinedTextField(
+                    value = editDistrict,
+                    onValueChange = { editDistrict = it },
+                    label = { Text(if (isBD) (strings["district_label"] ?: "District") else (strings["city_state_label"] ?: "City / State")) },
+                    placeholder = { Text(if (isBD) "জেলা লিখুন বা বাছুন" else "e.g., New York") },
+                    trailingIcon = if (isBD) {
+                        {
+                            IconButton(onClick = { expandedDistrict = !expandedDistrict }) {
+                                Icon(Icons.Filled.ArrowDropDown, contentDescription = "Select District")
+                            }
+                        }
+                    } else null,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                if (isBD) {
                     DropdownMenu(
                         expanded = expandedDistrict,
                         onDismissRequest = { expandedDistrict = false }
@@ -10005,27 +10024,33 @@ fun UserProfileScreen(viewModel: MainViewModel) {
                                 text = { Text(dist) },
                                 onClick = {
                                     editDistrict = dist
-                                    editUpazila = ""
                                     expandedDistrict = false
                                 }
                             )
                         }
                     }
                 }
+            }
 
-                Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(8.dp))
 
-                // Bangladesh Upazila selection dropdown
-                Box(modifier = Modifier.weight(1f)) {
-                    OutlinedTextField(
-                        value = editUpazila,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text(strings["upazila_label"] ?: "Upazila") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    Box(modifier = Modifier.matchParentSize().clickable { expandedUpazila = true })
+            Box(modifier = Modifier.weight(1f)) {
+                OutlinedTextField(
+                    value = editUpazila,
+                    onValueChange = { editUpazila = it },
+                    label = { Text(if (isBD) (strings["upazila_label"] ?: "Upazila") else (if (language == AppLanguage.BAN) "অঞ্চল" else "Region")) },
+                    placeholder = { Text(if (isBD) "উপজেলা লিখুন বা বাছুন" else "e.g., Queens") },
+                    trailingIcon = if (isBD) {
+                        {
+                            IconButton(onClick = { expandedUpazila = !expandedUpazila }) {
+                                Icon(Icons.Filled.ArrowDropDown, contentDescription = "Select Upazila")
+                            }
+                        }
+                    } else null,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                if (isBD) {
                     DropdownMenu(
                         expanded = expandedUpazila,
                         onDismissRequest = { expandedUpazila = false }
@@ -10041,33 +10066,20 @@ fun UserProfileScreen(viewModel: MainViewModel) {
                         }
                     }
                 }
-            } else {
-                // Foreign Country freeform text input
-                Box(modifier = Modifier.weight(1f)) {
-                    OutlinedTextField(
-                        value = editDistrict,
-                        onValueChange = { editDistrict = it },
-                        label = { Text(strings["city_state_label"] ?: "City / State") },
-                        placeholder = { Text("e.g., New York") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Box(modifier = Modifier.weight(1f)) {
-                    OutlinedTextField(
-                        value = editUpazila,
-                        onValueChange = { editUpazila = it },
-                        label = { Text(if (language == AppLanguage.BAN) "অঞ্চল" else "Region") },
-                        placeholder = { Text("e.g., Queens") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                }
             }
         }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Village / Union / Area free-text input
+        OutlinedTextField(
+            value = editVillage,
+            onValueChange = { editVillage = it },
+            label = { Text(if (language == AppLanguage.BAN) "গ্রাম / ইউনিয়ন / সুনির্দিষ্ট ঠিকানা" else "Village / Union / Detailed Address") },
+            placeholder = { Text(if (language == AppLanguage.BAN) "আপনার গ্রাম বা সুনির্দিষ্ট এলাকার নাম লিখুন" else "e.g., Moddhopara, Ward 3") },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp)
+        )
 
         if (finalUser.role == "Donor") {
             Spacer(modifier = Modifier.height(10.dp))
@@ -10108,6 +10120,7 @@ fun UserProfileScreen(viewModel: MainViewModel) {
                 viewModel.profileEditBlood = editBlood
                 viewModel.profileEditDistrict = editDistrict
                 viewModel.profileEditUpazila = editUpazila
+                viewModel.profileEditVillage = editVillage
                 viewModel.profileEditLastDonation = editLastDonation
                 viewModel.profileEditAvailable = editAvailable
                 viewModel.profileEditCountry = editCountry
