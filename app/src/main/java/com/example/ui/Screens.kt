@@ -4580,6 +4580,87 @@ fun HomeScreen(viewModel: MainViewModel) {
                         )
                     }
 
+@Composable
+fun CpaAdVideoPlayer(videoPath: String, modifier: Modifier = Modifier) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+
+    val videoUri = remember(videoPath) {
+        if (videoPath.startsWith("/")) {
+            android.net.Uri.fromFile(java.io.File(videoPath))
+        } else {
+            android.net.Uri.parse(videoPath)
+        }
+    }
+
+    var videoViewRef by remember { mutableStateOf<android.widget.VideoView?>(null) }
+
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner, videoUri) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                videoViewRef?.let { vv ->
+                    try {
+                        if (!vv.isPlaying) {
+                            vv.setVideoURI(videoUri)
+                            vv.start()
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            } else if (event == androidx.lifecycle.Lifecycle.Event.ON_PAUSE) {
+                videoViewRef?.let { vv ->
+                    try {
+                        if (vv.isPlaying) {
+                            vv.pause()
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    androidx.compose.ui.viewinterop.AndroidView(
+        factory = { ctx ->
+            android.widget.VideoView(ctx).apply {
+                videoViewRef = this
+                setOnPreparedListener { mp ->
+                    mp.isLooping = true
+                    mp.setVolume(0f, 0f) // Mute by default for banner ads
+                    mp.start()
+                }
+                setOnErrorListener { _, _, _ ->
+                    true // Prevent crash error dialogs
+                }
+                try {
+                    setVideoURI(videoUri)
+                    start()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        },
+        update = { vv ->
+            videoViewRef = vv
+            try {
+                if (!vv.isPlaying) {
+                    vv.setVideoURI(videoUri)
+                    vv.start()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        },
+        modifier = modifier
+    )
+}
+
                     // Image or Video Banner
                     if (selectedAd.isVideo && (selectedAd.videoUrl.isNotEmpty() || selectedAd.bannerUrl.isNotEmpty())) {
                         val videoPath = if (selectedAd.videoUrl.isNotEmpty()) selectedAd.videoUrl else selectedAd.bannerUrl
@@ -4590,30 +4671,20 @@ fun HomeScreen(viewModel: MainViewModel) {
                                 .background(Color.Black),
                             contentAlignment = Alignment.Center
                         ) {
-                            androidx.compose.ui.viewinterop.AndroidView(
-                                factory = { ctx ->
-                                    android.widget.VideoView(ctx).apply {
-                                        try {
-                                            val uri = android.net.Uri.parse(videoPath)
-                                            setVideoURI(uri)
-                                            setOnPreparedListener { mp ->
-                                                mp.isLooping = true
-                                                mp.setVolume(0f, 0f) // Mute by default
-                                                mp.start()
-                                            }
-                                        } catch (e: Exception) {
-                                            e.printStackTrace()
-                                        }
-                                        setOnErrorListener { _, _, _ ->
-                                            true // Prevent error dialog popup
-                                        }
-                                    }
-                                },
+                            CpaAdVideoPlayer(
+                                videoPath = videoPath,
                                 modifier = Modifier.fillMaxSize()
                             )
                         }
                     } else {
                         // Banner Image
+                        val imageModel = remember(selectedAd.bannerUrl) {
+                            if (selectedAd.bannerUrl.startsWith("/")) {
+                                java.io.File(selectedAd.bannerUrl)
+                            } else {
+                                selectedAd.bannerUrl
+                            }
+                        }
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -4621,7 +4692,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                                 .background(Color.LightGray)
                         ) {
                             coil.compose.AsyncImage(
-                                model = selectedAd.bannerUrl,
+                                model = imageModel,
                                 contentDescription = "CPA Ad Offer",
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = androidx.compose.ui.layout.ContentScale.Crop

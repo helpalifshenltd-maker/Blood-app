@@ -1125,7 +1125,12 @@ class BloodConnectRepository private constructor() {
     fun deleteDonorTeamFromFirebase(teamId: String) {
         appScope.launch {
             try {
-                getDb()?.getReference("donor_teams")?.child(teamId)?.removeValue()
+                val db = getDb() ?: return@launch
+                val key = cleanKey(teamId)
+                db.getReference("donor_teams").child(key).removeValue()
+                if (key != teamId) {
+                    db.getReference("donor_teams").child(teamId).removeValue()
+                }
             } catch (e: Exception) {
                 Log.e("BloodConnectRepo", "Firebase delete donor_team error: ${e.message}")
             }
@@ -1850,6 +1855,9 @@ class BloodConnectRepository private constructor() {
                 val db = getDb() ?: return@launch
                 val key = cleanKey(donorId)
                 db.getReference("donors").child(key).removeValue()
+                if (key != donorId) {
+                    db.getReference("donors").child(donorId).removeValue()
+                }
             } catch (e: Exception) {
                 Log.e("BloodConnectRepo", "Firebase delete donor error: ${e.message}")
             }
@@ -1862,6 +1870,9 @@ class BloodConnectRepository private constructor() {
                 val db = getDb() ?: return@launch
                 val key = cleanKey(requestId)
                 db.getReference("requests").child(key).removeValue()
+                if (key != requestId) {
+                    db.getReference("requests").child(requestId).removeValue()
+                }
             } catch (e: Exception) {
                 Log.e("BloodConnectRepo", "Firebase delete request error: ${e.message}")
             }
@@ -1874,6 +1885,9 @@ class BloodConnectRepository private constructor() {
                 val db = getDb() ?: return@launch
                 val key = cleanKey(ambulanceId)
                 db.getReference("ambulances").child(key).removeValue()
+                if (key != ambulanceId) {
+                    db.getReference("ambulances").child(ambulanceId).removeValue()
+                }
             } catch (e: Exception) {
                 Log.e("BloodConnectRepo", "Firebase delete ambulance error: ${e.message}")
             }
@@ -1886,6 +1900,9 @@ class BloodConnectRepository private constructor() {
                 val db = getDb() ?: return@launch
                 val key = cleanKey(bookingId)
                 db.getReference("ambulance_bookings").child(key).removeValue()
+                if (key != bookingId) {
+                    db.getReference("ambulance_bookings").child(bookingId).removeValue()
+                }
             } catch (e: Exception) {
                 Log.e("BloodConnectRepo", "Firebase delete booking error: ${e.message}")
             }
@@ -2210,40 +2227,26 @@ class BloodConnectRepository private constructor() {
         db.getReference("donors").addValueEventListener(object : com.google.firebase.database.ValueEventListener {
             override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
                 try {
-                    if (snapshot.exists() && snapshot.childrenCount > 0) {
-                        val list = mutableListOf<BloodDonor>()
+                    val list = mutableListOf<BloodDonor>()
+                    if (snapshot.exists()) {
                         for (child in snapshot.children) {
                             val parsed = parseDonorFromSnapshot(child)
                             if (parsed != null && parsed.id.isNotBlank()) {
                                 list.add(parsed)
                             }
                         }
-                        if (list.isNotEmpty()) {
-                            val currentLocal = _donors.value
-                            val mergedDonors = (list + currentLocal).distinctBy { 
-                                val cleanP = it.phone.trim().replace("+88", "").replace(" ", "")
-                                val cleanE = it.email.trim().lowercase()
-                                when {
-                                    cleanP.isNotBlank() -> "p_$cleanP"
-                                    cleanE.isNotBlank() -> "e_$cleanE"
-                                    else -> it.id
-                                }
-                            }
-                            _donors.value = mergedDonors
-                            saveDonorsLocal()
+                    }
+                    _donors.value = list
+                    saveDonorsLocal()
 
-                            _currentUser.value?.let { current ->
-                                val remoteCurrent = mergedDonors.find { 
-                                    phonesMatch(it.phone, current.phone) || 
-                                    (current.email.isNotBlank() && it.email.equals(current.email, ignoreCase = true))
-                                }
-                                if (remoteCurrent != null && remoteCurrent != current) {
-                                    setCurrentUser(remoteCurrent)
-                                }
-                            }
+                    _currentUser.value?.let { current ->
+                        val remoteCurrent = list.find { 
+                            phonesMatch(it.phone, current.phone) || 
+                            (current.email.isNotBlank() && it.email.equals(current.email, ignoreCase = true))
                         }
-                    } else if (!snapshot.exists() || snapshot.childrenCount == 0L) {
-                        MockData.initialDonors.forEach { pushDonorToFirebase(it) }
+                        if (remoteCurrent != null && remoteCurrent != current) {
+                            setCurrentUser(remoteCurrent)
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e("BloodConnectRepo", "Error listening to Firebase donors: ${e.message}")
@@ -2256,8 +2259,8 @@ class BloodConnectRepository private constructor() {
         db.getReference("requests").addValueEventListener(object : com.google.firebase.database.ValueEventListener {
             override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
                 try {
-                    if (snapshot.exists() && snapshot.childrenCount > 0) {
-                        val list = mutableListOf<BloodRequest>()
+                    val list = mutableListOf<BloodRequest>()
+                    if (snapshot.exists()) {
                         for (child in snapshot.children) {
                             val req = child.getValue(BloodRequest::class.java)
                             if (req != null) {
@@ -2268,14 +2271,10 @@ class BloodConnectRepository private constructor() {
                                 }
                             }
                         }
-                        if (list.isNotEmpty()) {
-                            _requests.value = list
-                            cleanExpiredRequests()
-                            saveRequestsLocal()
-                        }
-                    } else if (!snapshot.exists() || snapshot.childrenCount == 0L) {
-                        MockData.initialRequests.forEach { pushRequestToFirebase(it) }
                     }
+                    _requests.value = list
+                    cleanExpiredRequests()
+                    saveRequestsLocal()
                 } catch (e: Exception) {
                     Log.e("BloodConnectRepo", "Error listening to Firebase requests: ${e.message}")
                 }
@@ -2288,16 +2287,16 @@ class BloodConnectRepository private constructor() {
             override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
                 try {
                     val list = mutableListOf<ChatMessage>()
-                    for (child in snapshot.children) {
-                        val parsed = parseChatMessageFromSnapshot(child)
-                        if (parsed != null && parsed.id.isNotBlank()) {
-                            list.add(parsed)
+                    if (snapshot.exists()) {
+                        for (child in snapshot.children) {
+                            val parsed = parseChatMessageFromSnapshot(child)
+                            if (parsed != null && parsed.id.isNotBlank()) {
+                                list.add(parsed)
+                            }
                         }
                     }
-                    if (snapshot.exists()) {
-                        _messages.value = list
-                        saveMessagesLocal()
-                    }
+                    _messages.value = list
+                    saveMessagesLocal()
                 } catch (e: Exception) {
                     Log.e("BloodConnectRepo", "Error listening to Firebase chat: ${e.message}")
                 }
@@ -2310,54 +2309,20 @@ class BloodConnectRepository private constructor() {
             override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
                 try {
                     val list = mutableListOf<Ambulance>()
-                    for (child in snapshot.children) {
-                        val amb = child.getValue(Ambulance::class.java)
-                        if (amb != null) {
-                            val safeId = if (amb.id.isBlank()) (child.key ?: "") else amb.id
-                            val finalAmb = amb.copy(id = safeId)
-                            if (finalAmb.id.isNotBlank()) {
-                                list.add(finalAmb)
-                            }
-                        }
-                    }
                     if (snapshot.exists()) {
-                        _ambulances.value = list
-                        saveAmbulancesLocal()
-
-                        val currentDonors = _donors.value.toMutableList()
-                        var donorsChanged = false
-                        list.forEach { amb ->
-                            if (amb.phone.isNotBlank()) {
-                                val exists = currentDonors.any { phonesMatch(it.phone, amb.phone) }
-                                if (!exists) {
-                                    val randId = "ABB-${(10000..99999).random()}"
-                                    val ambDonor = BloodDonor(
-                                        id = "u_amb_${amb.id}",
-                                        name = if (amb.ownerName.isNotBlank()) amb.ownerName else amb.serviceName,
-                                        bloodGroup = "N/A",
-                                        phone = amb.phone,
-                                        email = "",
-                                        district = amb.district,
-                                        upazila = amb.upazila,
-                                        lastDonationDate = "Available",
-                                        isAvailable = true,
-                                        isApproved = true,
-                                        donationCount = 0,
-                                        country = amb.country,
-                                        userId = randId,
-                                        role = "Ambulance",
-                                        password = ""
-                                    )
-                                    currentDonors.add(ambDonor)
-                                    donorsChanged = true
+                        for (child in snapshot.children) {
+                            val amb = child.getValue(Ambulance::class.java)
+                            if (amb != null) {
+                                val safeId = if (amb.id.isBlank()) (child.key ?: "") else amb.id
+                                val finalAmb = amb.copy(id = safeId)
+                                if (finalAmb.id.isNotBlank()) {
+                                    list.add(finalAmb)
                                 }
                             }
                         }
-                        if (donorsChanged) {
-                            _donors.value = currentDonors
-                            saveDonorsLocal()
-                        }
                     }
+                    _ambulances.value = list
+                    saveAmbulancesLocal()
                 } catch (e: Exception) {
                     Log.e("BloodConnectRepo", "Error listening to Firebase ambulances: ${e.message}")
                 }
@@ -2370,16 +2335,16 @@ class BloodConnectRepository private constructor() {
             override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
                 try {
                     val list = mutableListOf<DonorTeam>()
-                    for (child in snapshot.children) {
-                        val team = parseDonorTeamFromSnapshot(child)
-                        if (team != null && team.id.isNotBlank()) {
-                            list.add(team)
+                    if (snapshot.exists()) {
+                        for (child in snapshot.children) {
+                            val team = parseDonorTeamFromSnapshot(child)
+                            if (team != null && team.id.isNotBlank()) {
+                                list.add(team)
+                            }
                         }
                     }
-                    if (snapshot.exists()) {
-                        _donorTeams.value = list
-                        saveDonorTeamsLocal()
-                    }
+                    _donorTeams.value = list
+                    saveDonorTeamsLocal()
                 } catch (e: Exception) {
                     Log.e("BloodConnectRepo", "Error listening to Firebase donor_teams: ${e.message}")
                 }
@@ -2392,20 +2357,20 @@ class BloodConnectRepository private constructor() {
             override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
                 try {
                     val list = mutableListOf<AmbulanceBooking>()
-                    for (child in snapshot.children) {
-                        val book = child.getValue(AmbulanceBooking::class.java)
-                        if (book != null) {
-                            val safeId = if (book.id.isBlank()) (child.key ?: "") else book.id
-                            val finalBook = book.copy(id = safeId)
-                            if (finalBook.id.isNotBlank()) {
-                                list.add(finalBook)
+                    if (snapshot.exists()) {
+                        for (child in snapshot.children) {
+                            val book = child.getValue(AmbulanceBooking::class.java)
+                            if (book != null) {
+                                val safeId = if (book.id.isBlank()) (child.key ?: "") else book.id
+                                val finalBook = book.copy(id = safeId)
+                                if (finalBook.id.isNotBlank()) {
+                                    list.add(finalBook)
+                                }
                             }
                         }
                     }
-                    if (snapshot.exists()) {
-                        _ambulanceBookings.value = list
-                        saveBookingsLocal()
-                    }
+                    _ambulanceBookings.value = list
+                    saveBookingsLocal()
                 } catch (e: Exception) {
                     Log.e("BloodConnectRepo", "Error listening to Firebase bookings: ${e.message}")
                 }
