@@ -580,6 +580,60 @@ data class UserSubscription(
     val paymentMethod: String = ""
 )
 
+@com.squareup.moshi.JsonClass(generateAdapter = true)
+data class RegisteredHospital(
+    val id: String = "",
+    val name: String = "",
+    val type: String = "Hospital", // "Hospital", "Diagnostic Center", "Hospital & Diagnostic"
+    val address: String = "",
+    val district: String = "",
+    val upazila: String = "",
+    val phone: String = "",
+    val email: String = "",
+    val website: String = "",
+    val logoUrl: String = "",
+    val photoUrl: String = "",
+    val services: String = "", // e.g. "Emergency, ICU, Pathology, MRI, Blood Bank"
+    val bloodAvailability: String = "", // e.g. "O+, A+, B+ Available"
+    val planType: String = "Free", // "Free", "Premium (Monthly)", "Premium (Yearly)"
+    val subscriptionExpiryDate: String = "", // e.g. "2026-12-31"
+    val isApproved: Boolean = true,
+    val isFeatured: Boolean = false,
+    val urgentNotice: String = "",
+    val whatsappNumber: String = "",
+    val country: String = "Bangladesh",
+    val paymentMethod: String = "", // "bKash", "Nagad", "Rocket", "Google Pay"
+    val paymentTxnId: String = "",
+    val registrationDate: String = ""
+)
+
+@com.squareup.moshi.JsonClass(generateAdapter = true)
+data class HospitalOffer(
+    val id: String = "",
+    val hospitalId: String = "",
+    val hospitalName: String = "",
+    val title: String = "", // e.g., "CBC Test 20% Discount"
+    val description: String = "",
+    val discountPercent: String = "20%",
+    val validUntil: String = "",
+    val bannerUrl: String = "",
+    val isApproved: Boolean = true
+)
+
+@com.squareup.moshi.JsonClass(generateAdapter = true)
+data class HospitalSubscriptionPayment(
+    val id: String = "",
+    val hospitalId: String = "",
+    val hospitalName: String = "",
+    val planType: String = "Premium (Monthly)", // "Premium (Monthly)" or "Premium (Yearly)"
+    val amount: Double = 500.0,
+    val paymentMethod: String = "bKash", // "bKash", "Nagad", "Rocket", "Google Pay"
+    val transactionId: String = "",
+    val senderPhone: String = "",
+    val paymentDate: String = "",
+    val status: String = "Completed" // "Pending", "Completed", "Rejected"
+)
+
 
 fun phonesMatch(p1: String?, p2: String?): Boolean {
     val phone1 = (p1 ?: "").trim()

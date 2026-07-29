@@ -98,6 +98,43 @@ class MainViewModel(
     private val _detectedCountryCode = MutableStateFlow("BD")
     val detectedCountryCode: StateFlow<String> = _detectedCountryCode.asStateFlow()
 
+    // Hospital State Flows
+    val registeredHospitals: StateFlow<List<RegisteredHospital>> = repository.registeredHospitals
+    val hospitalOffers: StateFlow<List<HospitalOffer>> = repository.hospitalOffers
+    val hospitalPayments: StateFlow<List<HospitalSubscriptionPayment>> = repository.hospitalPayments
+
+    fun registerHospital(hospital: RegisteredHospital) {
+        repository.registerHospital(hospital)
+    }
+
+    fun updateHospitalApproval(hospitalId: String, isApproved: Boolean) {
+        repository.updateHospitalApproval(hospitalId, isApproved)
+    }
+
+    fun toggleHospitalFeatured(hospitalId: String, isFeatured: Boolean) {
+        repository.toggleHospitalFeatured(hospitalId, isFeatured)
+    }
+
+    fun updateHospitalPlan(hospitalId: String, planType: String, expiryDate: String) {
+        repository.updateHospitalPlan(hospitalId, planType, expiryDate)
+    }
+
+    fun deleteHospital(hospitalId: String) {
+        repository.deleteHospital(hospitalId)
+    }
+
+    fun addHospitalOffer(offer: HospitalOffer) {
+        repository.addHospitalOffer(offer)
+    }
+
+    fun deleteHospitalOffer(offerId: String) {
+        repository.deleteHospitalOffer(offerId)
+    }
+
+    fun recordHospitalPayment(payment: HospitalSubscriptionPayment) {
+        repository.recordHospitalPayment(payment)
+    }
+
     // --- MOCK STATISTICS FOR LIVE DISPLAY ---
     val useMockStats: StateFlow<Boolean> = repository.useMockStats
     val mockTotalUsers: StateFlow<Int> = repository.mockTotalUsers
@@ -635,10 +672,22 @@ class MainViewModel(
         _searchBloodGroup,
         _searchDistrict,
         _searchUpazila,
-        _searchHospital
-    ) { list, group, dist, upz, hospital ->
+        _searchHospital,
+        detectedCountry
+    ) { flows ->
+        @Suppress("UNCHECKED_CAST")
+        val list = flows[0] as List<BloodDonor>
+        val group = flows[1] as String
+        val dist = flows[2] as String
+        val upz = flows[3] as String
+        val hospital = flows[4] as String
+        val countryName = flows[5] as String
+
         val hospitalLocation = if (hospital != "All") hospitalLocations[hospital] else null
         list.filter { donor ->
+            val matchCountry = donor.country.equals(countryName, ignoreCase = true) ||
+                (countryName.equals("Bangladesh", ignoreCase = true) && (donor.country.equals("BD", ignoreCase = true) || donor.country.equals("Bangladesh", ignoreCase = true))) ||
+                (countryName.equals("BD", ignoreCase = true) && (donor.country.equals("BD", ignoreCase = true) || donor.country.equals("Bangladesh", ignoreCase = true)))
             val matchGroup = (group == "All" || donor.bloodGroup == group)
             val matchDist = if (hospitalLocation != null) {
                 donor.district.equals(hospitalLocation.first, ignoreCase = true)
@@ -651,7 +700,7 @@ class MainViewModel(
                 (upz == "All" || donor.upazila.equals(upz, ignoreCase = true))
             }
             val isRoleValid = donor.role.isBlank() || donor.role.equals("Donor", ignoreCase = true) || donor.role.equals("User", ignoreCase = true) || donor.role.equals("Admin", ignoreCase = true)
-            matchGroup && matchDist && matchUpz && donor.isApproved && donor.isAvailable && isRoleValid
+            matchCountry && matchGroup && matchDist && matchUpz && donor.isApproved && donor.isAvailable && isRoleValid
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -1350,5 +1399,6 @@ enum class AppScreen {
     AMBULANCE_DASHBOARD,
     SUPPORT_CHAT,
     DONOR_TEAMS,
-    TEAM_DETAIL
+    TEAM_DETAIL,
+    DONOR_POLICY
 }

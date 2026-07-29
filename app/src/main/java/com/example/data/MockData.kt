@@ -771,4 +771,145 @@ object MockData {
             )
         )
     )
+
+    val initialRegisteredHospitals = listOf(
+        RegisteredHospital(
+            id = "hosp_1",
+            name = "ABC Specialized Hospital & Diagnostic Center",
+            type = "Hospital & Diagnostic",
+            address = "Dhanmondi Road 27, Dhaka",
+            district = "Dhaka",
+            upazila = "Dhanmondi",
+            phone = "01711000011",
+            email = "info@abchospital.com",
+            website = "https://abchospital.com",
+            logoUrl = "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=300&auto=format&fit=crop&q=80",
+            photoUrl = "https://images.unsplash.com/photo-1587351021759-3e566b6af7cc?w=600&auto=format&fit=crop&q=80",
+            services = "24/7 Emergency, ICU, CCU, Modern Pathology, 3T MRI, 128-Slice CT Scan, Blood Bank, Surgery, Cardiology",
+            bloodAvailability = "A+, O+, B+, AB+ Stock Available in Blood Bank",
+            planType = "Premium (Yearly)",
+            subscriptionExpiryDate = "2027-06-30",
+            isApproved = true,
+            isFeatured = true,
+            urgentNotice = "⚡ 20% Special Discount on Full Body Health Checkup & Free Blood Group Test!",
+            whatsappNumber = "01711000011",
+            country = "Bangladesh",
+            paymentMethod = "bKash",
+            paymentTxnId = "BK88992211",
+            registrationDate = "2026-06-01"
+        ),
+        RegisteredHospital(
+            id = "hosp_2",
+            name = "XYZ Diagnostic & Consultation Center",
+            type = "Diagnostic Center",
+            address = "GEC Circle, Chattogram",
+            district = "Chattogram",
+            upazila = "Panchlaish",
+            phone = "01822000022",
+            email = "contact@xyzdiagnostic.com",
+            website = "https://xyzdiagnostic.com",
+            logoUrl = "https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=300&auto=format&fit=crop&q=80",
+            photoUrl = "https://images.unsplash.com/photo-1516549655169-df83a0774514?w=600&auto=format&fit=crop&q=80",
+            services = "Digital X-Ray, Ultrasonography, Pathology, Blood Tests, Hormone Test, ECG, Echo",
+            bloodAvailability = "Blood Donor Coordination Support Available",
+            planType = "Premium (Monthly)",
+            subscriptionExpiryDate = "2026-08-30",
+            isApproved = true,
+            isFeatured = true,
+            urgentNotice = "🔬 CBC Test 20% Flat Discount for Blood Donors!",
+            whatsappNumber = "01822000022",
+            country = "Bangladesh",
+            paymentMethod = "Nagad",
+            paymentTxnId = "NG77441122",
+            registrationDate = "2026-06-15"
+        ),
+        RegisteredHospital(
+            id = "hosp_3",
+            name = "Sylhet Life Care Medical Center",
+            type = "Hospital",
+            address = "Zindabazar, Sylhet Sadar, Sylhet",
+            district = "Sylhet",
+            upazila = "Sylhet Sadar",
+            phone = "01933000033",
+            email = "lifecare@sylhetmed.com",
+            website = "https://sylhetlifecare.com",
+            logoUrl = "https://images.unsplash.com/photo-1538108149393-fbbd81895907?w=300&auto=format&fit=crop&q=80",
+            photoUrl = "https://images.unsplash.com/photo-1586773860418-d37222d8fce3?w=600&auto=format&fit=crop&q=80",
+            services = "General Surgery, Pediatrics, Gynecology, Emergency Care, Oxygen Support",
+            bloodAvailability = "O- & B- Emergency Blood Support",
+            planType = "Free",
+            subscriptionExpiryDate = "Lifetime Free",
+            isApproved = true,
+            isFeatured = false,
+            urgentNotice = "",
+            whatsappNumber = "01933000033",
+            country = "Bangladesh",
+            paymentMethod = "Free",
+            paymentTxnId = "FREE_PLAN",
+            registrationDate = "2026-07-01"
+        )
+    )
+
+    val initialHospitalOffers = listOf(
+        HospitalOffer(
+            id = "offer_1",
+            hospitalId = "hosp_1",
+            hospitalName = "ABC Specialized Hospital & Diagnostic Center",
+            title = "CBC Test 20% Discount",
+            description = "Get 20% off on complete blood count test for registered app donors.",
+            discountPercent = "20%",
+            validUntil = "2026-12-31",
+            bannerUrl = "https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=600&auto=format&fit=crop&q=80",
+            isApproved = true
+        ),
+        HospitalOffer(
+            id = "offer_2",
+            hospitalId = "hosp_1",
+            hospitalName = "ABC Specialized Hospital & Diagnostic Center",
+            title = "Blood Group Test Free",
+            description = "Free blood group determination test for all first time donors.",
+            discountPercent = "100% Free",
+            validUntil = "2026-12-31",
+            bannerUrl = "https://images.unsplash.com/photo-1615461066841-6116e61058f4?w=600&auto=format&fit=crop&q=80",
+            isApproved = true
+        ),
+        HospitalOffer(
+            id = "offer_3",
+            hospitalId = "hosp_2",
+            hospitalName = "XYZ Diagnostic & Consultation Center",
+            title = "Executive Health Checkup Package",
+            description = "Comprehensive health checkup package with 30% special discount.",
+            discountPercent = "30% Off",
+            validUntil = "2026-10-15",
+            bannerUrl = "https://images.unsplash.com/photo-1581595220892-b0739db3ba8c?w=600&auto=format&fit=crop&q=80",
+            isApproved = true
+        )
+    )
+
+    val initialHospitalPayments = listOf(
+        HospitalSubscriptionPayment(
+            id = "pay_1",
+            hospitalId = "hosp_1",
+            hospitalName = "ABC Specialized Hospital & Diagnostic Center",
+            planType = "Premium (Yearly)",
+            amount = 5000.0,
+            paymentMethod = "bKash",
+            transactionId = "BK88992211",
+            senderPhone = "01711000011",
+            paymentDate = "2026-06-01",
+            status = "Completed"
+        ),
+        HospitalSubscriptionPayment(
+            id = "pay_2",
+            hospitalId = "hosp_2",
+            hospitalName = "XYZ Diagnostic & Consultation Center",
+            planType = "Premium (Monthly)",
+            amount = 500.0,
+            paymentMethod = "Nagad",
+            transactionId = "NG77441122",
+            senderPhone = "01822000022",
+            paymentDate = "2026-06-15",
+            status = "Completed"
+        )
+    )
 }

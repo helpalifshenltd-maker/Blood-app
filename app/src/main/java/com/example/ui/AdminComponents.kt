@@ -31,6 +31,9 @@ import com.example.data.BloodDonor
 import com.example.data.BloodRequest
 import com.example.data.ScamReport
 import com.example.data.CustomAdConfig
+import com.example.data.RegisteredHospital
+import com.example.data.HospitalOffer
+import com.example.data.HospitalSubscriptionPayment
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.net.Uri
@@ -4243,3 +4246,436 @@ fun AdminBookingsTab(
         }
     }
 }
+
+@Composable
+fun AdminHospitalsTab(viewModel: MainViewModel, language: AppLanguage) {
+    val hospitals by viewModel.registeredHospitals.collectAsState()
+    val offers by viewModel.hospitalOffers.collectAsState()
+    val payments by viewModel.hospitalPayments.collectAsState()
+    val context = LocalContext.current
+    val isBn = language == AppLanguage.BAN
+
+    var selectedSubTab by remember { mutableStateOf(0) } // 0: Hospitals, 1: Offers, 2: Payments
+    var showAddOfferDialog by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Sub-navigation tabs
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp)
+                .background(AdminCardBg, RoundedCornerShape(10.dp))
+                .border(1.dp, AdminBorder, RoundedCornerShape(10.dp))
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            val subTabTitles = if (isBn) {
+                listOf("হাসপাতাল / ডায়াগনস্টিক", "অফারসমূহ", "পেমেন্ট হিস্ট্রি")
+            } else {
+                listOf("Hospitals & Diagnostics", "Offers", "Payment History")
+            }
+
+            subTabTitles.forEachIndexed { index, title ->
+                Button(
+                    onClick = { selectedSubTab = index },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (selectedSubTab == index) AdminPrimaryBlue else Color.Transparent
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(vertical = 8.dp)
+                ) {
+                    Text(
+                        text = title,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (selectedSubTab == index) Color.White else AdminTextMuted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+
+        when (selectedSubTab) {
+            0 -> {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 20.dp)
+                ) {
+                    if (hospitals.isEmpty()) {
+                        item {
+                            Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
+                                Text(
+                                    if (isBn) "কোনো নিবন্ধিত হাসপাতাল বা ডায়াগনস্টিক সেন্টার পাওয়া যায়নি।" else "No hospitals or diagnostics registered yet.",
+                                    color = AdminTextMuted,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+                    }
+
+                    items(hospitals) { hosp ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+                            border = BorderStroke(1.dp, AdminBorder),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(44.dp)
+                                            .background(AdminPrimaryBlue.copy(alpha = 0.2f), CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.LocalHospital,
+                                            contentDescription = null,
+                                            tint = AdminPrimaryBlue,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.width(10.dp))
+
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                text = hosp.name,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 14.sp,
+                                                color = AdminTextWhite
+                                            )
+                                            if (hosp.isFeatured) {
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = "FEATURED",
+                                                    fontSize = 9.sp,
+                                                    fontWeight = FontWeight.Black,
+                                                    color = AdminAccOrange,
+                                                    modifier = Modifier
+                                                        .background(AdminAccOrange.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
+                                                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+                                        Text(
+                                            text = "${hosp.type} • ${hosp.upazila}, ${hosp.district}",
+                                            fontSize = 11.sp,
+                                            color = AdminTextMuted
+                                        )
+                                        Text(
+                                            text = "Plan: ${hosp.planType} | Contact: ${hosp.phone}",
+                                            fontSize = 10.sp,
+                                            color = AdminAccGreen
+                                        )
+                                    }
+                                }
+
+                                if (hosp.services.isNotBlank()) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "Services: ${hosp.services}",
+                                        fontSize = 11.sp,
+                                        color = AdminTextMuted,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+                                HorizontalDivider(color = AdminBorder)
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Toggle Featured
+                                    Button(
+                                        onClick = {
+                                            viewModel.toggleHospitalFeatured(hosp.id, !hosp.isFeatured)
+                                            Toast.makeText(context, if (hosp.isFeatured) "Featured mode OFF" else "Featured mode ON", Toast.LENGTH_SHORT).show()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (hosp.isFeatured) AdminAccOrange else AdminCardBg
+                                        ),
+                                        shape = RoundedCornerShape(8.dp),
+                                        border = BorderStroke(1.dp, AdminAccOrange),
+                                        modifier = Modifier.weight(1f),
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (hosp.isFeatured) Icons.Default.Star else Icons.Default.StarBorder,
+                                            contentDescription = null,
+                                            tint = if (hosp.isFeatured) Color.Black else AdminAccOrange,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = if (hosp.isFeatured) "Featured ON" else "Make Featured",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (hosp.isFeatured) Color.Black else AdminAccOrange
+                                        )
+                                    }
+
+                                    // Switch Plan (Free vs Premium)
+                                    Button(
+                                        onClick = {
+                                            if (hosp.planType == "Free") {
+                                                viewModel.updateHospitalPlan(hosp.id, "Premium (Monthly)", "2026-12-31")
+                                                Toast.makeText(context, "Upgraded to Premium Monthly", Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                viewModel.updateHospitalPlan(hosp.id, "Free", "Lifetime Free")
+                                                Toast.makeText(context, "Set to Free Plan", Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = AdminPrimaryBlue),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.weight(1f),
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                    ) {
+                                        Text(
+                                            text = if (hosp.planType == "Free") "Set Premium" else "Set Free",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                    }
+
+                                    // Delete Hospital
+                                    IconButton(
+                                        onClick = {
+                                            viewModel.deleteHospital(hosp.id)
+                                            Toast.makeText(context, "Hospital deleted", Toast.LENGTH_SHORT).show()
+                                        },
+                                        modifier = Modifier
+                                            .background(AdminAccRed.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                            .size(32.dp)
+                                    ) {
+                                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = AdminAccRed, modifier = Modifier.size(16.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            1 -> {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (isBn) "হাসপাতাল অফারসমূহ (" + offers.size + ")" else "Hospital Offers (${offers.size})",
+                            fontWeight = FontWeight.Bold,
+                            color = AdminTextWhite,
+                            fontSize = 14.sp
+                        )
+                        Button(
+                            onClick = { showAddOfferDialog = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = AdminAccGreen),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Icon(Icons.Default.Add, null, modifier = Modifier.size(14.dp), tint = Color.White)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(if (isBn) "নতুন অফার যোগ করুন" else "Add Offer", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        contentPadding = PaddingValues(bottom = 20.dp)
+                    ) {
+                        if (offers.isEmpty()) {
+                            item {
+                                Box(Modifier.fillMaxWidth().padding(30.dp), contentAlignment = Alignment.Center) {
+                                    Text(if (isBn) "কোনো একটিভ অফার নেই।" else "No active offers available.", color = AdminTextMuted, fontSize = 13.sp)
+                                }
+                            }
+                        }
+
+                        items(offers) { offer ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+                                border = BorderStroke(1.dp, AdminBorder),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(text = offer.title, fontWeight = FontWeight.Bold, color = AdminTextWhite, fontSize = 13.sp)
+                                        Text(text = offer.hospitalName, fontSize = 11.sp, color = AdminAccOrange)
+                                        Text(text = offer.description, fontSize = 10.sp, color = AdminTextMuted)
+                                        Text(text = "Discount: ${offer.discountPercent} | Valid: ${offer.validUntil}", fontSize = 10.sp, color = AdminAccGreen)
+                                    }
+                                    IconButton(
+                                        onClick = {
+                                            viewModel.deleteHospitalOffer(offer.id)
+                                            Toast.makeText(context, "Offer deleted", Toast.LENGTH_SHORT).show()
+                                        },
+                                        modifier = Modifier.background(AdminAccRed.copy(alpha = 0.2f), CircleShape).size(32.dp)
+                                    ) {
+                                        Icon(Icons.Default.Delete, null, tint = AdminAccRed, modifier = Modifier.size(16.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            2 -> {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(bottom = 20.dp)
+                ) {
+                    if (payments.isEmpty()) {
+                        item {
+                            Box(Modifier.fillMaxWidth().padding(30.dp), contentAlignment = Alignment.Center) {
+                                Text(if (isBn) "কোনো পেমেন্ট রেকর্ড পাওয়া যায়নি।" else "No payment records found.", color = AdminTextMuted, fontSize = 13.sp)
+                            }
+                        }
+                    }
+
+                    items(payments) { pay ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+                            border = BorderStroke(1.dp, AdminBorder),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(text = pay.hospitalName, fontWeight = FontWeight.Bold, color = AdminTextWhite, fontSize = 13.sp)
+                                    Text(
+                                        text = "৳ ${pay.amount.toInt()}",
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = AdminAccGreen,
+                                        fontSize = 14.sp
+                                    )
+                                }
+                                Text(text = "Plan: ${pay.planType} | Gateway: ${pay.paymentMethod}", fontSize = 11.sp, color = AdminTextMuted)
+                                Text(text = "TrxID: ${pay.transactionId} | Sender: ${pay.senderPhone}", fontSize = 11.sp, color = AdminPrimaryBlue)
+                                Text(text = "Date: ${pay.paymentDate} | Status: ${pay.status}", fontSize = 10.sp, color = AdminTextMuted)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showAddOfferDialog) {
+        var offerTitleInput by remember { mutableStateOf("") }
+        var offerDescInput by remember { mutableStateOf("") }
+        var offerDiscountInput by remember { mutableStateOf("20%") }
+        var selectedHospName by remember { mutableStateOf(hospitals.firstOrNull()?.name ?: "ABC Hospital") }
+
+        AlertDialog(
+            onDismissRequest = { showAddOfferDialog = false },
+            title = {
+                Text(
+                    text = if (isBn) "হাসপাতাল অফার যুক্ত করুন" else "Add Hospital Offer",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = offerTitleInput,
+                        onValueChange = { offerTitleInput = it },
+                        label = { Text("Offer Title (অফারের শিরোনাম)", color = AdminTextMuted) },
+                        placeholder = { Text("e.g. CBC Test 20% Discount", color = AdminTextMuted) },
+                        textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = offerDescInput,
+                        onValueChange = { offerDescInput = it },
+                        label = { Text("Offer Description (বিবরণ)", color = AdminTextMuted) },
+                        placeholder = { Text("e.g. Full blood count test discount for app users", color = AdminTextMuted) },
+                        textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = offerDiscountInput,
+                        onValueChange = { offerDiscountInput = it },
+                        label = { Text("Discount % or Amount", color = AdminTextMuted) },
+                        textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (offerTitleInput.isNotBlank()) {
+                            viewModel.addHospitalOffer(
+                                HospitalOffer(
+                                    id = "offer_" + System.currentTimeMillis(),
+                                    hospitalId = "hosp_custom",
+                                    hospitalName = selectedHospName,
+                                    title = offerTitleInput.trim(),
+                                    description = offerDescInput.trim(),
+                                    discountPercent = offerDiscountInput.trim(),
+                                    validUntil = "2026-12-31",
+                                    bannerUrl = "https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=600&auto=format&fit=crop&q=80",
+                                    isApproved = true
+                                )
+                            )
+                            Toast.makeText(context, "Offer added successfully!", Toast.LENGTH_SHORT).show()
+                            showAddOfferDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AdminAccGreen)
+                ) {
+                    Text(if (isBn) "সংরক্ষণ করুন" else "Save Offer", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddOfferDialog = false }) {
+                    Text(if (isBn) "বাতিল" else "Cancel", color = AdminTextMuted)
+                }
+            },
+            containerColor = AdminCardBg
+        )
+    }
+}
+

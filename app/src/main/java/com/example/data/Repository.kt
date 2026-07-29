@@ -73,6 +73,70 @@ class BloodConnectRepository private constructor() {
     private val _userSubscriptions = MutableStateFlow<List<UserSubscription>>(emptyList())
     val userSubscriptions: StateFlow<List<UserSubscription>> = _userSubscriptions.asStateFlow()
 
+    private val _registeredHospitals = MutableStateFlow<List<RegisteredHospital>>(MockData.initialRegisteredHospitals)
+    val registeredHospitals: StateFlow<List<RegisteredHospital>> = _registeredHospitals.asStateFlow()
+
+    private val _hospitalOffers = MutableStateFlow<List<HospitalOffer>>(MockData.initialHospitalOffers)
+    val hospitalOffers: StateFlow<List<HospitalOffer>> = _hospitalOffers.asStateFlow()
+
+    private val _hospitalPayments = MutableStateFlow<List<HospitalSubscriptionPayment>>(MockData.initialHospitalPayments)
+    val hospitalPayments: StateFlow<List<HospitalSubscriptionPayment>> = _hospitalPayments.asStateFlow()
+
+    fun registerHospital(hospital: RegisteredHospital) {
+        val current = _registeredHospitals.value.toMutableList()
+        val existingIndex = current.indexOfFirst { it.id == hospital.id }
+        if (existingIndex >= 0) {
+            current[existingIndex] = hospital
+        } else {
+            current.add(0, hospital)
+        }
+        _registeredHospitals.value = current
+    }
+
+    fun updateHospitalApproval(hospitalId: String, isApproved: Boolean) {
+        _registeredHospitals.value = _registeredHospitals.value.map {
+            if (it.id == hospitalId) it.copy(isApproved = isApproved) else it
+        }
+    }
+
+    fun toggleHospitalFeatured(hospitalId: String, isFeatured: Boolean) {
+        _registeredHospitals.value = _registeredHospitals.value.map {
+            if (it.id == hospitalId) it.copy(isFeatured = isFeatured) else it
+        }
+    }
+
+    fun updateHospitalPlan(hospitalId: String, planType: String, expiryDate: String) {
+        _registeredHospitals.value = _registeredHospitals.value.map {
+            if (it.id == hospitalId) it.copy(planType = planType, subscriptionExpiryDate = expiryDate, isFeatured = planType.startsWith("Premium")) else it
+        }
+    }
+
+    fun deleteHospital(hospitalId: String) {
+        _registeredHospitals.value = _registeredHospitals.value.filter { it.id != hospitalId }
+    }
+
+    fun addHospitalOffer(offer: HospitalOffer) {
+        val current = _hospitalOffers.value.toMutableList()
+        current.add(0, offer)
+        _hospitalOffers.value = current
+    }
+
+    fun deleteHospitalOffer(offerId: String) {
+        _hospitalOffers.value = _hospitalOffers.value.filter { it.id != offerId }
+    }
+
+    fun recordHospitalPayment(payment: HospitalSubscriptionPayment) {
+        val current = _hospitalPayments.value.toMutableList()
+        current.add(0, payment)
+        _hospitalPayments.value = current
+
+        // Auto update hospital to Premium if payment is completed
+        if (payment.status == "Completed") {
+            val expiry = if (payment.planType.contains("Yearly")) "2027-12-31" else "2026-12-31"
+            updateHospitalPlan(payment.hospitalId, payment.planType, expiry)
+        }
+    }
+
     private val _useMockStats = MutableStateFlow(false)
     val useMockStats: StateFlow<Boolean> = _useMockStats.asStateFlow()
 

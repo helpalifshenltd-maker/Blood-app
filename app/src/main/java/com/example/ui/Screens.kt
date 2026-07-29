@@ -359,6 +359,7 @@ fun MainAppContainer(viewModel: MainViewModel) {
                                         AppScreen.AMBULANCE_DASHBOARD -> AmbulanceDashboardScreen(viewModel)
                                         AppScreen.DONOR_TEAMS -> DonorTeamsScreen(viewModel)
                                         AppScreen.TEAM_DETAIL -> TeamDetailScreen(viewModel)
+                                        AppScreen.DONOR_POLICY -> DonorPolicyScreen(viewModel)
                                         else -> {}
                                     }
                                 }
@@ -1564,6 +1565,43 @@ fun ScrollableDrawerItems(
             0
         )
 
+        // 9. CPA & Sponsored Offers
+        val contextForDrawerCpa = androidx.compose.ui.platform.LocalContext.current
+        val uriHandlerForDrawerCpa = androidx.compose.ui.platform.LocalUriHandler.current
+
+        NavigationDrawerItem(
+            label = {
+                Text(
+                    text = if (currentLanguage == AppLanguage.BAN) "CPA ও স্পন্সরড অফার" else "CPA & Sponsored Offers",
+                    fontWeight = FontWeight.Normal
+                )
+            },
+            icon = { Icon(imageVector = Icons.Filled.CardGiftcard, contentDescription = "CPA Offers", tint = Color(0xFFE65100)) },
+            selected = false,
+            onClick = {
+                val rawUrl = "https://www.affmine.com"
+                val formattedUrl = if (!rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) "https://$rawUrl" else rawUrl
+                try {
+                    val intent = android.content.Intent(
+                        android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse(formattedUrl)
+                    ).apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) }
+                    contextForDrawerCpa.startActivity(intent)
+                } catch (e: Exception) {
+                    try { uriHandlerForDrawerCpa.openUri(formattedUrl) } catch (ex: Exception) { ex.printStackTrace() }
+                }
+            },
+            colors = NavigationDrawerItemDefaults.colors(
+                unselectedContainerColor = Color.Transparent,
+                unselectedIconColor = Color(0xFFE65100),
+                unselectedTextColor = DarkText
+            ),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier
+                .padding(vertical = 4.dp)
+                .testTag("drawer_cpa_offers")
+        )
+
         // Only show if Admin is authenticated
         if (isAdmin) {
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = LightBorder)
@@ -1956,6 +1994,8 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
     var regUpazilaInput by remember { mutableStateOf("") }
     var regVillageInput by remember { mutableStateOf("") }
     var regLastDonationInput by remember { mutableStateOf("Never") }
+    var regPolicyAgreed by remember { mutableStateOf(false) }
+    var showDonorPolicyDialog by remember { mutableStateOf(false) }
     val initialDetectedCountry = viewModel.detectedCountry.value
     var regCountryInput by remember { mutableStateOf(initialDetectedCountry) }
 
@@ -3049,10 +3089,75 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
+            // DONOR REGISTRATION POLICY CHECKBOX & LINK
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 6.dp),
+                colors = CardDefaults.cardColors(containerColor = LightPinkRed.copy(alpha = 0.35f)),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, BloodRed.copy(alpha = 0.3f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = regPolicyAgreed,
+                        onCheckedChange = { regPolicyAgreed = it },
+                        colors = CheckboxDefaults.colors(checkedColor = BloodRed)
+                    )
+
+                    val policyText = androidx.compose.ui.text.buildAnnotatedString {
+                        append(if (language == AppLanguage.BAN) "আমি " else "I agree to the ")
+                        pushStyle(
+                            androidx.compose.ui.text.SpanStyle(
+                                color = BloodRed,
+                                fontWeight = FontWeight.Bold,
+                                textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
+                            )
+                        )
+                        append(if (language == AppLanguage.BAN) "ডোনার রেজিস্ট্রেশন পলিসি" else "Donor Registration Policy")
+                        pop()
+                        append(if (language == AppLanguage.BAN) " মেনে চলব ও তাতে সম্মত।" else " & Terms.")
+                    }
+
+                    Text(
+                        text = policyText,
+                        fontSize = 12.sp,
+                        color = DarkText,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { showDonorPolicyDialog = true }
+                    )
+                }
+            }
+
+            if (showDonorPolicyDialog) {
+                DonorRegistrationPolicyDialog(
+                    language = language,
+                    onDismiss = { showDonorPolicyDialog = false },
+                    onAgree = {
+                        regPolicyAgreed = true
+                        showDonorPolicyDialog = false
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
             Button(
                 onClick = {
                     if (regNameInput.isBlank() || regPhoneInput.isBlank()) {
-                        Toast.makeText(context, "Name and Phone are mandatory!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, if (language == AppLanguage.BAN) "নাম এবং ফোন নম্বর দেওয়া বাধ্যতামূলক!" else "Name and Phone are mandatory!", Toast.LENGTH_SHORT).show()
+                    } else if (!regPolicyAgreed) {
+                        Toast.makeText(
+                            context,
+                            if (language == AppLanguage.BAN) "রেজিস্ট্রেশন করতে ডোনার রেজিস্ট্রেশন পলিসিতে টিক চিহ্ন দিয়ে সম্মত হন!" else "Please agree to the Donor Registration Policy to proceed!",
+                            Toast.LENGTH_LONG
+                        ).show()
                     } else {
                         viewModel.regName = regNameInput
                         viewModel.regPhone = regPhoneInput
@@ -3728,94 +3833,543 @@ fun HomeScreen(viewModel: MainViewModel) {
     }
 
     if (showHospitalNetworksDialog) {
+        val registeredHospList by viewModel.registeredHospitals.collectAsState()
+        val offersList by viewModel.hospitalOffers.collectAsState()
+        val context = LocalContext.current
         val isBn = language == AppLanguage.BAN
+
+        var activeDialogTab by remember { mutableStateOf(0) } // 0: Directory, 1: Register, 2: Plans & Payment
+        var searchHospText by remember { mutableStateOf("") }
+
+        // Registration form state
+        var regName by remember { mutableStateOf("") }
+        var regType by remember { mutableStateOf("Hospital & Diagnostic") }
+        var regAddress by remember { mutableStateOf("") }
+        var regDistrict by remember { mutableStateOf("Dhaka") }
+        var regUpazila by remember { mutableStateOf("Dhanmondi") }
+        var regPhone by remember { mutableStateOf("") }
+        var regEmail by remember { mutableStateOf("") }
+        var regWebsite by remember { mutableStateOf("") }
+        var regServices by remember { mutableStateOf("") }
+        var regBloodAvail by remember { mutableStateOf("") }
+        var regWhatsapp by remember { mutableStateOf("") }
+        var regPlanType by remember { mutableStateOf("Free") } // "Free", "Premium (Monthly)", "Premium (Yearly)"
+
+        // Payment gateway modal state
+        var showPaymentModal by remember { mutableStateOf(false) }
+        var selectedGateway by remember { mutableStateOf("bKash") } // "bKash", "Nagad", "Rocket", "Google Pay"
+        var paymentTrxIdInput by remember { mutableStateOf("") }
+        var paymentPhoneInput by remember { mutableStateOf("") }
+
         AlertDialog(
             onDismissRequest = { showHospitalNetworksDialog = false },
             title = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.CorporateFare,
-                        contentDescription = "Hospitals",
-                        tint = BloodRed,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Text(
-                        text = if (isBn) "হসপিটাল ওয়াইজ রক্তদাতা তথ্য" else "Hospital-wise Donors",
-                        fontWeight = FontWeight.Bold,
-                        color = DarkText,
-                        fontSize = 18.sp
-                    )
+                Column {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Filled.LocalHospital, null, tint = BloodRed, modifier = Modifier.size(24.dp))
+                            Text(
+                                text = if (isBn) "হাসপাতাল ও ডায়াগনস্টিক সার্ভিস" else "Hospitals & Diagnostics",
+                                fontWeight = FontWeight.Bold,
+                                color = DarkText,
+                                fontSize = 17.sp
+                            )
+                        }
+                        IconButton(onClick = { showHospitalNetworksDialog = false }, modifier = Modifier.size(28.dp)) {
+                            Icon(Icons.Default.Close, "Close", tint = SecondaryText, modifier = Modifier.size(18.dp))
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Tab selector bar
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFFF1F5F9), RoundedCornerShape(10.dp))
+                            .padding(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        val tabLabels = if (isBn) {
+                            listOf("ডিরেক্টরি", "রেজিস্ট্রেশন", "প্ল্যান ও অফার")
+                        } else {
+                            listOf("Directory", "Register", "Plans & Offers")
+                        }
+                        tabLabels.forEachIndexed { index, label ->
+                            Button(
+                                onClick = { activeDialogTab = index },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (activeDialogTab == index) BloodRed else Color.Transparent
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = label,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (activeDialogTab == index) Color.White else SecondaryText,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
                 }
             },
             text = {
-                Column {
-                    Text(
-                        text = if (isBn) {
-                            "নিচের হসপিটালগুলোর জেলাভিত্তিক নিবন্ধিত সক্রিয় রক্তদাতার সংখ্যা দেখুন। বিস্তারিত দেখতে যেকোনো হসপিটালে চাপুন:"
-                        } else {
-                            "See the number of active registered donors near each hospital. Tap any hospital or medical center to view its name and detailed info:"
-                        },
-                        fontSize = 12.sp,
-                        color = SecondaryText,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
+                Column(modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp)) {
+                    when (activeDialogTab) {
+                        0 -> { // Directory List
+                            Column {
+                                // Search bar
+                                OutlinedTextField(
+                                    value = searchHospText,
+                                    onValueChange = { searchHospText = it },
+                                    placeholder = { Text(if (isBn) "হাসপাতাল, জেলা বা সেবার নাম লিখুন..." else "Search hospital name or district...", fontSize = 11.sp) },
+                                    leadingIcon = { Icon(Icons.Default.Search, null, tint = SecondaryText, modifier = Modifier.size(18.dp)) },
+                                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = BloodRed,
+                                        unfocusedBorderColor = LightBorder,
+                                        focusedContainerColor = Color.White,
+                                        unfocusedContainerColor = Color.White
+                                    )
+                                )
 
-                    LazyColumn(
-                        modifier = Modifier.heightIn(max = 350.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(hospitals.size) { index ->
-                            val hosp = hospitals[index]
-                            val matchCount = donors.count { it.district.equals(hosp.district, ignoreCase = true) }
-                            
-                            Card(
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                val filteredList = remember(registeredHospList, searchHospText, detectedCountry) {
+                                    registeredHospList.filter { h ->
+                                        val matchCountry = h.country.equals(detectedCountry, ignoreCase = true) ||
+                                            (detectedCountry.equals("Bangladesh", ignoreCase = true) && (h.country.equals("BD", ignoreCase = true) || h.country.isBlank() || h.country.equals("Bangladesh", ignoreCase = true))) ||
+                                            (detectedCountry.equals("BD", ignoreCase = true) && (h.country.equals("BD", ignoreCase = true) || h.country.isBlank() || h.country.equals("Bangladesh", ignoreCase = true)))
+                                        val matchQuery = searchHospText.isBlank() ||
+                                            h.name.contains(searchHospText, ignoreCase = true) ||
+                                            h.district.contains(searchHospText, ignoreCase = true) ||
+                                            h.upazila.contains(searchHospText, ignoreCase = true) ||
+                                            h.services.contains(searchHospText, ignoreCase = true)
+                                        matchCountry && matchQuery
+                                    }.sortedByDescending { it.isFeatured } // Featured hospitals appear FIRST!
+                                }
+
+                                LazyColumn(
+                                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    items(filteredList.size) { index ->
+                                        val hosp = filteredList[index]
+                                        Card(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .then(
+                                                    if (hosp.isFeatured) Modifier.border(1.5.dp, Color(0xFFF59E0B), RoundedCornerShape(12.dp))
+                                                    else Modifier
+                                                ),
+                                            colors = CardDefaults.cardColors(
+                                                containerColor = if (hosp.isFeatured) Color(0xFFFFFBEB) else Color(0xFFF8FAFC)
+                                            ),
+                                            shape = RoundedCornerShape(12.dp)
+                                        ) {
+                                            Column(modifier = Modifier.padding(12.dp)) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    // Logo / Thumbnail
+                                                    AsyncImage(
+                                                        model = hosp.logoUrl.ifBlank { "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=300&auto=format&fit=crop&q=80" },
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)),
+                                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                                    )
+                                                    Spacer(modifier = Modifier.width(10.dp))
+                                                    Column(modifier = Modifier.weight(1f)) {
+                                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                                            Text(
+                                                                text = hosp.name,
+                                                                fontWeight = FontWeight.Bold,
+                                                                fontSize = 13.sp,
+                                                                color = DarkText,
+                                                                maxLines = 1,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
+                                                            if (hosp.isFeatured) {
+                                                                Spacer(modifier = Modifier.width(4.dp))
+                                                                Text(
+                                                                    text = "⚡ FEATURED",
+                                                                    fontSize = 8.sp,
+                                                                    fontWeight = FontWeight.Black,
+                                                                    color = Color.White,
+                                                                    modifier = Modifier
+                                                                        .background(Color(0xFFD97706), RoundedCornerShape(4.dp))
+                                                                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                                                                )
+                                                            }
+                                                        }
+                                                        Text(
+                                                            text = "${hosp.type} • ${hosp.upazila}, ${hosp.district}",
+                                                            fontSize = 10.sp,
+                                                            color = SecondaryText
+                                                        )
+                                                    }
+                                                }
+
+                                                if (hosp.urgentNotice.isNotBlank()) {
+                                                    Spacer(modifier = Modifier.height(6.dp))
+                                                    Text(
+                                                        text = hosp.urgentNotice,
+                                                        fontSize = 10.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = Color(0xFFB91C1C),
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .background(Color(0xFFFEF2F2), RoundedCornerShape(6.dp))
+                                                            .padding(6.dp)
+                                                    )
+                                                }
+
+                                                if (hosp.services.isNotBlank()) {
+                                                    Spacer(modifier = Modifier.height(6.dp))
+                                                    Text(
+                                                        text = "🩺 ${hosp.services}",
+                                                        fontSize = 10.sp,
+                                                        color = DarkText.copy(alpha = 0.8f),
+                                                        maxLines = 2,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                }
+
+                                                if (hosp.bloodAvailability.isNotBlank()) {
+                                                    Spacer(modifier = Modifier.height(4.dp))
+                                                    Text(
+                                                        text = "🩸 ${hosp.bloodAvailability}",
+                                                        fontSize = 10.sp,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        color = BloodRed
+                                                    )
+                                                }
+
+                                                Spacer(modifier = Modifier.height(8.dp))
+
+                                                // Call & WhatsApp Action Buttons
+                                                Row(
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) {
+                                                    Button(
+                                                        onClick = {
+                                                            try {
+                                                                val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
+                                                                    data = android.net.Uri.parse("tel:${hosp.phone}")
+                                                                }
+                                                                context.startActivity(intent)
+                                                            } catch (e: Exception) {
+                                                                Toast.makeText(context, "Cannot launch dialer", Toast.LENGTH_SHORT).show()
+                                                            }
+                                                        },
+                                                        colors = ButtonDefaults.buttonColors(containerColor = BloodRed),
+                                                        shape = RoundedCornerShape(6.dp),
+                                                        modifier = Modifier.weight(1f).height(32.dp),
+                                                        contentPadding = PaddingValues(horizontal = 4.dp)
+                                                    ) {
+                                                        Icon(Icons.Default.Phone, null, modifier = Modifier.size(12.dp), tint = Color.White)
+                                                        Spacer(modifier = Modifier.width(4.dp))
+                                                        Text(if (isBn) "কল করুন" else "Call", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                                    }
+
+                                                    if (hosp.whatsappNumber.isNotBlank()) {
+                                                        Button(
+                                                            onClick = {
+                                                                try {
+                                                                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                                                        data = android.net.Uri.parse("https://api.whatsapp.com/send?phone=${hosp.whatsappNumber}")
+                                                                    }
+                                                                    context.startActivity(intent)
+                                                                } catch (e: Exception) {
+                                                                    Toast.makeText(context, "WhatsApp not installed", Toast.LENGTH_SHORT).show()
+                                                                }
+                                                            },
+                                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                                                            shape = RoundedCornerShape(6.dp),
+                                                            modifier = Modifier.weight(1f).height(32.dp),
+                                                            contentPadding = PaddingValues(horizontal = 4.dp)
+                                                        ) {
+                                                            Text("WhatsApp", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        1 -> { // Registration Form
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable {
-                                        selectedHospitalForDetails = hosp
-                                    },
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FBFD)),
-                                border = BorderStroke(1.dp, LightBorder),
-                                shape = RoundedCornerShape(10.dp)
+                                    .verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.LocalHospital,
-                                        contentDescription = "Hosp",
-                                        tint = BloodRed,
-                                        modifier = Modifier.size(20.dp)
+                                Text(
+                                    text = if (isBn) "১. হাসপাতাল/ডায়াগনস্টিক রেজিস্ট্রেশন ফরম" else "1. Hospital/Diagnostic Registration Form",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    color = BloodRed
+                                )
+
+                                OutlinedTextField(
+                                    value = regName,
+                                    onValueChange = { regName = it },
+                                    label = { Text(if (isBn) "হাসপাতাল/ডায়াগনস্টিক এর নাম *" else "Hospital / Diagnostic Name *", fontSize = 11.sp) },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+
+                                OutlinedTextField(
+                                    value = regAddress,
+                                    onValueChange = { regAddress = it },
+                                    label = { Text(if (isBn) "ঠিকানা *" else "Full Address *", fontSize = 11.sp) },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedTextField(
+                                        value = regDistrict,
+                                        onValueChange = { regDistrict = it },
+                                        label = { Text(if (isBn) "জেলা *" else "District *", fontSize = 11.sp) },
+                                        modifier = Modifier.weight(1f)
                                     )
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    Column(modifier = Modifier.weight(1f)) {
+                                    OutlinedTextField(
+                                        value = regUpazila,
+                                        onValueChange = { regUpazila = it },
+                                        label = { Text(if (isBn) "উপজেলা/থানা *" else "Upazila *", fontSize = 11.sp) },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedTextField(
+                                        value = regPhone,
+                                        onValueChange = { regPhone = it },
+                                        label = { Text(if (isBn) "ফোন নম্বর *" else "Phone Number *", fontSize = 11.sp) },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    OutlinedTextField(
+                                        value = regWhatsapp,
+                                        onValueChange = { regWhatsapp = it },
+                                        label = { Text("WhatsApp", fontSize = 11.sp) },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+
+                                OutlinedTextField(
+                                    value = regServices,
+                                    onValueChange = { regServices = it },
+                                    label = { Text(if (isBn) "সেবার তালিকা (যেমন: ICU, Pathology, MRI, Blood Bank)" else "Services List", fontSize = 11.sp) },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+
+                                OutlinedTextField(
+                                    value = regBloodAvail,
+                                    onValueChange = { regBloodAvail = it },
+                                    label = { Text(if (isBn) "রক্তের প্রাপ্যতা (যদি তারা দিতে চায়)" else "Blood Availability Info", fontSize = 11.sp) },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+
+                                Text(
+                                    text = if (isBn) "সাবস্ক্রিপশন প্ল্যান নির্বাচন করুন:" else "Select Subscription Plan:",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp,
+                                    color = DarkText,
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    val plans = listOf(
+                                        "Free" to if (isBn) "ফ্রি (সাধারণ)" else "Free (Basic)",
+                                        "Premium (Monthly)" to if (isBn) "প্রিমিয়াম (৳৫০০/মাস)" else "Premium (৳500/mo)",
+                                        "Premium (Yearly)" to if (isBn) "প্রিমিয়াম (৳৫০০০/বছর)" else "Premium (৳5000/yr)"
+                                    )
+                                    plans.forEach { (planKey, planLabel) ->
+                                        Card(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clickable { regPlanType = planKey },
+                                            colors = CardDefaults.cardColors(
+                                                containerColor = if (regPlanType == planKey) BloodRed.copy(alpha = 0.15f) else Color(0xFFF8FAFC)
+                                            ),
+                                            border = BorderStroke(1.dp, if (regPlanType == planKey) BloodRed else LightBorder),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Box(modifier = Modifier.padding(8.dp), contentAlignment = Alignment.Center) {
+                                                Text(
+                                                    text = planLabel,
+                                                    fontSize = 9.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = if (regPlanType == planKey) BloodRed else DarkText,
+                                                    textAlign = TextAlign.Center
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                Button(
+                                    onClick = {
+                                        if (regName.isBlank() || regPhone.isBlank()) {
+                                            Toast.makeText(context, if (isBn) "অনুগ্রহ করে হাসপাতালের নাম এবং ফোন নম্বর দিন" else "Please enter hospital name and phone number", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            val newHosp = RegisteredHospital(
+                                                id = "hosp_" + System.currentTimeMillis(),
+                                                name = regName.trim(),
+                                                type = regType,
+                                                address = regAddress.trim(),
+                                                district = regDistrict.trim(),
+                                                upazila = regUpazila.trim(),
+                                                phone = regPhone.trim(),
+                                                email = regEmail.trim(),
+                                                website = regWebsite.trim(),
+                                                services = regServices.trim(),
+                                                bloodAvailability = regBloodAvail.trim(),
+                                                planType = regPlanType,
+                                                isApproved = true,
+                                                isFeatured = regPlanType.startsWith("Premium"),
+                                                whatsappNumber = regWhatsapp.trim(),
+                                                country = detectedCountry,
+                                                registrationDate = "2026-07-29"
+                                            )
+
+                                            if (regPlanType.startsWith("Premium")) {
+                                                // Prompt for Payment Gateway
+                                                viewModel.registerHospital(newHosp)
+                                                showPaymentModal = true
+                                            } else {
+                                                viewModel.registerHospital(newHosp)
+                                                Toast.makeText(context, if (isBn) "হাসপাতাল ফ্রি প্ল্যানে সফলভাবে নিবন্ধিত হয়েছে!" else "Hospital registered on Free plan!", Toast.LENGTH_LONG).show()
+                                                activeDialogTab = 0
+                                            }
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = BloodRed),
+                                    modifier = Modifier.fillMaxWidth().height(40.dp),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        text = if (regPlanType.startsWith("Premium")) (if (isBn) "পেমেন্ট সম্পন্ন করে সাবমিট করুন" else "Proceed to Payment") else (if (isBn) "রেজিস্ট্রেশন সম্পন্ন করুন" else "Complete Free Registration"),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            }
+                        }
+
+                        2 -> { // Plans & Offers
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                // Free vs Premium Comparison Card
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                                    border = BorderStroke(1.dp, LightBorder),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
                                         Text(
-                                            text = if (isBn) hosp.banglaName else hosp.name,
+                                            text = if (isBn) "২. ফ্রি ও প্রিমিয়াম প্ল্যান এর পার্থক্য" else "2. Free vs Premium Plan Features",
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 13.sp,
-                                            color = DarkText
+                                            color = BloodRed
                                         )
-                                        Text(
-                                            text = "${hosp.upazila}, ${hosp.district}",
-                                            fontSize = 11.sp,
-                                            color = SecondaryText
-                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+
+                                        // Free Plan Box
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .background(Color.White, RoundedCornerShape(8.dp))
+                                                .border(1.dp, LightBorder, RoundedCornerShape(8.dp))
+                                                .padding(10.dp)
+                                        ) {
+                                            Column {
+                                                Text(if (isBn) "🆓 ফ্রি প্ল্যান" else "🆓 Free Plan", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = DarkText)
+                                                Text(if (isBn) "• সাধারণ ডিরেক্টরি লিস্টিং\n• সীমিত সেবার তথ্য ও যোগাযোগের নম্বর" else "• Standard directory listing\n• Limited info & phone number", fontSize = 11.sp, color = SecondaryText)
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(8.dp))
+
+                                        // Premium Plan Box
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .background(Color(0xFFFFFBEB), RoundedCornerShape(8.dp))
+                                                .border(1.dp, Color(0xFFF59E0B), RoundedCornerShape(8.dp))
+                                                .padding(10.dp)
+                                        ) {
+                                            Column {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Text(if (isBn) "⭐ প্রিমিয়াম প্ল্যান (৳৫০০/মাস বা ৳৫০০০/বছর)" else "⭐ Premium Plan (৳500/mo or ৳5000/yr)", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFFD97706))
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text("FEATURED", fontSize = 8.sp, fontWeight = FontWeight.Black, color = Color.White, modifier = Modifier.background(Color(0xFFD97706), RoundedCornerShape(4.dp)).padding(horizontal = 4.dp, vertical = 2.dp))
+                                                }
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text(
+                                                    text = if (isBn) "• লিস্টিং এর সবার উপরে দেখাবে (Top priority in search)\n• Featured ব্যাজ ও গোল্ডেন বর্ডার\n• বিশেষ অফার পোস্ট করার সুবিধা\n• সরাসরি Call ও WhatsApp বাটন"
+                                                    else "• Pins at the top of search results\n• Featured badge & highlight border\n• Ability to post special diagnostic offers\n• Direct Call & WhatsApp buttons",
+                                                    fontSize = 10.sp,
+                                                    color = DarkText
+                                                )
+                                            }
+                                        }
                                     }
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Badge(
-                                        containerColor = LightPinkRed,
-                                        contentColor = BloodRed
-                                    ) {
-                                        Text(
-                                            text = if (isBn) "$matchCount দাতা" else "$matchCount Donors",
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
+                                }
+
+                                // Offers section
+                                Column {
+                                    Text(
+                                        text = if (isBn) "🎁 হাসপাতাল ও ডায়াগনস্টিক অফারসমূহ" else "🎁 Medical Discounts & Offers",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        color = DarkText,
+                                        modifier = Modifier.padding(bottom = 6.dp)
+                                    )
+
+                                    offersList.forEach { offer ->
+                                        Card(
+                                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                            colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
+                                            border = BorderStroke(1.dp, Color(0xFF86EFAC)),
+                                            shape = RoundedCornerShape(10.dp)
+                                        ) {
+                                            Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(offer.title, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF166534))
+                                                    Text(offer.hospitalName, fontSize = 10.sp, color = SecondaryText)
+                                                    Text(offer.description, fontSize = 10.sp, color = DarkText)
+                                                }
+                                                Box(
+                                                    modifier = Modifier
+                                                        .background(Color(0xFF16A34A), RoundedCornerShape(6.dp))
+                                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                                ) {
+                                                    Text(offer.discountPercent, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -3823,12 +4377,143 @@ fun HomeScreen(viewModel: MainViewModel) {
                     }
                 }
             },
-            confirmButton = {
-                TextButton(onClick = { showHospitalNetworksDialog = false }) {
-                    Text(if (isBn) "ঠিক আছে" else "Close", color = BloodRed, fontWeight = FontWeight.Bold)
-                }
-            }
+            confirmButton = {}
         )
+
+        // Payment Modal Dialog for bKash, Nagad, Rocket, Google Pay
+        if (showPaymentModal) {
+            AlertDialog(
+                onDismissRequest = { showPaymentModal = false },
+                title = {
+                    Text(
+                        text = if (isBn) "পেমেন্ট গেটওয়ে নির্বাচন করুন" else "Select Payment Gateway",
+                        fontWeight = FontWeight.Bold,
+                        color = DarkText,
+                        fontSize = 16.sp
+                    )
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            text = if (isBn) "বাংলাদেশের জন্য বিকাশ, নগদ, রকেট এবং আন্তর্জাতিক ইউজারের জন্য Google Pay:" else "bKash, Nagad, Rocket for Bangladesh & Google Pay for International:",
+                            fontSize = 11.sp,
+                            color = SecondaryText
+                        )
+
+                        // Payment Gateway Selector
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            val gateways = listOf(
+                                "bKash" to Color(0xFFD12053),
+                                "Nagad" to Color(0xFFF7921E),
+                                "Rocket" to Color(0xFF8C3494),
+                                "Google Pay" to Color(0xFF4285F4)
+                            )
+
+                            gateways.forEach { (gw, col) ->
+                                Card(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { selectedGateway = gw },
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (selectedGateway == gw) col.copy(alpha = 0.15f) else Color(0xFFF1F5F9)
+                                    ),
+                                    border = BorderStroke(1.5.dp, if (selectedGateway == gw) col else LightBorder),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Box(modifier = Modifier.padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+                                        Text(gw, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = if (selectedGateway == gw) col else DarkText, textAlign = TextAlign.Center)
+                                    }
+                                }
+                            }
+                        }
+
+                        if (selectedGateway == "Google Pay") {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color(0xFFEFF6FF), RoundedCornerShape(8.dp))
+                                    .padding(10.dp)
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                                    Icon(Icons.Default.CreditCard, null, tint = Color(0xFF4285F4), modifier = Modifier.size(32.dp))
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text("Google Pay Instant Checkout", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1E3A8A))
+                                    Text("Amount: $10.00 USD / Month", fontSize = 11.sp, color = SecondaryText)
+                                }
+                            }
+                        } else {
+                            // bKash / Nagad / Rocket Merchant instructions
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color(0xFFFEF2F2), RoundedCornerShape(8.dp))
+                                    .padding(10.dp)
+                            ) {
+                                Column {
+                                    Text("Merchant Number: 01800000000", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = BloodRed)
+                                    Text("1. Send Money / Make Payment ৳500 to the above number.", fontSize = 10.sp, color = DarkText)
+                                    Text("2. Enter TrxID and Sender Mobile number below.", fontSize = 10.sp, color = DarkText)
+                                }
+                            }
+
+                            OutlinedTextField(
+                                value = paymentTrxIdInput,
+                                onValueChange = { paymentTrxIdInput = it },
+                                label = { Text("Transaction ID (TrxID) *", fontSize = 11.sp) },
+                                placeholder = { Text("e.g. BK88992211", fontSize = 10.sp) },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            OutlinedTextField(
+                                value = paymentPhoneInput,
+                                onValueChange = { paymentPhoneInput = it },
+                                label = { Text(if (isBn) "প্রেরকের বিকাশ/নগদ নম্বর *" else "Sender Mobile Number *", fontSize = 11.sp) },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            val payTxn = if (selectedGateway == "Google Pay") "GPAY_" + System.currentTimeMillis().toString().takeLast(8) else paymentTrxIdInput.trim()
+                            if (selectedGateway != "Google Pay" && payTxn.isBlank()) {
+                                Toast.makeText(context, if (isBn) "অনুগ্রহ করে সঠিক Transaction ID দিন" else "Please enter Transaction ID", Toast.LENGTH_SHORT).show()
+                            } else {
+                                viewModel.recordHospitalPayment(
+                                    HospitalSubscriptionPayment(
+                                        id = "pay_" + System.currentTimeMillis(),
+                                        hospitalId = "hosp_registered",
+                                        hospitalName = regName.ifBlank { "Registered Hospital" },
+                                        planType = regPlanType,
+                                        amount = if (regPlanType.contains("Yearly")) 5000.0 else 500.0,
+                                        paymentMethod = selectedGateway,
+                                        transactionId = payTxn,
+                                        senderPhone = paymentPhoneInput,
+                                        paymentDate = "2026-07-29",
+                                        status = "Completed"
+                                    )
+                                )
+                                Toast.makeText(context, if (isBn) "🎉 পেমেন্ট সফল হয়েছে! হাসপাতাল প্রিমিয়াম হিসেবে সক্রিয় করা হয়েছে।" else "🎉 Payment successful! Hospital upgraded to Premium.", Toast.LENGTH_LONG).show()
+                                showPaymentModal = false
+                                showHospitalNetworksDialog = false
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = BloodRed)
+                    ) {
+                        Text(if (isBn) "পেমেন্ট কনফার্ম করুন" else "Confirm Payment", fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showPaymentModal = false }) {
+                        Text(if (isBn) "বাতিল" else "Cancel", color = SecondaryText)
+                    }
+                }
+            )
+        }
     }
 
     if (selectedHospitalForDetails != null) {
@@ -3992,6 +4677,8 @@ fun HomeScreen(viewModel: MainViewModel) {
     }
 
     val currentUser by viewModel.currentUser.collectAsState()
+    var showDonorCheckDialog by remember { mutableStateOf(false) }
+    var showDoctorDirectoryDialog by remember { mutableStateOf(false) }
     var showHomeScamReportDialog by remember { mutableStateOf(false) }
     var homeReporterName by remember(currentUser) { mutableStateOf(currentUser?.name ?: "") }
     var homeReporterPhone by remember(currentUser) { mutableStateOf(currentUser?.phone ?: "") }
@@ -4008,8 +4695,14 @@ fun HomeScreen(viewModel: MainViewModel) {
         homeScammerPhotoUri = uri
     }
 
-    val emergencyRequests = remember(requests) {
-        requests.filter { it.isEmergency && it.status == "Active" }.take(2)
+    val emergencyRequests = remember(requests, detectedCountry) {
+        requests.filter { req ->
+            val matchCountry = req.country.equals(detectedCountry, ignoreCase = true) ||
+                (detectedCountry.equals("Bangladesh", ignoreCase = true) && (req.country.equals("BD", ignoreCase = true) || req.country.isBlank() || req.country.equals("Bangladesh", ignoreCase = true))) ||
+                (detectedCountry.equals("BD", ignoreCase = true) && (req.country.equals("BD", ignoreCase = true) || req.country.isBlank() || req.country.equals("Bangladesh", ignoreCase = true))) ||
+                (detectedCountry.equals("USA", ignoreCase = true) && (req.country.contains("United States", ignoreCase = true) || req.country.equals("US", ignoreCase = true) || req.country.equals("USA", ignoreCase = true)))
+            req.isEmergency && req.status == "Active" && matchCountry
+        }.take(2)
     }
 
     Column(
@@ -4318,9 +5011,325 @@ fun HomeScreen(viewModel: MainViewModel) {
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        // Custom CPA/Affiliate banner ad (Affmine, etc.)
+        @Composable
+        fun CpaAdVideoPlayer(videoPath: String, modifier: Modifier = Modifier) {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
-        // Grid Statistics Cards
+            val videoUri = remember(videoPath) {
+                if (videoPath.startsWith("/")) {
+                    android.net.Uri.fromFile(java.io.File(videoPath))
+                } else {
+                    android.net.Uri.parse(videoPath)
+                }
+            }
+
+            var videoViewRef by remember { mutableStateOf<android.widget.VideoView?>(null) }
+
+            androidx.compose.runtime.DisposableEffect(lifecycleOwner, videoUri) {
+                val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                    if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                        videoViewRef?.let { vv ->
+                            try {
+                                if (!vv.isPlaying) {
+                                    vv.setVideoURI(videoUri)
+                                    vv.start()
+                                }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        }
+                    } else if (event == androidx.lifecycle.Lifecycle.Event.ON_PAUSE) {
+                        videoViewRef?.let { vv ->
+                            try {
+                                if (vv.isPlaying) {
+                                    vv.pause()
+                                }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        }
+                    }
+                }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose {
+                    lifecycleOwner.lifecycle.removeObserver(observer)
+                }
+            }
+
+            androidx.compose.ui.viewinterop.AndroidView(
+                factory = { ctx ->
+                    android.widget.VideoView(ctx).apply {
+                        videoViewRef = this
+                        setOnPreparedListener { mp ->
+                            mp.isLooping = true
+                            mp.setVolume(0f, 0f) // Mute by default for banner ads
+                            mp.start()
+                        }
+                        setOnErrorListener { _, _, _ ->
+                            true // Prevent crash error dialogs
+                        }
+                        try {
+                            setVideoURI(videoUri)
+                            start()
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                },
+                update = { vv ->
+                    videoViewRef = vv
+                    try {
+                        if (!vv.isPlaying) {
+                            vv.setVideoURI(videoUri)
+                            vv.start()
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                },
+                modifier = modifier
+            )
+        }
+
+        val customAdsEnabled by viewModel.customAdsEnabled.collectAsState()
+        val customAdConfigs by viewModel.customAdConfigs.collectAsState()
+        val customAdNetworkName by viewModel.customAdNetworkName.collectAsState()
+        val customAdTitle by viewModel.customAdTitle.collectAsState()
+        val customAdBannerUrl by viewModel.customAdBannerUrl.collectAsState()
+        val customAdTargetUrl by viewModel.customAdTargetUrl.collectAsState()
+        val customAdTargetCountries by viewModel.customAdTargetCountries.collectAsState()
+
+        val activeAdsForCountry = remember(customAdConfigs, customAdTitle, customAdNetworkName, customAdBannerUrl, customAdTargetUrl, customAdTargetCountries, detectedCountry) {
+            fun isCountryMatched(targetStr: String): Boolean {
+                if (targetStr.isBlank()) return true
+                val countries = targetStr.split(",").map { it.trim() }
+                return countries.any { country ->
+                    country.equals("All", ignoreCase = true) ||
+                    country.equals("International", ignoreCase = true) ||
+                    country.equals(detectedCountry, ignoreCase = true) ||
+                    (country.equals("BD", ignoreCase = true) && detectedCountry.equals("Bangladesh", ignoreCase = true)) ||
+                    (country.equals("Bangladesh", ignoreCase = true) && (detectedCountry.equals("BD", ignoreCase = true) || detectedCountry.equals("Bangladesh", ignoreCase = true))) ||
+                    (country.equals("USA", ignoreCase = true) && (detectedCountry.contains("United States", ignoreCase = true) || detectedCountry.equals("US", ignoreCase = true))) ||
+                    (country.equals("UK", ignoreCase = true) && (detectedCountry.contains("United Kingdom", ignoreCase = true) || detectedCountry.equals("GB", ignoreCase = true))) ||
+                    (country.equals("UAE", ignoreCase = true) && (detectedCountry.contains("Emirates", ignoreCase = true) || detectedCountry.equals("AE", ignoreCase = true))) ||
+                    (country.equals("SA", ignoreCase = true) && (detectedCountry.contains("Saudi", ignoreCase = true) || detectedCountry.equals("SA", ignoreCase = true))) ||
+                    (country.equals("IN", ignoreCase = true) && (detectedCountry.equals("India", ignoreCase = true) || detectedCountry.equals("IN", ignoreCase = true)))
+                }
+            }
+
+            val filtered = customAdConfigs.filter { isCountryMatched(it.targetCountries) }
+            if (filtered.isNotEmpty()) {
+                filtered
+            } else if (customAdTitle.isNotBlank() && isCountryMatched(customAdTargetCountries)) {
+                listOf(
+                    com.example.data.CustomAdConfig(
+                        id = "default_single_ad",
+                        networkName = customAdNetworkName.ifBlank { "Affmine" },
+                        title = customAdTitle,
+                        bannerUrl = customAdBannerUrl,
+                        targetUrl = customAdTargetUrl,
+                        targetCountries = customAdTargetCountries
+                    )
+                )
+            } else {
+                listOf(
+                    com.example.data.CustomAdConfig(
+                        id = "fallback_affmine_ad",
+                        networkName = if (customAdNetworkName.isNotBlank()) customAdNetworkName else "Affmine",
+                        title = if (customAdTitle.isNotBlank()) customAdTitle else "Earn Money with Affmine CPA Offers!",
+                        bannerUrl = if (customAdBannerUrl.isNotBlank()) customAdBannerUrl else "https://images.unsplash.com/photo-1542744094-3a31f103e35f?auto=format&fit=crop&w=600&q=80",
+                        targetUrl = if (customAdTargetUrl.isNotBlank()) customAdTargetUrl else "https://www.affmine.com",
+                        targetCountries = "All"
+                    )
+                )
+            }
+        }
+
+        if (customAdsEnabled && activeAdsForCountry.isNotEmpty()) {
+            val selectedAd = remember(activeAdsForCountry) {
+                val totalWeight = activeAdsForCountry.sumOf { it.weight.coerceAtLeast(1) }
+                if (totalWeight <= 0) {
+                    activeAdsForCountry.first()
+                } else {
+                    var randomVal = (1..totalWeight).random()
+                    var selected = activeAdsForCountry.first()
+                    for (ad in activeAdsForCountry) {
+                        randomVal -= ad.weight.coerceAtLeast(1)
+                        if (randomVal <= 0) {
+                            selected = ad
+                            break
+                        }
+                    }
+                    selected
+                }
+            }
+
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+
+            val openCpaLink = {
+                val rawUrl = selectedAd.targetUrl.trim()
+                if (rawUrl.isNotEmpty()) {
+                    val formattedUrl = if (!rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
+                        "https://$rawUrl"
+                    } else {
+                        rawUrl
+                    }
+                    try {
+                        val intent = android.content.Intent(
+                            android.content.Intent.ACTION_VIEW,
+                            android.net.Uri.parse(formattedUrl)
+                        ).apply {
+                            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        try {
+                            uriHandler.openUri(formattedUrl)
+                        } catch (ex: Exception) {
+                            ex.printStackTrace()
+                            android.widget.Toast.makeText(
+                                context,
+                                if (language == AppLanguage.BAN) "লিংক খুলতে ব্যর্থ হয়েছে: $formattedUrl" else "Could not open link: $formattedUrl",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                }
+            }
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp)
+                    .clickable { openCpaLink() }
+                    .shadow(4.dp, RoundedCornerShape(12.dp)),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.5.dp, BloodRed.copy(alpha = 0.4f))
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(BloodRed.copy(alpha = 0.08f))
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Filled.Star,
+                                contentDescription = null,
+                                tint = BloodRed,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = selectedAd.networkName.uppercase() + " SPONSORED OFFER",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = BloodRed
+                            )
+                        }
+                        Text(
+                            text = if (language == AppLanguage.BAN) "বিজ্ঞাপন" else "AD",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = SecondaryText,
+                            modifier = Modifier
+                                .background(LightBorder, RoundedCornerShape(3.dp))
+                                .padding(horizontal = 4.dp, vertical = 1.dp)
+                        )
+                    }
+
+                    if (selectedAd.isVideo && (selectedAd.videoUrl.isNotEmpty() || selectedAd.bannerUrl.isNotEmpty())) {
+                        val videoPath = if (selectedAd.videoUrl.isNotEmpty()) selectedAd.videoUrl else selectedAd.bannerUrl
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(160.dp)
+                                .background(Color.Black),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CpaAdVideoPlayer(
+                                videoPath = videoPath,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    } else {
+                        val imageModel = remember(selectedAd.bannerUrl) {
+                            if (selectedAd.bannerUrl.startsWith("/")) {
+                                java.io.File(selectedAd.bannerUrl)
+                            } else {
+                                selectedAd.bannerUrl
+                            }
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(130.dp)
+                                .background(Color.LightGray)
+                        ) {
+                            coil.compose.AsyncImage(
+                                model = imageModel,
+                                contentDescription = "CPA Ad Offer",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                            Text(
+                                text = selectedAd.title,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = DarkText,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = if (language == AppLanguage.BAN) "অফিসিয়াল স্পন্সরড অফার • " + selectedAd.networkName else "Official Partner Offer • " + selectedAd.networkName,
+                                fontSize = 10.sp,
+                                color = SecondaryText,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            )
+                        }
+
+                        Button(
+                            onClick = { openCpaLink() },
+                            colors = ButtonDefaults.buttonColors(containerColor = BloodRed),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.height(30.dp)
+                        ) {
+                            Text(
+                                text = if (language == AppLanguage.BAN) "ভিজিট করুন" else "Visit Now",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Grid Statistics Cards (Blood Network Today)
         Text(
             text = if (language == AppLanguage.BAN) "$networkCountryBn ব্লাড নেটওয়ার্ক আজ" else "$detectedCountry Blood Network Today",
             fontWeight = FontWeight.Bold,
@@ -4446,323 +5455,133 @@ fun HomeScreen(viewModel: MainViewModel) {
             }
         }
 
-        // Custom CPA/Affiliate banner ad (Affmine, etc.)
-        val customAdsEnabled by viewModel.customAdsEnabled.collectAsState()
-        val customAdConfigs by viewModel.customAdConfigs.collectAsState()
-        val customAdNetworkName by viewModel.customAdNetworkName.collectAsState()
-        val customAdTitle by viewModel.customAdTitle.collectAsState()
-        val customAdBannerUrl by viewModel.customAdBannerUrl.collectAsState()
-        val customAdTargetUrl by viewModel.customAdTargetUrl.collectAsState()
-        val customAdTargetCountries by viewModel.customAdTargetCountries.collectAsState()
+        Spacer(modifier = Modifier.height(20.dp))
 
-        val activeAdsForCountry = remember(customAdConfigs, customAdTitle, customAdNetworkName, customAdBannerUrl, customAdTargetUrl, customAdTargetCountries, detectedCountry) {
-            fun isCountryMatched(targetStr: String): Boolean {
-                if (targetStr.isBlank()) return true
-                val countries = targetStr.split(",").map { it.trim() }
-                return countries.any { country ->
-                    country.equals("All", ignoreCase = true) ||
-                    country.equals("International", ignoreCase = true) ||
-                    country.equals(detectedCountry, ignoreCase = true) ||
-                    (country.equals("BD", ignoreCase = true) && detectedCountry.equals("Bangladesh", ignoreCase = true)) ||
-                    (country.equals("Bangladesh", ignoreCase = true) && (detectedCountry.equals("BD", ignoreCase = true) || detectedCountry.equals("Bangladesh", ignoreCase = true))) ||
-                    (country.equals("USA", ignoreCase = true) && (detectedCountry.contains("United States", ignoreCase = true) || detectedCountry.equals("US", ignoreCase = true))) ||
-                    (country.equals("UK", ignoreCase = true) && (detectedCountry.contains("United Kingdom", ignoreCase = true) || detectedCountry.equals("GB", ignoreCase = true))) ||
-                    (country.equals("UAE", ignoreCase = true) && (detectedCountry.contains("Emirates", ignoreCase = true) || detectedCountry.equals("AE", ignoreCase = true))) ||
-                    (country.equals("SA", ignoreCase = true) && (detectedCountry.contains("Saudi", ignoreCase = true) || detectedCountry.equals("SA", ignoreCase = true))) ||
-                    (country.equals("IN", ignoreCase = true) && (detectedCountry.equals("India", ignoreCase = true) || detectedCountry.equals("IN", ignoreCase = true)))
-                }
-            }
+        // CORE SYSTEM NAVIGATION DIRECT LINKS (DONOR SERVICES)
+        Text(
+            text = if (language == AppLanguage.BAN) "ডোনার সার্ভিসসমূহ" else "Donor Services",
+            fontWeight = FontWeight.Bold,
+            fontSize = 16.sp,
+            color = DarkText,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
 
-            val filtered = customAdConfigs.filter { isCountryMatched(it.targetCountries) }
-            if (filtered.isNotEmpty()) {
-                filtered
-            } else if (customAdTitle.isNotBlank() && isCountryMatched(customAdTargetCountries)) {
-                listOf(
-                    com.example.data.CustomAdConfig(
-                        id = "default_single_ad",
-                        networkName = customAdNetworkName.ifBlank { "Affmine" },
-                        title = customAdTitle,
-                        bannerUrl = customAdBannerUrl,
-                        targetUrl = customAdTargetUrl,
-                        targetCountries = customAdTargetCountries
-                    )
-                )
-            } else {
-                emptyList()
-            }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            ServiceIconLink(
+                title = strings["card_search_donor"] ?: "Find Donors",
+                icon = Icons.Filled.PersonSearch,
+                tag = "home_search_service",
+                onClick = { viewModel.navigateTo(AppScreen.SEARCH_DONOR) },
+                color = CoralRed,
+                modifier = Modifier.weight(1f)
+            )
+
+            ServiceIconLink(
+                title = strings["card_request_blood"] ?: "Request Blood",
+                icon = Icons.Filled.Queue,
+                tag = "home_request_service",
+                onClick = { viewModel.navigateTo(AppScreen.REQUEST_BLOOD) },
+                color = BloodRed,
+                modifier = Modifier.weight(1f)
+            )
+
+            ServiceIconLink(
+                title = strings["card_emergency_req"] ?: "Urgent Needs",
+                icon = Icons.Filled.CrisisAlert,
+                tag = "home_emergency_service",
+                onClick = { viewModel.navigateTo(AppScreen.EMERGENCY_REQUESTS) },
+                color = DarkBloodRed,
+                modifier = Modifier.weight(1f)
+            )
         }
 
-        if (customAdsEnabled && activeAdsForCountry.isNotEmpty()) {
-            // Select one ad based on weights (using a random selection weighted by ad.weight)
-            val selectedAd = remember(activeAdsForCountry) {
-                val totalWeight = activeAdsForCountry.sumOf { it.weight.coerceAtLeast(1) }
-                if (totalWeight <= 0) {
-                    activeAdsForCountry.first()
-                } else {
-                    var randomVal = (1..totalWeight).random()
-                    var selected = activeAdsForCountry.first()
-                    for (ad in activeAdsForCountry) {
-                        randomVal -= ad.weight.coerceAtLeast(1)
-                        if (randomVal <= 0) {
-                            selected = ad
-                            break
-                        }
-                    }
-                    selected
-                }
-            }
+        Spacer(modifier = Modifier.height(8.dp))
 
-            val context = androidx.compose.ui.platform.LocalContext.current
-            val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            ServiceIconLink(
+                title = if (language == AppLanguage.BAN) "রক্তদাতা টিম" else "Donor Teams",
+                icon = Icons.Filled.Groups,
+                tag = "home_teams_service",
+                onClick = { viewModel.navigateTo(AppScreen.DONOR_TEAMS) },
+                color = Color(0xFF3F51B5),
+                modifier = Modifier.weight(1f)
+            )
 
-            val openCpaLink = {
-                val rawUrl = selectedAd.targetUrl.trim()
-                if (rawUrl.isNotEmpty()) {
-                    val formattedUrl = if (!rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
-                        "https://$rawUrl"
-                    } else {
-                        rawUrl
-                    }
-                    try {
-                        val intent = android.content.Intent(
-                            android.content.Intent.ACTION_VIEW,
-                            android.net.Uri.parse(formattedUrl)
-                        ).apply {
-                            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
-                        context.startActivity(intent)
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                        try {
-                            uriHandler.openUri(formattedUrl)
-                        } catch (ex: Exception) {
-                            ex.printStackTrace()
-                            android.widget.Toast.makeText(
-                                context,
-                                if (language == AppLanguage.BAN) "লিংক খুলতে ব্যর্থ হয়েছে: $formattedUrl" else "Could not open link: $formattedUrl",
-                                android.widget.Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    }
-                }
-            }
+            ServiceIconLink(
+                title = strings["card_ambulance"] ?: "Ambulance",
+                icon = Icons.Filled.AirportShuttle,
+                tag = "home_ambulance_service",
+                onClick = { viewModel.navigateTo(AppScreen.AMBULANCE_LIST) },
+                color = Color(0xFF00897B),
+                modifier = Modifier.weight(1f)
+            )
 
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp)
-                    .clickable { openCpaLink() }
-                    .shadow(4.dp, RoundedCornerShape(12.dp)),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.5.dp, BloodRed.copy(alpha = 0.4f))
-            ) {
-                Column {
-                    // Header label indicating Sponsored Ad
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(BloodRed.copy(alpha = 0.08f))
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Filled.Star,
-                                contentDescription = null,
-                                tint = BloodRed,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = selectedAd.networkName.uppercase() + " SPONSORED",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = BloodRed
-                            )
-                        }
-                        Text(
-                            text = if (language == AppLanguage.BAN) "বিজ্ঞাপন" else "AD",
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = SecondaryText,
-                            modifier = Modifier
-                                .background(LightBorder, RoundedCornerShape(3.dp))
-                                .padding(horizontal = 4.dp, vertical = 1.dp)
-                        )
-                    }
-
-@Composable
-fun CpaAdVideoPlayer(videoPath: String, modifier: Modifier = Modifier) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-
-    val videoUri = remember(videoPath) {
-        if (videoPath.startsWith("/")) {
-            android.net.Uri.fromFile(java.io.File(videoPath))
-        } else {
-            android.net.Uri.parse(videoPath)
+            ServiceIconLink(
+                title = if (language == AppLanguage.BAN) "ডোনার চেক" else "Donor Check",
+                icon = Icons.Filled.PersonSearch,
+                tag = "home_donor_check_service",
+                onClick = {
+                    showDonorCheckDialog = true
+                },
+                color = Color(0xFFE65100),
+                modifier = Modifier.weight(1f)
+            )
         }
-    }
 
-    var videoViewRef by remember { mutableStateOf<android.widget.VideoView?>(null) }
+        Spacer(modifier = Modifier.height(8.dp))
 
-    androidx.compose.runtime.DisposableEffect(lifecycleOwner, videoUri) {
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                videoViewRef?.let { vv ->
-                    try {
-                        if (!vv.isPlaying) {
-                            vv.setVideoURI(videoUri)
-                            vv.start()
-                        }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-                }
-            } else if (event == androidx.lifecycle.Lifecycle.Event.ON_PAUSE) {
-                videoViewRef?.let { vv ->
-                    try {
-                        if (vv.isPlaying) {
-                            vv.pause()
-                        }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-                }
-            }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            ServiceIconLink(
+                title = if (language == AppLanguage.BAN) "হাসপাতাল" else "Hospitals",
+                icon = Icons.Filled.Apartment,
+                tag = "home_hospital_service",
+                onClick = {
+                    showHospitalNetworksDialog = true
+                },
+                color = Color(0xFF0288D1),
+                modifier = Modifier.weight(1f)
+            )
+
+            ServiceIconLink(
+                title = if (language == AppLanguage.BAN) "ডাক্তার" else "Doctors",
+                icon = Icons.Filled.Healing,
+                tag = "home_doctor_service",
+                onClick = {
+                    showDoctorDirectoryDialog = true
+                },
+                color = Color(0xFF8E24AA),
+                modifier = Modifier.weight(1f)
+            )
+
+            ServiceIconLink(
+                title = if (language == AppLanguage.BAN) "অভিযোগ / রিপোর্ট" else "Report Scam",
+                icon = Icons.Filled.Report,
+                tag = "home_report_scam_service",
+                onClick = {
+                    showHomeScamReportDialog = true
+                },
+                color = BloodRed,
+                modifier = Modifier.weight(1f)
+            )
         }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
 
-    androidx.compose.ui.viewinterop.AndroidView(
-        factory = { ctx ->
-            android.widget.VideoView(ctx).apply {
-                videoViewRef = this
-                setOnPreparedListener { mp ->
-                    mp.isLooping = true
-                    mp.setVolume(0f, 0f) // Mute by default for banner ads
-                    mp.start()
-                }
-                setOnErrorListener { _, _, _ ->
-                    true // Prevent crash error dialogs
-                }
-                try {
-                    setVideoURI(videoUri)
-                    start()
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-        },
-        update = { vv ->
-            videoViewRef = vv
-            try {
-                if (!vv.isPlaying) {
-                    vv.setVideoURI(videoUri)
-                    vv.start()
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        },
-        modifier = modifier
-    )
-}
-
-                    // Image or Video Banner
-                    if (selectedAd.isVideo && (selectedAd.videoUrl.isNotEmpty() || selectedAd.bannerUrl.isNotEmpty())) {
-                        val videoPath = if (selectedAd.videoUrl.isNotEmpty()) selectedAd.videoUrl else selectedAd.bannerUrl
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(160.dp)
-                                .background(Color.Black),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CpaAdVideoPlayer(
-                                videoPath = videoPath,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
-                    } else {
-                        // Banner Image
-                        val imageModel = remember(selectedAd.bannerUrl) {
-                            if (selectedAd.bannerUrl.startsWith("/")) {
-                                java.io.File(selectedAd.bannerUrl)
-                            } else {
-                                selectedAd.bannerUrl
-                            }
-                        }
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(130.dp)
-                                .background(Color.LightGray)
-                        ) {
-                            coil.compose.AsyncImage(
-                                model = imageModel,
-                                contentDescription = "CPA Ad Offer",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                            )
-                        }
-                    }
-
-                    // Title and Description / Call-To-Action
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                            Text(
-                                text = selectedAd.title,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = DarkText,
-                                maxLines = 1,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                            )
-                            Text(
-                                text = if (language == AppLanguage.BAN) "অফিসিয়াল স্পন্সরড অফার • " + selectedAd.networkName else "Official Partner Offer • " + selectedAd.networkName,
-                                fontSize = 10.sp,
-                                color = SecondaryText,
-                                maxLines = 1,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                            )
-                        }
-
-                        Button(
-                            onClick = { openCpaLink() },
-                            colors = ButtonDefaults.buttonColors(containerColor = BloodRed),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.height(30.dp)
-                        ) {
-                            Text(
-                                text = if (language == AppLanguage.BAN) "ভিজিট করুন" else "Visit Now",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
-                    }
-                }
-            }
-        }
+        Spacer(modifier = Modifier.height(16.dp))
 
         Row(modifier = Modifier.fillMaxWidth()) {
             StatCard(
                 title = strings["stat_total_donors"] ?: "Total Donors",
                 value = (statistics["total_donors"] ?: 8).toString(),
                 icon = Icons.Filled.People,
+                accentColor = Color(0xFFE53935),
                 modifier = Modifier.weight(1f),
                 onClick = { showDonorsListDialog = true }
             )
@@ -4771,6 +5590,7 @@ fun CpaAdVideoPlayer(videoPath: String, modifier: Modifier = Modifier) {
                 title = strings["stat_active_requests"] ?: "Urgent Needs",
                 value = (statistics["active_requests"] ?: 4).toString(),
                 icon = Icons.Filled.LocalHospital,
+                accentColor = Color(0xFFFF6D00),
                 modifier = Modifier.weight(1f),
                 onClick = { viewModel.navigateTo(AppScreen.EMERGENCY_REQUESTS) }
             )
@@ -4783,6 +5603,7 @@ fun CpaAdVideoPlayer(videoPath: String, modifier: Modifier = Modifier) {
                 title = strings["stat_lives_saved"] ?: "Lives Saved",
                 value = (statistics["lives_saved"] ?: 23).toString(),
                 icon = Icons.Filled.Favorite,
+                accentColor = Color(0xFFE91E63),
                 modifier = Modifier.weight(1f),
                 onClick = { showDonorsListDialog = true }
             )
@@ -4791,6 +5612,7 @@ fun CpaAdVideoPlayer(videoPath: String, modifier: Modifier = Modifier) {
                 title = strings["stat_blood_banks"] ?: "Network Hubs",
                 value = (statistics["hospitals"] ?: 14).toString(),
                 icon = Icons.Filled.CorporateFare,
+                accentColor = Color(0xFF7C4DFF),
                 modifier = Modifier.weight(1f),
                 onClick = { showHospitalNetworksDialog = true }
             )
@@ -4907,728 +5729,6 @@ fun CpaAdVideoPlayer(videoPath: String, modifier: Modifier = Modifier) {
         }
 
         Spacer(modifier = Modifier.height(20.dp))
-
-        // --- DONOR CHECK BOX (ডোনার চেক) ---
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .shadow(2.dp, RoundedCornerShape(16.dp))
-                .testTag("donor_check_card"),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-            )
-        ) {
-            var searchPhone by remember { mutableStateOf("") }
-            var searchedDonor by remember { mutableStateOf<BloodDonor?>(null) }
-            var searchedScammerReport by remember { mutableStateOf<ScamReport?>(null) }
-            var searchedPendingReport by remember { mutableStateOf<ScamReport?>(null) }
-            var searchPressed by remember { mutableStateOf(false) }
-            val donorsList by viewModel.donors.collectAsState()
-            val scamReportsList by viewModel.scamReports.collectAsState()
-            val context = LocalContext.current
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.PersonSearch,
-                        contentDescription = "Donor Check",
-                        tint = BloodRed,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = strings["donor_check_title"] ?: "Donor Check",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = DarkText
-                    )
-                }
-
-                Text(
-                    text = strings["donor_check_desc"] ?: "Verify donation counts, eligibility, history, and active status by donor phone number.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = SecondaryText,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = searchPhone,
-                        onValueChange = { searchPhone = it },
-                        placeholder = {
-                            Text(
-                                text = strings["donor_check_placeholder"] ?: "e.g., 01711223344",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        },
-                        singleLine = true,
-                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone
-                        ),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = BloodRed,
-                            unfocusedBorderColor = Color.LightGray,
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier
-                            .weight(1.3f)
-                            .testTag("donor_check_input")
-                    )
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    Button(
-                        onClick = {
-                            searchPressed = true
-                            val cleanQuery = searchPhone.trim().replace("+88", "").replace(" ", "")
-                            searchedDonor = if (cleanQuery.isNotEmpty()) {
-                                donorsList.find { donor ->
-                                    val cleanPhone = donor.phone.replace("+88", "").replace(" ", "").trim()
-                                    cleanPhone == cleanQuery || cleanPhone.endsWith(cleanQuery) || cleanQuery.endsWith(cleanPhone)
-                                }
-                            } else {
-                                null
-                            }
-                            searchedScammerReport = if (cleanQuery.isNotEmpty()) {
-                                scamReportsList.find { report ->
-                                    val cleanPhone = report.scammerDonorPhone.replace("+88", "").replace(" ", "").trim()
-                                    (cleanPhone == cleanQuery || cleanPhone.endsWith(cleanQuery) || cleanQuery.endsWith(cleanPhone)) && report.status == "Banned"
-                                }
-                            } else {
-                                null
-                            }
-                            searchedPendingReport = if (cleanQuery.isNotEmpty()) {
-                                scamReportsList.find { report ->
-                                    val cleanPhone = report.scammerDonorPhone.replace("+88", "").replace(" ", "").trim()
-                                    (cleanPhone == cleanQuery || cleanPhone.endsWith(cleanQuery) || cleanQuery.endsWith(cleanPhone)) && report.status == "Pending"
-                                }
-                            } else {
-                                null
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = BloodRed),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier
-                            .weight(0.9f)
-                            .height(54.dp)
-                            .testTag("donor_check_btn")
-                    ) {
-                        Text(
-                            text = strings["donor_check_btn"] ?: "Check Now",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-
-                // Results view
-                if (searchPressed) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    
-                    if (searchedScammerReport != null) {
-                        val scammerReport = searchedScammerReport!!
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .animateContentSize()
-                                .border(3.dp, Color(0xFFD32F2F), RoundedCornerShape(16.dp))
-                                .shadow(8.dp, RoundedCornerShape(16.dp))
-                                .testTag("confirmed_scammer_card"),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF2F2)),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                // Beautiful "STAY ALERT! SCAM" custom canvas-drawn header
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(Color(0xFF375D6E), RoundedCornerShape(8.dp))
-                                        .padding(14.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    // "STAY ALERT!" banner
-                                    Box(
-                                        modifier = Modifier
-                                            .border(1.5.dp, Color.White, RoundedCornerShape(4.dp))
-                                            .padding(horizontal = 16.dp, vertical = 6.dp)
-                                    ) {
-                                        Text(
-                                            text = "STAY ALERT!",
-                                            style = MaterialTheme.typography.titleMedium.copy(
-                                                fontWeight = FontWeight.Black,
-                                                letterSpacing = 1.2.sp
-                                            ),
-                                            color = Color.White
-                                        )
-                                    }
-                                    
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    
-                                    // Custom Exclamation warning sign
-                                    Box(
-                                        modifier = Modifier.size(80.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Canvas(modifier = Modifier.fillMaxSize()) {
-                                            val path = androidx.compose.ui.graphics.Path().apply {
-                                                moveTo(size.width / 2, 6f)
-                                                lineTo(6f, size.height - 6f)
-                                                lineTo(size.width - 6f, size.height - 6f)
-                                                close()
-                                            }
-                                            drawPath(
-                                                path = path,
-                                                color = Color(0xFFD32F2F),
-                                                style = androidx.compose.ui.graphics.drawscope.Fill
-                                            )
-                                            drawPath(
-                                                path = path,
-                                                color = Color.White,
-                                                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3f)
-                                            )
-                                        }
-                                        
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            modifier = Modifier.offset(y = 8.dp)
-                                        ) {
-                                            Text(
-                                                text = "!",
-                                                fontSize = 28.sp,
-                                                fontWeight = FontWeight.Black,
-                                                color = Color.White
-                                            )
-                                            Text(
-                                                text = "SCAM",
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.ExtraBold,
-                                                color = Color.White,
-                                                letterSpacing = 0.5.sp
-                                            )
-                                        }
-                                    }
-                                    
-                                    Spacer(modifier = Modifier.height(10.dp))
-                                    
-                                    Text(
-                                        text = "এই নম্বরটি প্রতারক/স্ক্যামার হিসেবে চিহ্নিত!",
-                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                        color = Color(0xFFFFCDD2),
-                                        textAlign = TextAlign.Center
-                                    )
-                                    Text(
-                                        text = "CONFIRMED SCAMMER NOTICE",
-                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.ExtraBold),
-                                        color = Color.White.copy(alpha = 0.9f),
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
-                                
-                                Spacer(modifier = Modifier.height(14.dp))
-                                
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    // Scammer Photo (if uploaded) or Warning Icon
-                                    if (!scammerReport.scammerPhotoUri.isNullOrBlank()) {
-                                        AsyncImage(
-                                            model = scammerReport.scammerPhotoUri,
-                                            contentDescription = "Scammer Photo",
-                                            modifier = Modifier
-                                                .size(80.dp)
-                                                .clip(RoundedCornerShape(12.dp))
-                                                .border(2.dp, Color(0xFFD32F2F), RoundedCornerShape(12.dp)),
-                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                                        )
-                                    } else {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(80.dp)
-                                                .background(Color(0xFFFFCDD2), RoundedCornerShape(12.dp))
-                                                .border(1.dp, Color(0xFFD32F2F), RoundedCornerShape(12.dp)),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Filled.PersonOff,
-                                                contentDescription = "Scammer Silhouette",
-                                                tint = Color(0xFFD32F2F),
-                                                modifier = Modifier.size(44.dp)
-                                            )
-                                        }
-                                    }
-                                    
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                    
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = scammerReport.scammerDonorName,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            fontSize = 18.sp,
-                                            color = Color(0xFFB71C1C)
-                                        )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = "Phone: ${scammerReport.scammerDonorPhone}",
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 14.sp,
-                                            color = Color.Black
-                                        )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = if (language == AppLanguage.BAN) "অবস্থা: নিষিদ্ধ (Banned)" else "Status: Suspended / Banned",
-                                            fontWeight = FontWeight.SemiBold,
-                                            fontSize = 12.sp,
-                                            color = Color(0xFFB71C1C)
-                                        )
-                                    }
-                                }
-                                
-                                Spacer(modifier = Modifier.height(14.dp))
-                                HorizontalDivider(color = Color(0xFFFFCDD2), thickness = 1.dp)
-                                Spacer(modifier = Modifier.height(10.dp))
-                                
-                                // Scammed amount and details
-                                Row(verticalAlignment = Alignment.Top) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Payments,
-                                        contentDescription = "Money Involved",
-                                        tint = Color(0xFFB71C1C),
-                                        modifier = Modifier.size(18.dp).padding(top = 2.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Column {
-                                        Text(
-                                            text = if (language == AppLanguage.BAN) "দাবিকৃত/প্রতারণার টাকা বা বিবরণ:" else "Amount Involved / Details:",
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 12.sp,
-                                            color = Color.DarkGray
-                                        )
-                                        Text(
-                                            text = scammerReport.amountDemanded,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 14.sp,
-                                            color = Color(0xFFB71C1C)
-                                        )
-                                    }
-                                }
-                                
-                                Spacer(modifier = Modifier.height(10.dp))
-                                
-                                Row(verticalAlignment = Alignment.Top) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Description,
-                                        contentDescription = "Scam details",
-                                        tint = Color.DarkGray,
-                                        modifier = Modifier.size(18.dp).padding(top = 2.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Column {
-                                        Text(
-                                            text = if (language == AppLanguage.BAN) "প্রতারণার বিবরণ:" else "Incident Description:",
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 12.sp,
-                                            color = Color.DarkGray
-                                        )
-                                        Text(
-                                            text = scammerReport.reason,
-                                            fontSize = 13.sp,
-                                            color = Color.Black
-                                        )
-                                    }
-                                }
-                                
-                                Spacer(modifier = Modifier.height(12.dp))
-                                HorizontalDivider(color = Color(0xFFFFCDD2), thickness = 1.dp)
-                                Spacer(modifier = Modifier.height(10.dp))
-                                
-                                // Reporter info
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(Color(0xFFFFF9F9), RoundedCornerShape(8.dp))
-                                        .border(0.5.dp, Color(0xFFFFCDD2), RoundedCornerShape(8.dp))
-                                        .padding(10.dp)
-                                ) {
-                                    Text(
-                                        text = if (language == AppLanguage.BAN) "অভিযোগকারী তথ্য:" else "Reporter Information:",
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 11.sp,
-                                        color = Color.Gray
-                                    )
-                                    Text(
-                                        text = "Name: ${scammerReport.reporterName} (${scammerReport.reporterPhone})",
-                                        fontWeight = FontWeight.Medium,
-                                        fontSize = 12.sp,
-                                        color = Color.Black
-                                    )
-                                }
-                                
-                                Spacer(modifier = Modifier.height(12.dp))
-                                
-                                // Warning instructions
-                                Card(
-                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFD32F2F)),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(
-                                        text = if (language == AppLanguage.BAN)
-                                            "সতর্কতা: এই মোবাইল নম্বরের ব্যক্তি রক্তদানের নামে টাকা চেয়ে প্রতারণা করেছে। একে কোনো প্রকার অগ্রিম টাকা পাঠাবেন না!"
-                                        else "WARNING: This person scammed people by demanding money. DO NOT send any money or interact with them!",
-                                        color = Color.White,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 12.sp,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.padding(10.dp)
-                                    )
-                                }
-                            }
-                        }
-                    } else {
-                        val currentDonor = searchedDonor
-                        if (currentDonor != null) {
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .animateContentSize()
-                                    .border(1.dp, LightPinkRed, RoundedCornerShape(12.dp)),
-                                colors = CardDefaults.cardColors(containerColor = Color.White),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Column(modifier = Modifier.padding(14.dp)) {
-                                    if (searchedPendingReport != null) {
-                                        Card(
-                                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3CD)),
-                                            border = BorderStroke(1.dp, Color(0xFFFFEBAA))
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(10.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Filled.Warning,
-                                                    contentDescription = "Allegation",
-                                                    tint = Color(0xFF856404),
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                                Text(
-                                                    text = if (language == AppLanguage.BAN)
-                                                        "⚠️ সতর্কতা: এই রক্তদাতার বিরুদ্ধে একটি তদন্তাধীন প্রতারণার অভিযোগ রয়েছে।"
-                                                    else "⚠️ Warning: A pending scam/fraud report is filed against this donor.",
-                                                    fontSize = 11.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = Color(0xFF856404)
-                                                )
-                                            }
-                                        }
-                                    }
-
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(50.dp)
-                                                .background(LightPinkRed, CircleShape),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = currentDonor.bloodGroup,
-                                                color = BloodRed,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 18.sp
-                                            )
-                                        }
-
-                                        Spacer(modifier = Modifier.width(12.dp))
-
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = currentDonor.name,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 16.sp,
-                                                color = DarkText
-                                            )
-                                            Text(
-                                                text = "${currentDonor.upazila}, ${currentDonor.district}, ${currentDonor.country}",
-                                                fontSize = 12.sp,
-                                                color = SecondaryText
-                                            )
-                                        }
-
-                                        // Availability Badging
-                                        val isAvailable = currentDonor.isAvailable
-                                        val statusText = if (isAvailable) (strings["eligible"] ?: "Eligible & Fit") else (strings["resting"] ?: "Currently Resting/Not Available")
-                                        val statusColor = if (isAvailable) Color(0xFF2E7D32) else Color(0xFFE65100)
-                                        
-                                        Box(
-                                            modifier = Modifier
-                                                .background(
-                                                    statusColor.copy(alpha = 0.12f),
-                                                    RoundedCornerShape(8.dp)
-                                                )
-                                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                                        ) {
-                                            Text(
-                                                text = statusText,
-                                                color = statusColor,
-                                                fontWeight = FontWeight.SemiBold,
-                                                fontSize = 11.sp,
-                                                maxLines = 2,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    HorizontalDivider(color = LightBorder, thickness = 0.5.dp)
-                                    Spacer(modifier = Modifier.height(12.dp))
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column {
-                                            // Total donation stats & fitness review info
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Icon(
-                                                    imageVector = Icons.Filled.Favorite,
-                                                    contentDescription = "Donation Count",
-                                                    tint = BloodRed,
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text(
-                                                    text = (if (language == AppLanguage.ENG) "Total Donations: " else "মোট রক্তদান: ") + "${currentDonor.donationCount}" + (if (language == AppLanguage.ENG) " times" else " বার"),
-                                                    fontSize = 13.sp,
-                                                    fontWeight = FontWeight.SemiBold,
-                                                    color = DarkText
-                                                )
-                                            }
-                                            Spacer(modifier = Modifier.height(4.dp))
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Icon(
-                                                    imageVector = Icons.Filled.Today,
-                                                    contentDescription = "Last Donation",
-                                                    tint = SecondaryText,
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text(
-                                                    text = (strings["profile_last_donation"] ?: "Last Donation") + ": ${currentDonor.lastDonationDate}",
-                                                    fontSize = 12.sp,
-                                                    color = SecondaryText
-                                                )
-                                            }
-                                        }
-
-                                        Row {
-                                            IconButton(
-                                                onClick = {
-                                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${currentDonor.phone}"))
-                                                    context.startActivity(intent)
-                                                },
-                                                modifier = Modifier
-                                                    .background(LightPinkRed.copy(alpha = 0.2f), CircleShape)
-                                                    .size(36.dp)
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Filled.Call,
-                                                    contentDescription = "Call",
-                                                    tint = BloodRed,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    HorizontalDivider(color = LightBorder, thickness = 0.5.dp)
-                                    Spacer(modifier = Modifier.height(12.dp))
-
-                                    Card(
-                                        modifier = Modifier.fillMaxWidth().testTag("home_scam_report_card"),
-                                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF2F2)),
-                                        shape = RoundedCornerShape(12.dp),
-                                        border = BorderStroke(1.dp, Color(0xFFFFCDD2))
-                                    ) {
-                                        Column(
-                                            modifier = Modifier.padding(10.dp),
-                                            horizontalAlignment = Alignment.CenterHorizontally
-                                        ) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.Center,
-                                                modifier = Modifier.fillMaxWidth()
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Filled.Warning,
-                                                    contentDescription = "Warning",
-                                                    tint = BloodRed,
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                Text(
-                                                    text = strings["report_scam_title"] ?: "Report Fraud/Scam",
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = BloodRed,
-                                                    fontSize = 13.sp
-                                                )
-                                            }
-                                            Spacer(modifier = Modifier.height(6.dp))
-                                            Text(
-                                                text = if (language == AppLanguage.BAN)
-                                                    "এই রক্তদাতা যদি রক্তদানের পূর্বে/নামে টাকা দাবি করে বা প্রতারণা করে থাকে, তবে রিপোর্ট করুন।"
-                                                else "If this donor demanded money or scammed you, please report them.",
-                                                color = Color.DarkGray,
-                                                fontSize = 11.sp,
-                                                textAlign = TextAlign.Center
-                                            )
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                            Button(
-                                                onClick = {
-                                                    homeScammerDonorId = currentDonor.id
-                                                    homeScammerDonorName = currentDonor.name
-                                                    homeScammerDonorPhone = currentDonor.phone
-                                                    showHomeScamReportDialog = true
-                                                },
-                                                colors = ButtonDefaults.buttonColors(containerColor = BloodRed),
-                                                shape = RoundedCornerShape(8.dp),
-                                                modifier = Modifier.fillMaxWidth().height(36.dp).testTag("btn_home_show_scam")
-                                            ) {
-                                                Text(
-                                                    text = strings["report_scam_btn"] ?: "Report Scam",
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 12.sp
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        } else {
-                            if (searchedPendingReport != null) {
-                                val scammerReport = searchedPendingReport!!
-                                Card(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .animateContentSize()
-                                        .border(2.dp, Color(0xFFF57C00), RoundedCornerShape(14.dp)),
-                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF9F2)),
-                                    shape = RoundedCornerShape(14.dp)
-                                ) {
-                                    Column(modifier = Modifier.padding(16.dp)) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Filled.Warning,
-                                                contentDescription = "Warning",
-                                                tint = Color(0xFFE65100),
-                                                modifier = Modifier.size(24.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                text = if (language == AppLanguage.BAN) "⚠️ প্রতারণার অভিযোগ (তদন্তাধীন)" else "⚠️ Pending Fraud Allegation",
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 14.sp,
-                                                color = Color(0xFFE65100)
-                                            )
-                                        }
-                                        Spacer(modifier = Modifier.height(10.dp))
-                                        Text(
-                                            text = if (language == AppLanguage.BAN)
-                                                "এই নম্বরের রক্তদাতার বিরুদ্ধে একটি প্রতারণার অভিযোগ জমা পড়েছে। রক্তদানের আগে সতর্কতা অবলম্বন করুন।"
-                                            else "A fraud report has been submitted against this number. Proceed with caution.",
-                                            fontSize = 12.sp,
-                                            color = Color.DarkGray
-                                        )
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Text(
-                                            text = "Accused: ${scammerReport.scammerDonorName}",
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 13.sp,
-                                            color = DarkText
-                                        )
-                                        Text(
-                                            text = "Details: ${scammerReport.reason}",
-                                            fontSize = 12.sp,
-                                            color = Color.Gray
-                                        )
-                                    }
-                                }
-                            } else {
-                                // Not found state
-                                Card(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .border(1.dp, BloodRed.copy(alpha = 0.2f), RoundedCornerShape(12.dp)),
-                                    colors = CardDefaults.cardColors(containerColor = LightPinkRed.copy(alpha = 0.15f)),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(12.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Filled.Info,
-                                            contentDescription = "Not Found",
-                                            tint = BloodRed,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = if (language == AppLanguage.ENG) "No donor registered under this phone number." else "এই মোবাইল নম্বরে কোনো রক্তদাতা নিবন্ধিত পাওয়া যায়নি।",
-                                            fontSize = 13.sp,
-                                            color = BloodRed,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                    }
-                                    Button(
-                                        onClick = {
-                                            viewModel.setShowRegistrationTab(true)
-                                            viewModel.navigateTo(AppScreen.LOGIN_REGISTER)
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = BloodRed),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                                        shape = RoundedCornerShape(8.dp)
-                                    ) {
-                                        Text(
-                                            text = if (language == AppLanguage.BAN) "রক্তদাতা হিসেবে নিবন্ধন করুন" else "Register as Donor",
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 12.sp
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
 
         // --- DYNAMIC TABS: DONORS & URGENT BLOOD GRID (রক্তদাতা ও জরুরী রক্তের আবেদন গ্রিড) ---
         Spacer(modifier = Modifier.height(20.dp))
@@ -5882,7 +5982,13 @@ fun CpaAdVideoPlayer(videoPath: String, modifier: Modifier = Modifier) {
             )
 
             val baseRequestsList = remember(requests, detectedCountry) {
-                requests.filter { it.status == "Active" && it.country.equals(detectedCountry, ignoreCase = true) }
+                requests.filter { req ->
+                    val matchCountry = req.country.equals(detectedCountry, ignoreCase = true) ||
+                        (detectedCountry.equals("Bangladesh", ignoreCase = true) && (req.country.equals("BD", ignoreCase = true) || req.country.isBlank() || req.country.equals("Bangladesh", ignoreCase = true))) ||
+                        (detectedCountry.equals("BD", ignoreCase = true) && (req.country.equals("BD", ignoreCase = true) || req.country.isBlank() || req.country.equals("Bangladesh", ignoreCase = true))) ||
+                        (detectedCountry.equals("USA", ignoreCase = true) && (req.country.contains("United States", ignoreCase = true) || req.country.equals("US", ignoreCase = true) || req.country.equals("USA", ignoreCase = true)))
+                    req.status == "Active" && matchCountry
+                }
             }
             val topRequestsList = remember(baseRequestsList, visibleUrgentRequestsLimit) {
                 baseRequestsList.take(visibleUrgentRequestsLimit)
@@ -6067,11 +6173,21 @@ fun CpaAdVideoPlayer(videoPath: String, modifier: Modifier = Modifier) {
         Spacer(modifier = Modifier.height(12.dp))
 
         val urgentRequests = remember(requests, detectedCountry) {
-            val base = requests.filter { it.status == "Active" && it.country.equals(detectedCountry, ignoreCase = true) }
+            val base = requests.filter { req ->
+                val matchCountry = req.country.equals(detectedCountry, ignoreCase = true) ||
+                    (detectedCountry.equals("Bangladesh", ignoreCase = true) && (req.country.equals("BD", ignoreCase = true) || req.country.isBlank() || req.country.equals("Bangladesh", ignoreCase = true))) ||
+                    (detectedCountry.equals("BD", ignoreCase = true) && (req.country.equals("BD", ignoreCase = true) || req.country.isBlank() || req.country.equals("Bangladesh", ignoreCase = true))) ||
+                    (detectedCountry.equals("USA", ignoreCase = true) && (req.country.contains("United States", ignoreCase = true) || req.country.equals("US", ignoreCase = true) || req.country.equals("USA", ignoreCase = true)))
+                req.status == "Active" && matchCountry
+            }
             val fillers = listOf(
                 BloodRequest("ur_1", "ফাতেমা বেগম", "O+", "1 Bag", "DMCH", "Dhaka", "Tejgaon", "01712345678", "জরুরী O+ রক্ত প্রয়োজন।", true, true, "2026-06-25", "Active", "Bangladesh"),
                 BloodRequest("ur_2", "রহিম উদ্দিন", "A+", "2 Bags", "CGH", "Chattogram", "Double Mooring", "01812345679", "আইসিইউ-তে A+ রক্ত লাগবে।", true, true, "2026-06-25", "Active", "Bangladesh")
-            ).filter { it.country.equals(detectedCountry, ignoreCase = true) }
+            ).filter { req ->
+                req.country.equals(detectedCountry, ignoreCase = true) ||
+                (detectedCountry.equals("Bangladesh", ignoreCase = true) && req.country.equals("Bangladesh", ignoreCase = true)) ||
+                (detectedCountry.equals("BD", ignoreCase = true) && req.country.equals("Bangladesh", ignoreCase = true))
+            }
             (base + fillers).distinctBy { it.contactNumber }.take(5)
         }
 
@@ -6200,74 +6316,6 @@ fun CpaAdVideoPlayer(videoPath: String, modifier: Modifier = Modifier) {
                     )
                 }
             }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // CORE SYSTEM NAVIGATION DIRECT LINKS
-        Text(
-            text = "Donor Services",
-            fontWeight = FontWeight.Bold,
-            fontSize = 16.sp,
-            color = DarkText,
-            modifier = Modifier.padding(bottom = 12.dp)
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            ServiceIconLink(
-                title = strings["card_search_donor"] ?: "Find Donors",
-                icon = Icons.Filled.PersonSearch,
-                tag = "home_search_service",
-                onClick = { viewModel.navigateTo(AppScreen.SEARCH_DONOR) },
-                color = CoralRed,
-                modifier = Modifier.weight(1f)
-            )
-
-            ServiceIconLink(
-                title = strings["card_request_blood"] ?: "Request Blood",
-                icon = Icons.Filled.Queue,
-                tag = "home_request_service",
-                onClick = { viewModel.navigateTo(AppScreen.REQUEST_BLOOD) },
-                color = BloodRed,
-                modifier = Modifier.weight(1f)
-            )
-
-            ServiceIconLink(
-                title = strings["card_emergency_req"] ?: "Urgent Needs",
-                icon = Icons.Filled.CrisisAlert,
-                tag = "home_emergency_service",
-                onClick = { viewModel.navigateTo(AppScreen.EMERGENCY_REQUESTS) },
-                color = DarkBloodRed,
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            ServiceIconLink(
-                title = if (language == AppLanguage.BAN) "রক্তদাতা টিম" else "Donor Teams",
-                icon = Icons.Filled.Groups,
-                tag = "home_teams_service",
-                onClick = { viewModel.navigateTo(AppScreen.DONOR_TEAMS) },
-                color = Color(0xFF3F51B5),
-                modifier = Modifier.weight(1f)
-            )
-
-            ServiceIconLink(
-                title = strings["card_ambulance"] ?: "Ambulance",
-                icon = Icons.Filled.AirportShuttle,
-                tag = "home_ambulance_service",
-                onClick = { viewModel.navigateTo(AppScreen.AMBULANCE_LIST) },
-                color = Color(0xFF00897B),
-                modifier = Modifier.weight(1f)
-            )
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -6442,6 +6490,21 @@ fun CpaAdVideoPlayer(videoPath: String, modifier: Modifier = Modifier) {
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         color = Color(0xFF0284C7)
+                    )
+                }
+
+                Text("|", color = Color.LightGray, fontSize = 12.sp)
+
+                // Donor Policy Link
+                TextButton(
+                    onClick = { viewModel.navigateTo(AppScreen.DONOR_POLICY) },
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = if (language == AppLanguage.ENG) "Donor Policy" else "ডোনার পলিসি",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BloodRed
                     )
                 }
 
@@ -6696,6 +6759,646 @@ fun CpaAdVideoPlayer(videoPath: String, modifier: Modifier = Modifier) {
                 containerColor = Color.White
             )
         }
+
+        if (showDonorCheckDialog) {
+            var searchQuery by remember { mutableStateOf("") }
+            var searchedDonor by remember { mutableStateOf<BloodDonor?>(null) }
+            var searchedScammerReport by remember { mutableStateOf<ScamReport?>(null) }
+            var searchedPendingReport by remember { mutableStateOf<ScamReport?>(null) }
+            var searchPressed by remember { mutableStateOf(false) }
+            val donorsList by viewModel.donors.collectAsState()
+            val scamReportsList by viewModel.scamReports.collectAsState()
+
+            AlertDialog(
+                onDismissRequest = { showDonorCheckDialog = false },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.PersonSearch,
+                            contentDescription = "Donor Check",
+                            tint = BloodRed,
+                            modifier = Modifier.size(26.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (language == AppLanguage.BAN) "ডোনার চেক (Donor Check)" else "Donor Check",
+                            fontWeight = FontWeight.Bold,
+                            color = DarkText,
+                            fontSize = 18.sp
+                        )
+                    }
+                },
+                text = {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = if (language == AppLanguage.BAN)
+                                "মোবাইল নম্বর অথবা ডোনার আইডি (Donor ID) দিয়ে রক্তদাতার রক্তদানের হিসাব, যোগ্যতা ও স্ট্যাটাস যাচাই করুন।"
+                            else "Verify donation counts, eligibility, history, and status by phone number or Donor ID.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SecondaryText
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                placeholder = {
+                                    Text(
+                                        text = if (language == AppLanguage.BAN) "নম্বর বা আইডি (যেমন: 01711...)" else "Phone No or Donor ID",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = BloodRed,
+                                    unfocusedBorderColor = Color.LightGray,
+                                    focusedContainerColor = Color.White,
+                                    unfocusedContainerColor = Color.White
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .weight(1.2f)
+                                    .testTag("donor_check_input_dialog")
+                            )
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            Button(
+                                onClick = {
+                                    searchPressed = true
+                                    val cleanQuery = searchQuery.trim()
+                                    val cleanPhoneQuery = cleanQuery.replace("+88", "").replace(" ", "").replace("-", "")
+
+                                    searchedDonor = if (cleanQuery.isNotEmpty()) {
+                                        donorsList.find { donor ->
+                                            val cleanPhone = donor.phone.replace("+88", "").replace(" ", "").replace("-", "").trim()
+                                            val isPhoneMatch = cleanPhoneQuery.length >= 3 && (cleanPhone == cleanPhoneQuery || cleanPhone.endsWith(cleanPhoneQuery) || cleanPhoneQuery.endsWith(cleanPhone))
+                                            val isIdMatch = donor.id.equals(cleanQuery, ignoreCase = true) || donor.id.endsWith(cleanQuery) || donor.id.contains(cleanQuery, ignoreCase = true)
+                                            isPhoneMatch || isIdMatch
+                                        }
+                                    } else null
+
+                                    searchedScammerReport = if (cleanQuery.isNotEmpty()) {
+                                        scamReportsList.find { report ->
+                                            val cleanPhone = report.scammerDonorPhone.replace("+88", "").replace(" ", "").replace("-", "").trim()
+                                            val isPhoneMatch = cleanPhoneQuery.length >= 3 && (cleanPhone == cleanPhoneQuery || cleanPhone.endsWith(cleanPhoneQuery) || cleanPhoneQuery.endsWith(cleanPhone))
+                                            val isIdMatch = report.id.equals(cleanQuery, ignoreCase = true) || report.scammerDonorId.equals(cleanQuery, ignoreCase = true) || report.scammerDonorId.contains(cleanQuery, ignoreCase = true)
+                                            (isPhoneMatch || isIdMatch) && report.status == "Banned"
+                                        }
+                                    } else null
+
+                                    searchedPendingReport = if (cleanQuery.isNotEmpty()) {
+                                        scamReportsList.find { report ->
+                                            val cleanPhone = report.scammerDonorPhone.replace("+88", "").replace(" ", "").replace("-", "").trim()
+                                            val isPhoneMatch = cleanPhoneQuery.length >= 3 && (cleanPhone == cleanPhoneQuery || cleanPhone.endsWith(cleanPhoneQuery) || cleanPhoneQuery.endsWith(cleanPhone))
+                                            val isIdMatch = report.id.equals(cleanQuery, ignoreCase = true) || report.scammerDonorId.equals(cleanQuery, ignoreCase = true) || report.scammerDonorId.contains(cleanQuery, ignoreCase = true)
+                                            (isPhoneMatch || isIdMatch) && report.status == "Pending"
+                                        }
+                                    } else null
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = BloodRed),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .weight(0.8f)
+                                    .height(54.dp)
+                                    .testTag("donor_check_btn_dialog")
+                            ) {
+                                Text(
+                                    text = if (language == AppLanguage.BAN) "চেক করুন" else "Check Now",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+
+                        // Results view
+                        if (searchPressed) {
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            if (searchedScammerReport != null) {
+                                val scammerReport = searchedScammerReport!!
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .border(2.dp, Color(0xFFD32F2F), RoundedCornerShape(12.dp)),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF2F2)),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Text(
+                                            text = "⚠️ সতর্কতা: এই ব্যক্তি স্ক্যামার হিসেবে চিহ্নিত!",
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                            color = Color(0xFFB71C1C)
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(text = "Name: ${scammerReport.scammerDonorName}", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        Text(text = "Phone: ${scammerReport.scammerDonorPhone}", fontSize = 12.sp)
+                                        Text(text = "Details: ${scammerReport.reason}", fontSize = 12.sp, color = Color.DarkGray)
+                                    }
+                                }
+                            } else if (searchedDonor != null) {
+                                val currentDonor = searchedDonor!!
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .border(1.dp, LightPinkRed, RoundedCornerShape(12.dp)),
+                                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        if (searchedPendingReport != null) {
+                                            Text(
+                                                text = "⚠️ সতর্কতা: এই রক্তদাতার বিরুদ্ধে তদন্তাধীন একটি অভিযোগ রয়েছে।",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF856404),
+                                                modifier = Modifier.padding(bottom = 8.dp)
+                                            )
+                                        }
+
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(44.dp)
+                                                    .background(LightPinkRed, CircleShape),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = currentDonor.bloodGroup,
+                                                    color = BloodRed,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 16.sp
+                                                )
+                                            }
+
+                                            Spacer(modifier = Modifier.width(10.dp))
+
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = currentDonor.name,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 15.sp,
+                                                    color = DarkText
+                                                )
+                                                Text(
+                                                    text = "ID: ${currentDonor.id}",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = BloodRed
+                                                )
+                                                Text(
+                                                    text = "${currentDonor.upazila}, ${currentDonor.district}",
+                                                    fontSize = 11.sp,
+                                                    color = SecondaryText
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(10.dp))
+                                        HorizontalDivider(color = LightBorder, thickness = 0.5.dp)
+                                        Spacer(modifier = Modifier.height(8.dp))
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column {
+                                                Text(
+                                                    text = (if (language == AppLanguage.ENG) "Total Donations: " else "মোট রক্তদান: ") + "${currentDonor.donationCount}" + (if (language == AppLanguage.ENG) " times" else " বার"),
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = DarkText
+                                                )
+                                                Text(
+                                                    text = (strings["profile_last_donation"] ?: "Last Donation") + ": ${currentDonor.lastDonationDate}",
+                                                    fontSize = 11.sp,
+                                                    color = SecondaryText
+                                                )
+                                            }
+
+                                            IconButton(
+                                                onClick = {
+                                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${currentDonor.phone}"))
+                                                    context.startActivity(intent)
+                                                },
+                                                modifier = Modifier
+                                                    .background(LightPinkRed.copy(alpha = 0.3f), CircleShape)
+                                                    .size(36.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Filled.Call,
+                                                    contentDescription = "Call",
+                                                    tint = BloodRed,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(containerColor = LightPinkRed.copy(alpha = 0.2f)),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                            text = if (language == AppLanguage.BAN) "এই মোবাইল নম্বর বা ডোনার আইডিতে কোনো তথ্য পাওয়া যায়নি।" else "No donor found matching this phone number or Donor ID.",
+                                            fontSize = 12.sp,
+                                            color = BloodRed,
+                                            fontWeight = FontWeight.Medium,
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showDonorCheckDialog = false }) {
+                        Text(text = if (language == AppLanguage.BAN) "বন্ধ করুন" else "Close", color = BloodRed, fontWeight = FontWeight.Bold)
+                    }
+                },
+                shape = RoundedCornerShape(16.dp),
+                containerColor = Color.White
+            )
+        }
+
+        if (showDoctorDirectoryDialog) {
+            var doctorSearchQuery by remember { mutableStateOf("") }
+            val context = LocalContext.current
+            val isBn = language == AppLanguage.BAN
+
+            data class DoctorItem(
+                val nameBn: String,
+                val nameEn: String,
+                val degreeBn: String,
+                val degreeEn: String,
+                val specialtyBn: String,
+                val specialtyEn: String,
+                val hospitalBn: String,
+                val hospitalEn: String,
+                val district: String,
+                val phone: String,
+                val timingBn: String,
+                val timingEn: String,
+                val feeBn: String,
+                val feeEn: String
+            )
+
+            val doctorsList = remember {
+                listOf(
+                    DoctorItem(
+                        nameBn = "অধ্যাপক ডা. এম. এ. খান",
+                        nameEn = "Prof. Dr. M. A. Khan",
+                        degreeBn = "এমবিবিএস, এফসিপিএস (হেমাটোলজি)",
+                        degreeEn = "MBBS, FCPS (Hematology)",
+                        specialtyBn = "রক্তরোগ, থ্যালাসেমিয়া ও অস্থিমজ্জা প্রতিস্থাপন বিশেষজ্ঞ",
+                        specialtyEn = "Hematology & Bone Marrow Transplant Specialist",
+                        hospitalBn = "ঢাকা মেডিকেল কলেজ ও হাসপাতাল",
+                        hospitalEn = "Dhaka Medical College & Hospital",
+                        district = "Dhaka",
+                        phone = "01711122334",
+                        timingBn = "শনি - বৃহঃ (বিকাল ৪টা - রাত ৮টা)",
+                        timingEn = "Sat - Thu (4:00 PM - 8:00 PM)",
+                        feeBn = "৳ ১০০০",
+                        feeEn = "৳ 1000"
+                    ),
+                    DoctorItem(
+                        nameBn = "ডা. রাবেয়া সুলতানা",
+                        nameEn = "Dr. Rabeya Sultana",
+                        degreeBn = "এমবিবিএস, এমডি (ট্রান্সফিউশন মেডিসিন)",
+                        degreeEn = "MBBS, MD (Transfusion Medicine)",
+                        specialtyBn = "রক্তদান, ব্লাড ব্যাংক ও ট্রান্সফিউশন মেডিসিন বিশেষজ্ঞ",
+                        specialtyEn = "Transfusion Medicine & Blood Bank Specialist",
+                        hospitalBn = "স্যার সলিমুল্লাহ মেডিকেল কলেজ, ঢাকা",
+                        hospitalEn = "Sir Salimullah Medical College, Dhaka",
+                        district = "Dhaka",
+                        phone = "01812345678",
+                        timingBn = "রবি - বৃহঃ (বিকাল ৫টা - রাত ৮টা)",
+                        timingEn = "Sun - Thu (5:00 PM - 8:00 PM)",
+                        feeBn = "৳ ৮০০",
+                        feeEn = "৳ 800"
+                    ),
+                    DoctorItem(
+                        nameBn = "ডা. তানভীর হোসেন",
+                        nameEn = "Dr. Tanvir Hossain",
+                        degreeBn = "এমবিবিএস, এফসিপিএস (মেডিসিন), এমডি (হেমাটোলজি)",
+                        degreeEn = "MBBS, FCPS (Medicine), MD (Hematology)",
+                        specialtyBn = "রক্তরোগ ও ব্লাড ক্যান্সার বিশেষজ্ঞ",
+                        specialtyEn = "Blood Disease & Hematologic Oncology Specialist",
+                        hospitalBn = "চট্টগ্রাম মেডিকেল কলেজ হাসপাতাল",
+                        hospitalEn = "Chattogram Medical College Hospital",
+                        district = "Chattogram",
+                        phone = "01911223344",
+                        timingBn = "শনি - বুধ (বিকাল ৪টা - রাত ৭টা)",
+                        timingEn = "Sat - Wed (4:00 PM - 7:00 PM)",
+                        feeBn = "৳ ৮০০",
+                        feeEn = "৳ 800"
+                    ),
+                    DoctorItem(
+                        nameBn = "ডা. ফারহানা চৌধুরী",
+                        nameEn = "Dr. Farhana Chowdhury",
+                        degreeBn = "এমবিবিএস, ডিজিঅ' (গাইনি ও প্রসূতি)",
+                        degreeEn = "MBBS, DGO (Gynecology & Obstetrics)",
+                        specialtyBn = "গাইনি, প্রসূতি ও অ্যানিমিয়া বিশেষজ্ঞ",
+                        specialtyEn = "Gynecology & Anemia Care Specialist",
+                        hospitalBn = "রাজশাহী মেডিকেল কলেজ হাসপাতাল",
+                        hospitalEn = "Rajshahi Medical College Hospital",
+                        district = "Rajshahi",
+                        phone = "01722334455",
+                        timingBn = "প্রতিদিন (বিকাল ৩টা - সন্ধ্যা ৬টা)",
+                        timingEn = "Daily (3:00 PM - 6:00 PM)",
+                        feeBn = "৳ ৭০০",
+                        feeEn = "৳ 700"
+                    ),
+                    DoctorItem(
+                        nameBn = "ডা. এস. এম. আনিসুর রহমান",
+                        nameEn = "Dr. S. M. Anisur Rahman",
+                        degreeBn = "এমবিবিএস, সিসিডি (বারডেম), এফসিপিএস (মেডিসিন)",
+                        degreeEn = "MBBS, CCD (BIRDEM), FCPS (Medicine)",
+                        specialtyBn = "মেডিসিন ও জরুরী সেবা বিশেষজ্ঞ",
+                        specialtyEn = "Internal Medicine & Emergency Specialist",
+                        hospitalBn = "সিলেট এম.এ.জি ওসমানী মেডিকেল কলেজ",
+                        hospitalEn = "Sylhet MAG Osmani Medical College",
+                        district = "Sylhet",
+                        phone = "01833445566",
+                        timingBn = "শনি - বৃহঃ (বিকাল ৫টা - রাত ৯টা)",
+                        timingEn = "Sat - Thu (5:00 PM - 9:00 PM)",
+                        feeBn = "৳ ৬০০",
+                        feeEn = "৳ 600"
+                    ),
+                    DoctorItem(
+                        nameBn = "ডা. নাজমুল আহসান",
+                        nameEn = "Dr. Nazmul Ahsan",
+                        degreeBn = "এমবিবিএস, এমডি (হেমাটোলজি)",
+                        degreeEn = "MBBS, MD (Hematology)",
+                        specialtyBn = "রক্তরোগ ও অ্যানেমিয়া বিশেষ পরামর্শক",
+                        specialtyEn = "Hematology & Anemia Consultant",
+                        hospitalBn = "খুলনা মেডিকেল কলেজ হাসপাতাল",
+                        hospitalEn = "Khulna Medical College Hospital",
+                        district = "Khulna",
+                        phone = "01744556677",
+                        timingBn = "রবি - বৃহঃ (বিকাল ৪টা - রাত ৮টা)",
+                        timingEn = "Sun - Thu (4:00 PM - 8:00 PM)",
+                        feeBn = "৳ ৭০০",
+                        feeEn = "৳ 700"
+                    ),
+                    DoctorItem(
+                        nameBn = "ডা. নুসরত জাহান",
+                        nameEn = "Dr. Nusrat Jahan",
+                        degreeBn = "এমবিবিএস, ডিসিএইচ (শিশু স্বাস্থ্য), এফসিপিএস",
+                        degreeEn = "MBBS, DCH (Pediatrics), FCPS",
+                        specialtyBn = "শিশু রক্তরোগ ও শিশু স্বাস্থ্য বিশেষজ্ঞ",
+                        specialtyEn = "Pediatric Hematologist & Child Specialist",
+                        hospitalBn = "শের-ই-বাংলা মেডিকেল কলেজ, বরিশাল",
+                        hospitalEn = "Sher-e-Bangla Medical College, Barishal",
+                        district = "Barishal",
+                        phone = "01955667788",
+                        timingBn = "শনি - বুধ (বিকাল ৩টা - রাত ৭টা)",
+                        timingEn = "Sat - Wed (3:00 PM - 7:00 PM)",
+                        feeBn = "৳ ৬০০",
+                        feeEn = "৳ 600"
+                    ),
+                    DoctorItem(
+                        nameBn = "ডা. মাহমুদুল হাসান",
+                        nameEn = "Dr. Mahmudul Hasan",
+                        degreeBn = "এমবিবিএস, এমডি (ট্রান্সফিউশন মেডিসিন)",
+                        degreeEn = "MBBS, MD (Transfusion Medicine)",
+                        specialtyBn = "ট্রান্সফিউশন মেডিসিন ও মেডিসিন কনসালট্যান্ট",
+                        specialtyEn = "Transfusion Medicine & Internal Consultant",
+                        hospitalBn = "ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল",
+                        hospitalEn = "Mymensingh Medical College Hospital",
+                        district = "Mymensingh",
+                        phone = "01766778899",
+                        timingBn = "প্রতিদিন (বিকাল ৪টা - রাত ৮টা)",
+                        timingEn = "Daily (4:00 PM - 8:00 PM)",
+                        feeBn = "৳ ৬০০",
+                        feeEn = "৳ 600"
+                    )
+                )
+            }
+
+            val filteredDoctors = remember(doctorSearchQuery) {
+                doctorsList.filter { doc ->
+                    doctorSearchQuery.isBlank() ||
+                            doc.nameBn.contains(doctorSearchQuery, ignoreCase = true) ||
+                            doc.nameEn.contains(doctorSearchQuery, ignoreCase = true) ||
+                            doc.specialtyBn.contains(doctorSearchQuery, ignoreCase = true) ||
+                            doc.specialtyEn.contains(doctorSearchQuery, ignoreCase = true) ||
+                            doc.hospitalBn.contains(doctorSearchQuery, ignoreCase = true) ||
+                            doc.hospitalEn.contains(doctorSearchQuery, ignoreCase = true) ||
+                            doc.district.contains(doctorSearchQuery, ignoreCase = true)
+                }
+            }
+
+            AlertDialog(
+                onDismissRequest = { showDoctorDirectoryDialog = false },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.MedicalServices,
+                            contentDescription = "Doctors",
+                            tint = Color(0xFF8E24AA),
+                            modifier = Modifier.size(26.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (isBn) "ডাক্তার ডিরেক্টরি (Doctor Directory)" else "Doctor Directory",
+                            fontWeight = FontWeight.Bold,
+                            color = DarkText,
+                            fontSize = 17.sp
+                        )
+                    }
+                },
+                text = {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            text = if (isBn)
+                                "রক্তদান, হেমাটোলজি, ট্রান্সফিউশন ও জরুরী সেবায় অভিজ্ঞ ডাক্তারদের তালিকা এবং সিরিয়াল তথ্য।"
+                            else "Directory of experienced hematologists, transfusion experts, and doctors.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SecondaryText
+                        )
+
+                        OutlinedTextField(
+                            value = doctorSearchQuery,
+                            onValueChange = { doctorSearchQuery = it },
+                            placeholder = {
+                                Text(
+                                    text = if (isBn) "ডাক্তার, বিশেষজ্ঞ বা হাসপাতালের নাম..." else "Search Doctor, Specialty, Hospital...",
+                                    fontSize = 12.sp
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Filled.Search,
+                                    contentDescription = "Search",
+                                    tint = Color(0xFF8E24AA),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF8E24AA),
+                                unfocusedBorderColor = Color.LightGray,
+                                focusedContainerColor = Color.White,
+                                unfocusedContainerColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("doctor_search_input")
+                        )
+
+                        if (filteredDoctors.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 20.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = if (isBn) "কোনো ডাক্তার তথ্য পাওয়া যায়নি।" else "No doctors found matching query.",
+                                    fontSize = 13.sp,
+                                    color = SecondaryText
+                                )
+                            }
+                        } else {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                filteredDoctors.forEach { doc ->
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .border(1.dp, Color(0xFF8E24AA).copy(alpha = 0.2f), RoundedCornerShape(12.dp)),
+                                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Column(modifier = Modifier.padding(12.dp)) {
+                                            Row(verticalAlignment = Alignment.Top) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(42.dp)
+                                                        .background(Color(0xFF8E24AA).copy(alpha = 0.12f), CircleShape),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.Person,
+                                                        contentDescription = "Doctor",
+                                                        tint = Color(0xFF8E24AA),
+                                                        modifier = Modifier.size(22.dp)
+                                                    )
+                                                }
+
+                                                Spacer(modifier = Modifier.width(10.dp))
+
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = if (isBn) doc.nameBn else doc.nameEn,
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 15.sp,
+                                                        color = DarkText
+                                                    )
+                                                    Text(
+                                                        text = if (isBn) doc.degreeBn else doc.degreeEn,
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Medium,
+                                                        color = Color(0xFF8E24AA)
+                                                    )
+                                                    Text(
+                                                        text = if (isBn) doc.specialtyBn else doc.specialtyEn,
+                                                        fontSize = 11.sp,
+                                                        color = Color.DarkGray,
+                                                        fontWeight = FontWeight.SemiBold
+                                                    )
+                                                    Text(
+                                                        text = "🏥 " + (if (isBn) doc.hospitalBn else doc.hospitalEn),
+                                                        fontSize = 11.sp,
+                                                        color = SecondaryText
+                                                    )
+                                                }
+                                            }
+
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            HorizontalDivider(color = LightBorder, thickness = 0.5.dp)
+                                            Spacer(modifier = Modifier.height(6.dp))
+
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column {
+                                                    Text(
+                                                        text = "⏱ " + (if (isBn) doc.timingBn else doc.timingEn),
+                                                        fontSize = 10.sp,
+                                                        color = SecondaryText
+                                                    )
+                                                    Text(
+                                                        text = (if (isBn) "ফি: " else "Fee: ") + (if (isBn) doc.feeBn else doc.feeEn),
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = Color(0xFF2E7D32)
+                                                    )
+                                                }
+
+                                                Button(
+                                                    onClick = {
+                                                        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${doc.phone}"))
+                                                        context.startActivity(intent)
+                                                    },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8E24AA)),
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                                    modifier = Modifier.height(34.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.Call,
+                                                        contentDescription = "Call",
+                                                        tint = Color.White,
+                                                        modifier = Modifier.size(14.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text(
+                                                        text = if (isBn) "কল করুন" else "Call",
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = Color.White
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showDoctorDirectoryDialog = false }) {
+                        Text(text = if (isBn) "বন্ধ করুন" else "Close", color = Color(0xFF8E24AA), fontWeight = FontWeight.Bold)
+                    }
+                },
+                shape = RoundedCornerShape(16.dp),
+                containerColor = Color.White
+            )
+        }
     }
 }
 
@@ -6705,20 +7408,54 @@ fun StatCard(
     value: String,
     icon: ImageVector,
     modifier: Modifier = Modifier,
+    accentColor: Color = BloodRed,
     onClick: (() -> Unit)? = null
 ) {
     Card(
         modifier = modifier
-            .shadow(1.dp, RoundedCornerShape(12.dp))
+            .shadow(2.dp, RoundedCornerShape(16.dp))
             .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(16.dp)
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Icon(imageVector = icon, contentDescription = title, tint = BloodRed, modifier = Modifier.size(24.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 14.dp, horizontal = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .background(accentColor.copy(alpha = 0.12f), androidx.compose.foundation.shape.CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = title,
+                    tint = accentColor,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
             Spacer(modifier = Modifier.height(8.dp))
-            Text(text = value, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = DarkText)
-            Text(text = title, fontSize = 11.sp, color = SecondaryText, maxLines = 1)
+            Text(
+                text = value,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = DarkText,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = title,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color = SecondaryText,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
         }
     }
 }
@@ -8176,6 +8913,7 @@ fun EmergencyRequestsScreen(viewModel: MainViewModel) {
     val appName by viewModel.appName.collectAsState()
     val requestsList by viewModel.requests.collectAsState()
     val isSyncing by viewModel.isSyncing.collectAsState()
+    val detectedCountry by viewModel.detectedCountry.collectAsState()
     val context = LocalContext.current
 
     // Auto-sync remote data when Emergency Requests screen is opened
@@ -8183,8 +8921,14 @@ fun EmergencyRequestsScreen(viewModel: MainViewModel) {
         viewModel.triggerRemoteSync()
     }
 
-    val activeUrgentRequests = remember(requestsList) {
-        requestsList.filter { it.status == "Active" }
+    val activeUrgentRequests = remember(requestsList, detectedCountry) {
+        requestsList.filter { req ->
+            val matchCountry = req.country.equals(detectedCountry, ignoreCase = true) ||
+                (detectedCountry.equals("Bangladesh", ignoreCase = true) && (req.country.equals("BD", ignoreCase = true) || req.country.isBlank() || req.country.equals("Bangladesh", ignoreCase = true))) ||
+                (detectedCountry.equals("BD", ignoreCase = true) && (req.country.equals("BD", ignoreCase = true) || req.country.isBlank() || req.country.equals("Bangladesh", ignoreCase = true))) ||
+                (detectedCountry.equals("USA", ignoreCase = true) && (req.country.contains("United States", ignoreCase = true) || req.country.equals("US", ignoreCase = true) || req.country.equals("USA", ignoreCase = true)))
+            req.status == "Active" && matchCountry
+        }
     }
 
     var visibleRequestsLimit by remember { mutableStateOf(9) }
@@ -10380,6 +11124,7 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
 
     val adminMenus = listOf(
         Triple("DASHBOARD", if (language == AppLanguage.ENG) "Dashboard" else "ড্যাশবোর্ড", Icons.Default.Dashboard),
+        Triple("HOSPITALS", if (language == AppLanguage.ENG) "Hospitals & Diagnostics" else "হাসপাতাল ও ডায়াগনস্টিক", Icons.Default.Domain),
         Triple("DONORS", if (language == AppLanguage.ENG) "Donors List" else "রক্তদাতা তালিকা", Icons.Default.Person),
         Triple("REQUESTS", if (language == AppLanguage.ENG) "Blood Requests" else "রক্তের অনুরোধসমূহ", Icons.Default.Favorite),
         Triple("AMBULANCES", if (language == AppLanguage.ENG) "Ambulance Service" else "অ্যাম্বুলেন্স সার্ভিস", Icons.Default.LocalHospital),
@@ -11936,6 +12681,9 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                                 "V9_SUBSCRIPTIONS" -> {
                                     AdminSubscriptionsTab(viewModel = viewModel, language = language)
                                 }
+                                "HOSPITALS" -> {
+                                    AdminHospitalsTab(viewModel = viewModel, language = language)
+                                }
                                 "SETTINGS" -> {
                                     val appNameState by viewModel.appName.collectAsState()
                                     val homeNoticeState by viewModel.homeNotice.collectAsState()
@@ -12390,6 +13138,242 @@ fun RefundPolicyScreen(viewModel: MainViewModel) {
                         fontSize = 11.sp,
                         color = BloodRed,
                         fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(40.dp))
+    }
+}
+
+@Composable
+fun DonorRegistrationPolicyDialog(
+    language: AppLanguage,
+    onDismiss: () -> Unit,
+    onAgree: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Filled.VerifiedUser,
+                    contentDescription = null,
+                    tint = BloodRed,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (language == AppLanguage.BAN) "ডোনার রেজিস্ট্রেশন পলিসি" else "Donor Registration Policy",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = DarkText
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    text = if (language == AppLanguage.BAN)
+                        "রক্তদাতা হিসেবে রেজিস্ট্রেশন করার পূর্বে নিম্নে উল্লেখিত নিয়মাবলী ও নির্দেশিকা মনোযোগ সহকারে পড়ুন:"
+                        else "Please read the following guidelines and terms carefully before registering as a blood donor:",
+                    fontSize = 12.sp,
+                    color = SecondaryText,
+                    fontWeight = FontWeight.Medium
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                val policyItems = if (language == AppLanguage.BAN) listOf(
+                    "১. রক্তদান সম্পূর্ণ স্বেচ্ছাসেবী ও মানবিক সেবা। রক্তদানের জন্য কোনো আর্থিক লেনদেন বা সুবিধা গ্রহণ সম্পূর্ণ নিষিদ্ধ।",
+                    "২. আপনার নাম, রক্তের গ্রুপ, মোবাইল নম্বর, অবস্থান ও শেষ রক্তদানের তারিখের তথ্য শতভাগ নির্ভুল প্রদান করা বাধ্যতামূলক।",
+                    "৩. জরুরি প্রয়োজনে রক্তগ্রহীতা বা রোগীর প্রতিনিধি যেন আপনার সাথে যোগাযোগ করতে পারেন, সেজন্য আপনার ফোন নম্বরটি সম্মানিত রক্তগ্রহীতাদের প্রদর্শন করার সম্মতি দিচ্ছেন।",
+                    "৪. প্রতি ৩ থেকে ৪ মাস পর পর একজন সুস্থ মানুষ রক্তদান করতে পারেন। শারীরিক অসুস্থতা বা দীর্ঘমেয়াদি রোগ থাকলে রক্তদান থেকে বিরত থাকুন।",
+                    "৫. রক্তদানের নামে কোনো আর্থিক দাবি বা ভুয়া তথ্য প্রদান করলে অ্যাকাউন্ট স্থায়ীভাবে ব্যান হবে এবং আইনগত ব্যবস্থা নেওয়া হতে পারে।",
+                    "৬. আপনার ব্যক্তিগত তথ্য নিরাপদে সংরক্ষিত থাকে এবং শুধুমাত্র মানবিক রক্তদান সেবায় ব্যবহৃত হয়।"
+                ) else listOf(
+                    "1. Blood donation is entirely voluntary & humanitarian. Requesting or taking monetary compensation is strictly prohibited.",
+                    "2. You must provide 100% accurate information regarding your name, blood group, contact number, location, and last donation date.",
+                    "3. By registering, you agree that your contact phone number can be displayed to verified requesters in emergency medical need.",
+                    "4. Healthy adults can donate every 3-4 months. Refrain from donating if you are unwell, under medication, or medically unfit.",
+                    "5. Falsification of information or financial extortion will lead to permanent account termination and legal action.",
+                    "6. Your data is stored securely and used solely for facilitating emergency blood donation connections."
+                )
+
+                policyItems.forEach { item ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        colors = CardDefaults.cardColors(containerColor = LightPinkRed.copy(alpha = 0.4f)),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = item,
+                            fontSize = 12.sp,
+                            color = DarkText,
+                            lineHeight = 18.sp,
+                            modifier = Modifier.padding(10.dp)
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onAgree,
+                colors = ButtonDefaults.buttonColors(containerColor = BloodRed),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text(
+                    text = if (language == AppLanguage.BAN) "আমি সম্মত (I Agree)" else "I Agree & Accept",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onDismiss,
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text(
+                    text = if (language == AppLanguage.BAN) "বন্ধ করুন" else "Close",
+                    fontSize = 13.sp,
+                    color = SecondaryText
+                )
+            }
+        },
+        shape = RoundedCornerShape(16.dp),
+        containerColor = Color.White
+    )
+}
+
+@Composable
+fun DonorPolicyScreen(viewModel: MainViewModel) {
+    val language by viewModel.language.collectAsState()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MedicalBackground)
+            .verticalScroll(rememberScrollState())
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(2.dp, RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)),
+            shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp),
+            colors = CardDefaults.cardColors(containerColor = BloodRed)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    IconButton(onClick = { viewModel.navigateBack() }) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.White
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (language == AppLanguage.BAN) "ডোনার রেজিস্ট্রেশন পলিসি" else "Donor Registration Policy",
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .shadow(1.dp, RoundedCornerShape(16.dp)),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.VerifiedUser,
+                        contentDescription = "Donor Policy",
+                        tint = BloodRed,
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = if (language == AppLanguage.BAN) "রক্তদাতা নীতিমালা ও দিকনির্দেশনা" else "Blood Donor Rules & Guidelines",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = DarkText
+                    )
+                }
+
+                HorizontalDivider(color = LightBorder, thickness = 1.dp)
+                Spacer(modifier = Modifier.height(16.dp))
+
+                val policySections = if (language == AppLanguage.BAN) listOf(
+                    "১. রক্তদান সম্পূর্ণ স্বেচ্ছাসেবী ও মানবিক সেবা। রক্তদানের জন্য কোনো আর্থিক লেনদেন বা সুবিধা গ্রহণ সম্পূর্ণ নিষিদ্ধ।",
+                    "২. আপনার নাম, রক্তের গ্রুপ, মোবাইল নম্বর, অবস্থান ও শেষ রক্তদানের তারিখের তথ্য শতভাগ নির্ভুল প্রদান করা বাধ্যতামূলক।",
+                    "৩. জরুরি প্রয়োজনে রক্তগ্রহীতা বা রোগীর প্রতিনিধি যেন আপনার সাথে যোগাযোগ করতে পারেন, সেজন্য আপনার ফোন নম্বরটি সম্মানিত রক্তগ্রহীতাদের প্রদর্শন করার সম্মতি দিচ্ছেন।",
+                    "৪. প্রতি ৩ থেকে ৪ মাস পর পর একজন সুস্থ মানুষ রক্তদান করতে পারেন। শারীরিক অসুস্থতা বা দীর্ঘমেয়াদি রোগ থাকলে রক্তদান থেকে বিরত থাকুন।",
+                    "৫. রক্তদানের নামে কোনো আর্থিক দাবি বা ভুয়া তথ্য প্রদান করলে অ্যাকাউন্ট স্থায়ীভাবে ব্যান হবে এবং আইনগত ব্যবস্থা নেওয়া হতে পারে।",
+                    "৬. আপনার ব্যক্তিগত তথ্য নিরাপদে সংরক্ষিত থাকে এবং শুধুমাত্র মানবিক রক্তদান সেবায় ব্যবহৃত হয়।"
+                ) else listOf(
+                    "1. Blood donation is entirely voluntary & humanitarian. Requesting or taking monetary compensation is strictly prohibited.",
+                    "2. You must provide 100% accurate information regarding your name, blood group, contact number, location, and last donation date.",
+                    "3. By registering, you agree that your contact phone number can be displayed to verified requesters in emergency medical need.",
+                    "4. Healthy adults can donate every 3-4 months. Refrain from donating if you are unwell, under medication, or medically unfit.",
+                    "5. Falsification of information or financial extortion will lead to permanent account termination and legal action.",
+                    "6. Your data is stored securely and used solely for facilitating emergency blood donation connections."
+                )
+
+                policySections.forEach { section ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Text(
+                            text = section,
+                            fontSize = 14.sp,
+                            lineHeight = 22.sp,
+                            color = DarkText
+                        )
+                    }
+                    HorizontalDivider(color = LightBorder.copy(alpha = 0.5f), thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp))
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(LightPinkRed, RoundedCornerShape(10.dp))
+                        .padding(14.dp)
+                ) {
+                    Text(
+                        text = if (language == AppLanguage.BAN)
+                            "বি:দ্র: মানবসেবায় আপনার এই অবদান অসাধারণ। রক্তদানের পূর্বে নিশ্চিত হন আপনি শারীরিকভাবে সম্পূর্ণ সুস্থ বোধ করছেন।"
+                            else "Note: Your donation saves lives. Please ensure you are feeling completely healthy prior to donating.",
+                        fontSize = 12.sp,
+                        color = BloodRed,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
