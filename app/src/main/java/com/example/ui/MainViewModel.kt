@@ -98,13 +98,59 @@ class MainViewModel(
     private val _detectedCountryCode = MutableStateFlow("BD")
     val detectedCountryCode: StateFlow<String> = _detectedCountryCode.asStateFlow()
 
-    // Hospital State Flows
-    val registeredHospitals: StateFlow<List<RegisteredHospital>> = repository.registeredHospitals
+    // Hospital & Doctor State Flows filtered by server country
+    val allRegisteredHospitals: StateFlow<List<RegisteredHospital>> = repository.registeredHospitals
+    val allRegisteredDoctors: StateFlow<List<RegisteredDoctor>> = repository.registeredDoctors
+
+    val registeredHospitals: StateFlow<List<RegisteredHospital>> = combine(repository.registeredHospitals, detectedCountry) { list, countryName ->
+        list.filter { hosp ->
+            hosp.country.isBlank() ||
+            hosp.country.equals(countryName, ignoreCase = true) ||
+            (countryName.equals("Bangladesh", ignoreCase = true) && (hosp.country.equals("BD", ignoreCase = true) || hosp.country.equals("Bangladesh", ignoreCase = true))) ||
+            (countryName.equals("BD", ignoreCase = true) && (hosp.country.equals("BD", ignoreCase = true) || hosp.country.equals("Bangladesh", ignoreCase = true))) ||
+            (countryName.equals("USA", ignoreCase = true) && (hosp.country.contains("United States", ignoreCase = true) || hosp.country.equals("US", ignoreCase = true) || hosp.country.equals("USA", ignoreCase = true))) ||
+            (countryName.contains("United States", ignoreCase = true) && (hosp.country.contains("United States", ignoreCase = true) || hosp.country.equals("US", ignoreCase = true) || hosp.country.equals("USA", ignoreCase = true))) ||
+            countryName.equals("Global", ignoreCase = true) ||
+            countryName.equals("International", ignoreCase = true)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val registeredDoctors: StateFlow<List<RegisteredDoctor>> = combine(repository.registeredDoctors, detectedCountry) { list, countryName ->
+        list.filter { doc ->
+            doc.country.isBlank() ||
+            doc.country.equals(countryName, ignoreCase = true) ||
+            (countryName.equals("Bangladesh", ignoreCase = true) && (doc.country.equals("BD", ignoreCase = true) || doc.country.equals("Bangladesh", ignoreCase = true))) ||
+            (countryName.equals("BD", ignoreCase = true) && (doc.country.equals("BD", ignoreCase = true) || doc.country.equals("Bangladesh", ignoreCase = true))) ||
+            (countryName.equals("USA", ignoreCase = true) && (doc.country.contains("United States", ignoreCase = true) || doc.country.equals("US", ignoreCase = true) || doc.country.equals("USA", ignoreCase = true))) ||
+            (countryName.contains("United States", ignoreCase = true) && (doc.country.contains("United States", ignoreCase = true) || doc.country.equals("US", ignoreCase = true) || doc.country.equals("USA", ignoreCase = true))) ||
+            countryName.equals("Global", ignoreCase = true) ||
+            countryName.equals("International", ignoreCase = true)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val hospitalOffers: StateFlow<List<HospitalOffer>> = repository.hospitalOffers
     val hospitalPayments: StateFlow<List<HospitalSubscriptionPayment>> = repository.hospitalPayments
 
+    fun registerDoctor(doctor: RegisteredDoctor) {
+        val docWithCountry = if (doctor.country.isBlank() || doctor.country == "Bangladesh") {
+            doctor.copy(country = _detectedCountry.value)
+        } else doctor
+        repository.registerDoctor(docWithCountry)
+    }
+
+    fun updateDoctorApproval(doctorId: String, isApproved: Boolean) {
+        repository.updateDoctorApproval(doctorId, isApproved)
+    }
+
+    fun deleteDoctor(doctorId: String) {
+        repository.deleteDoctor(doctorId)
+    }
+
     fun registerHospital(hospital: RegisteredHospital) {
-        repository.registerHospital(hospital)
+        val hospWithCountry = if (hospital.country.isBlank() || hospital.country == "Bangladesh") {
+            hospital.copy(country = _detectedCountry.value)
+        } else hospital
+        repository.registerHospital(hospWithCountry)
     }
 
     fun updateHospitalApproval(hospitalId: String, isApproved: Boolean) {
@@ -165,6 +211,26 @@ class MainViewModel(
     // --- REPOSITORY BINDINGS (FILTERED SPECIFICALLY BY ACTIVE COUNTRY SERVER/SANDBOX) ---
     val currentUser: StateFlow<BloodDonor?> = repository.currentUser
     val isFirebaseConnected: StateFlow<Boolean> = repository.isFirebaseConnected
+
+    val isAdvancePlanUser: StateFlow<Boolean> = combine(
+        repository.currentUser,
+        repository.userSubscriptions,
+        repository.registeredHospitals
+    ) { user, subs, hospitals ->
+        if (user == null) {
+            false
+        } else {
+            val phone = user.phone
+            val email = user.email
+            val hasActiveSub = subs.any { it.userPhone == phone && !it.isExpired }
+            val userHosp = hospitals.find {
+                (it.phone.isNotBlank() && it.phone == phone) ||
+                (it.email.isNotBlank() && it.email.equals(email, ignoreCase = true))
+            }
+            val isHospAdvance = userHosp != null && (userHosp.isFeatured || !userHosp.planType.equals("Free", ignoreCase = true))
+            hasActiveSub || isHospAdvance
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     
     // Unfiltered bindings for Admin and Global oversight
     val allDonors: StateFlow<List<BloodDonor>> = repository.donors
@@ -207,6 +273,7 @@ class MainViewModel(
     val nagadNumber: StateFlow<String> = repository.nagadNumber
     val rocketNumber: StateFlow<String> = repository.rocketNumber
     val googlePlayMerchant: StateFlow<String> = repository.googlePlayMerchant
+    val wiseAccount: StateFlow<String> = repository.wiseAccount
 
     val donationClaims: StateFlow<List<com.example.data.DonationClaim>> = repository.donationClaims
     val homeNotice: StateFlow<String> = repository.homeNotice
@@ -215,9 +282,22 @@ class MainViewModel(
     val standardCommissionRate: StateFlow<Double> = repository.standardCommissionRate
     val mPlusCommissionRate: StateFlow<Double> = repository.mPlusCommissionRate
     val bookingAcceptanceFee: StateFlow<Double> = repository.bookingAcceptanceFee
+    val countryBookingFees: StateFlow<List<com.example.data.CountryBookingFee>> = repository.countryBookingFees
 
     fun updateBookingAcceptanceFee(fee: Double) {
         repository.updateBookingAcceptanceFee(fee)
+    }
+
+    fun updateCountryBookingFees(list: List<com.example.data.CountryBookingFee>) {
+        repository.updateCountryBookingFees(list)
+    }
+
+    fun updateSingleCountryBookingFee(updatedFee: com.example.data.CountryBookingFee) {
+        repository.updateSingleCountryBookingFee(updatedFee)
+    }
+
+    fun getBookingFeeForCountry(countryCode: String?): com.example.data.CountryBookingFee {
+        return repository.getBookingFeeForCountry(countryCode)
     }
 
     val emailNotifyEnabled: StateFlow<Boolean> = repository.emailNotifyEnabled
@@ -243,6 +323,13 @@ class MainViewModel(
     val customAdTargetUrl: StateFlow<String> = repository.customAdTargetUrl
     val customAdTargetCountries: StateFlow<String> = repository.customAdTargetCountries
     val customAdConfigs: StateFlow<List<CustomAdConfig>> = repository.customAdConfigs
+
+    val supportHelplineNumber: StateFlow<String> = repository.supportHelplineNumber
+    val supportEmailAddress: StateFlow<String> = repository.supportEmailAddress
+
+    fun updateSupportContacts(phone: String, email: String) {
+        repository.updateSupportContacts(phone, email)
+    }
 
     fun updateCustomAdConfigsList(context: android.content.Context, list: List<CustomAdConfig>) {
         repository.updateCustomAdConfigsList(context, list)
@@ -295,8 +382,8 @@ class MainViewModel(
         return repository.deductWalletBalance(amount)
     }
 
-    fun updatePaymentConfig(bkash: String, nagad: String, rocket: String, googlePlay: String) {
-        repository.updatePaymentConfig(bkash, nagad, rocket, googlePlay)
+    fun updatePaymentConfig(bkash: String, nagad: String, rocket: String, googlePlay: String, wise: String = "daimondtopup32@gmail.com") {
+        repository.updatePaymentConfig(bkash, nagad, rocket, googlePlay, wise)
     }
 
     val customCountries: StateFlow<List<Pair<String, String>>> = repository.customCountries
@@ -1256,9 +1343,47 @@ class MainViewModel(
         privacyEn: String, privacyBn: String,
         termsEn: String, termsBn: String,
         refundEn: String, refundBn: String,
-        privacyUrl: String = repository.privacyPolicyUrl.value
+        privacyUrl: String = repository.privacyPolicyUrl.value,
+        donorEn: String = repository.donorRegPolicyEn.value,
+        donorBn: String = repository.donorRegPolicyBn.value,
+        regEn: String = repository.hospitalRegPolicyEn.value,
+        regBn: String = repository.hospitalRegPolicyBn.value,
+        docEn: String = repository.doctorRegPolicyEn.value,
+        docBn: String = repository.doctorRegPolicyBn.value,
+        bloodEn: String = repository.bloodReqPolicyEn.value,
+        bloodBn: String = repository.bloodReqPolicyBn.value,
+        ambEn: String = repository.ambulanceRegPolicyEn.value,
+        ambBn: String = repository.ambulanceRegPolicyBn.value,
+        hospEn: String = regEn,
+        hospBn: String = regBn
     ) {
-        repository.updatePolicies(privacyEn, privacyBn, termsEn, termsBn, refundEn, refundBn, privacyUrl)
+        repository.updatePolicies(
+            privacyEn, privacyBn, termsEn, termsBn, refundEn, refundBn,
+            privacyUrl, donorEn, donorBn, hospEn, hospBn, docEn, docBn,
+            bloodEn, bloodBn, ambEn, ambBn
+        )
+    }
+
+    val donorRegPolicyEn: StateFlow<String> = repository.donorRegPolicyEn
+    val donorRegPolicyBn: StateFlow<String> = repository.donorRegPolicyBn
+    val doctorRegPolicyEn: StateFlow<String> = repository.doctorRegPolicyEn
+    val doctorRegPolicyBn: StateFlow<String> = repository.doctorRegPolicyBn
+    val bloodReqPolicyEn: StateFlow<String> = repository.bloodReqPolicyEn
+    val bloodReqPolicyBn: StateFlow<String> = repository.bloodReqPolicyBn
+    val ambulanceRegPolicyEn: StateFlow<String> = repository.ambulanceRegPolicyEn
+    val ambulanceRegPolicyBn: StateFlow<String> = repository.ambulanceRegPolicyBn
+    val hospitalRegPolicyEn: StateFlow<String> = repository.hospitalRegPolicyEn
+    val hospitalRegPolicyBn: StateFlow<String> = repository.hospitalRegPolicyBn
+
+    fun updateRegistrationPolicies(
+        donorEn: String, donorBn: String,
+        bloodEn: String, bloodBn: String,
+        ambEn: String, ambBn: String,
+        hospEn: String, hospBn: String,
+        docEn: String = repository.doctorRegPolicyEn.value,
+        docBn: String = repository.doctorRegPolicyBn.value
+    ) {
+        repository.updateRegistrationPolicies(donorEn, donorBn, bloodEn, bloodBn, ambEn, ambBn, hospEn, hospBn, docEn, docBn)
     }
 
     // --- V9 SUBSCRIPTION OPERATIONS ---
@@ -1400,5 +1525,8 @@ enum class AppScreen {
     SUPPORT_CHAT,
     DONOR_TEAMS,
     TEAM_DETAIL,
-    DONOR_POLICY
+    DONOR_POLICY,
+    REGISTRATION_POLICY,
+    HOSPITAL_DIRECTORY,
+    DOCTOR_DIRECTORY
 }

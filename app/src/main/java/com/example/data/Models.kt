@@ -552,7 +552,35 @@ data class AppConfig(
     val terms_conditions_bn: String = "",
     val refund_policy_en: String = "",
     val refund_policy_bn: String = "",
+    val donor_policy_en: String = "",
+    val donor_policy_bn: String = "",
+    val registration_policy_en: String = "",
+    val registration_policy_bn: String = "",
     val privacy_policy_url: String = "https://alifshengroup.com/privacy-policy"
+)
+
+@com.squareup.moshi.JsonClass(generateAdapter = true)
+data class RegisteredDoctor(
+    val id: String = "",
+    val name: String = "",
+    val titleDegree: String = "", // e.g. "MBBS, FCPS (Cardiology)"
+    val specialty: String = "", // e.g. "Cardiologist", "Medicine", "Gynecologist"
+    val hospitalName: String = "",
+    val chamberAddress: String = "",
+    val district: String = "",
+    val upazila: String = "",
+    val phone: String = "",
+    val email: String = "",
+    val visitingHours: String = "", // e.g. "5:00 PM - 9:00 PM (Fri Off)"
+    val consultationFee: String = "", // e.g. "500 BDT"
+    val isApproved: Boolean = true,
+    val regType: String = "General", // "General"
+    val country: String = "Bangladesh",
+    val planType: String = "Free", // "Free", "Advance (Monthly)"
+    val isFeatured: Boolean = false,
+    val paymentMethod: String = "",
+    val paymentTxnId: String = "",
+    val registrationDate: String = ""
 )
 
 @com.squareup.moshi.JsonClass(generateAdapter = true)
@@ -632,6 +660,20 @@ data class HospitalSubscriptionPayment(
     val senderPhone: String = "",
     val paymentDate: String = "",
     val status: String = "Completed" // "Pending", "Completed", "Rejected"
+)
+
+@com.squareup.moshi.JsonClass(generateAdapter = true)
+data class CountryBookingFee(
+    val countryCode: String = "BD", // e.g. "BD", "IN", "SA", "AE", "QA", "KW", "MY", "US", "OTHER"
+    val countryNameBn: String = "বাংলাদেশ",
+    val countryNameEn: String = "Bangladesh",
+    val currencySymbol: String = "৳",
+    val ambulanceFee: Double = 50.0,
+    val doctorFee: Double = 30.0,
+    val hospitalFee: Double = 50.0,
+    val hospitalAcceptFeeFree: Double = 50.0,
+    val hospitalAcceptFeeAdvance: Double = 30.0,
+    val bloodRequestFee: Double = 0.0
 )
 
 

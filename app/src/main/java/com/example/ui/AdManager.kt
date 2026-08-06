@@ -95,7 +95,13 @@ object AdManager {
     private var lastInterstitialShowTime = 0L
     private const val INTERSTITIAL_INTERVAL_MS = 5 * 60 * 1000L // 5 minutes
 
-    fun showInterstitial(context: Context, forceShow: Boolean = false, onDismiss: () -> Unit) {
+    fun showInterstitial(context: Context, forceShow: Boolean = false, isAdvanceUser: Boolean = false, onDismiss: () -> Unit) {
+        if (isAdvanceUser) {
+            Log.d(TAG, "Advance user: Skipping interstitial ad.")
+            onDismiss()
+            return
+        }
+
         val activity = context as? Activity
         if (activity == null) {
             Log.d(TAG, "Activity is null, calling onDismiss immediately.")
@@ -135,7 +141,13 @@ object AdManager {
         interstitialAd?.show(activity)
     }
 
-    fun showRewarded(context: Context, onRewardEarned: () -> Unit) {
+    fun showRewarded(context: Context, isAdvanceUser: Boolean = false, onRewardEarned: () -> Unit) {
+        if (isAdvanceUser) {
+            Log.d(TAG, "Advance plan user: Skipping rewarded video ad.")
+            onRewardEarned()
+            return
+        }
+
         val activity = context as? Activity
         if (activity == null || rewardedAd == null) {
             Log.d(TAG, "Rewarded ad not ready, granting reward immediately.")
@@ -177,8 +189,14 @@ object AdManager {
 
 @Composable
 fun AdBanner(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isAdvanceUser: Boolean = false
 ) {
+    if (isAdvanceUser) {
+        // Advance / Premium plan users have Google Banner Ads removed completely
+        return
+    }
+
     // Official test Banner ad unit ID
     val bannerTestId = "ca-app-pub-3940256099942544/6300978111"
     var isAdLoaded by remember { mutableStateOf(false) }

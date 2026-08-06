@@ -76,11 +76,35 @@ class BloodConnectRepository private constructor() {
     private val _registeredHospitals = MutableStateFlow<List<RegisteredHospital>>(MockData.initialRegisteredHospitals)
     val registeredHospitals: StateFlow<List<RegisteredHospital>> = _registeredHospitals.asStateFlow()
 
+    private val _registeredDoctors = MutableStateFlow<List<RegisteredDoctor>>(MockData.initialDoctors)
+    val registeredDoctors: StateFlow<List<RegisteredDoctor>> = _registeredDoctors.asStateFlow()
+
     private val _hospitalOffers = MutableStateFlow<List<HospitalOffer>>(MockData.initialHospitalOffers)
     val hospitalOffers: StateFlow<List<HospitalOffer>> = _hospitalOffers.asStateFlow()
 
     private val _hospitalPayments = MutableStateFlow<List<HospitalSubscriptionPayment>>(MockData.initialHospitalPayments)
     val hospitalPayments: StateFlow<List<HospitalSubscriptionPayment>> = _hospitalPayments.asStateFlow()
+
+    fun registerDoctor(doctor: RegisteredDoctor) {
+        val current = _registeredDoctors.value.toMutableList()
+        val existingIndex = current.indexOfFirst { it.id == doctor.id }
+        if (existingIndex >= 0) {
+            current[existingIndex] = doctor
+        } else {
+            current.add(0, doctor)
+        }
+        _registeredDoctors.value = current
+    }
+
+    fun updateDoctorApproval(doctorId: String, isApproved: Boolean) {
+        _registeredDoctors.value = _registeredDoctors.value.map {
+            if (it.id == doctorId) it.copy(isApproved = isApproved) else it
+        }
+    }
+
+    fun deleteDoctor(doctorId: String) {
+        _registeredDoctors.value = _registeredDoctors.value.filter { it.id != doctorId }
+    }
 
     fun registerHospital(hospital: RegisteredHospital) {
         val current = _registeredHospitals.value.toMutableList()
@@ -167,7 +191,9 @@ class BloodConnectRepository private constructor() {
                 if (_nagadNumber.value.isNotBlank()) putString("payment_nagad", _nagadNumber.value)
                 if (_rocketNumber.value.isNotBlank()) putString("payment_rocket", _rocketNumber.value)
                 if (_googlePlayMerchant.value.isNotBlank()) putString("payment_googleplay", _googlePlayMerchant.value)
+                if (_wiseAccount.value.isNotBlank()) putString("payment_wise", _wiseAccount.value)
                 putFloat("booking_acceptance_fee", _bookingAcceptanceFee.value.toFloat())
+                putString("country_booking_fees_list", serializeCountryBookingFees(_countryBookingFees.value))
                 putFloat("standard_commission_rate", _standardCommissionRate.value.toFloat())
                 putFloat("mplus_commission_rate", _mPlusCommissionRate.value.toFloat())
                 if (_privacyPolicyEn.value.isNotBlank()) putString("policy_privacy_en", _privacyPolicyEn.value)
@@ -177,6 +203,16 @@ class BloodConnectRepository private constructor() {
                 if (_termsConditionsBn.value.isNotBlank()) putString("policy_terms_bn", _termsConditionsBn.value)
                 if (_refundPolicyEn.value.isNotBlank()) putString("policy_refund_en", _refundPolicyEn.value)
                 if (_refundPolicyBn.value.isNotBlank()) putString("policy_refund_bn", _refundPolicyBn.value)
+                if (_donorRegPolicyEn.value.isNotBlank()) putString("policy_donor_reg_en", _donorRegPolicyEn.value)
+                if (_donorRegPolicyBn.value.isNotBlank()) putString("policy_donor_reg_bn", _donorRegPolicyBn.value)
+                if (_bloodReqPolicyEn.value.isNotBlank()) putString("policy_blood_req_en", _bloodReqPolicyEn.value)
+                if (_bloodReqPolicyBn.value.isNotBlank()) putString("policy_blood_req_bn", _bloodReqPolicyBn.value)
+                if (_ambulanceRegPolicyEn.value.isNotBlank()) putString("policy_amb_reg_en", _ambulanceRegPolicyEn.value)
+                if (_ambulanceRegPolicyBn.value.isNotBlank()) putString("policy_amb_reg_bn", _ambulanceRegPolicyBn.value)
+                if (_hospitalRegPolicyEn.value.isNotBlank()) putString("policy_hosp_reg_en", _hospitalRegPolicyEn.value)
+                if (_hospitalRegPolicyBn.value.isNotBlank()) putString("policy_hosp_reg_bn", _hospitalRegPolicyBn.value)
+                if (_doctorRegPolicyEn.value.isNotBlank()) putString("policy_doc_reg_en", _doctorRegPolicyEn.value)
+                if (_doctorRegPolicyBn.value.isNotBlank()) putString("policy_doc_reg_bn", _doctorRegPolicyBn.value)
                 putBoolean("custom_ads_enabled", _customAdsEnabled.value)
                 putString("custom_ad_network_name", _customAdNetworkName.value)
                 putString("custom_ad_title", _customAdTitle.value)
@@ -312,10 +348,95 @@ class BloodConnectRepository private constructor() {
     private val _bookingAcceptanceFee = MutableStateFlow(50.0)
     val bookingAcceptanceFee: StateFlow<Double> = _bookingAcceptanceFee.asStateFlow()
 
+    private val _countryBookingFees = MutableStateFlow<List<CountryBookingFee>>(
+        listOf(
+            CountryBookingFee("BD", "বাংলাদেশ", "Bangladesh", "৳", 50.0, 30.0, 50.0, 50.0, 30.0, 0.0),
+            CountryBookingFee("IN", "ভারত (India)", "India", "₹", 50.0, 30.0, 50.0, 50.0, 30.0, 0.0),
+            CountryBookingFee("SA", "সৌদি আরব (Saudi Arabia)", "Saudi Arabia", "SAR", 5.0, 3.0, 5.0, 5.0, 3.0, 0.0),
+            CountryBookingFee("AE", "ইউএই / দুবাই (UAE/Dubai)", "UAE / Dubai", "AED", 5.0, 3.0, 5.0, 5.0, 3.0, 0.0),
+            CountryBookingFee("QA", "কাতার (Qatar)", "Qatar", "QAR", 5.0, 3.0, 5.0, 5.0, 3.0, 0.0),
+            CountryBookingFee("KW", "কুয়েত (Kuwait)", "Kuwait", "KWD", 1.0, 0.5, 1.0, 1.0, 0.5, 0.0),
+            CountryBookingFee("MY", "মালয়েশিয়া (Malaysia)", "Malaysia", "MYR", 5.0, 3.0, 5.0, 5.0, 3.0, 0.0),
+            CountryBookingFee("US", "যুক্তরাষ্ট্র (USA)", "USA", "$", 1.0, 0.5, 1.0, 1.0, 0.5, 0.0),
+            CountryBookingFee("OTHER", "অন্যান্য সকল বাহিরের দেশ (International / Other)", "Other Countries", "$", 1.0, 0.5, 1.0, 1.0, 0.5, 0.0)
+        )
+    )
+    val countryBookingFees: StateFlow<List<CountryBookingFee>> = _countryBookingFees.asStateFlow()
+
     fun updateBookingAcceptanceFee(fee: Double) {
         _bookingAcceptanceFee.value = fee
         saveAppConfigLocal()
         pushAppConfigToRemote()
+    }
+
+    fun updateCountryBookingFees(list: List<CountryBookingFee>) {
+        _countryBookingFees.value = list
+        list.find { it.countryCode == "BD" }?.let { bdFee ->
+            _bookingAcceptanceFee.value = bdFee.hospitalAcceptFeeFree
+        }
+        saveAppConfigLocal()
+        pushAppConfigToRemote()
+    }
+
+    fun updateSingleCountryBookingFee(updatedFee: CountryBookingFee) {
+        val current = _countryBookingFees.value.toMutableList()
+        val idx = current.indexOfFirst { it.countryCode.equals(updatedFee.countryCode, ignoreCase = true) }
+        if (idx != -1) {
+            current[idx] = updatedFee
+        } else {
+            current.add(updatedFee)
+        }
+        updateCountryBookingFees(current)
+    }
+
+    fun getBookingFeeForCountry(countryCode: String?): CountryBookingFee {
+        val code = countryCode?.uppercase() ?: "BD"
+        return _countryBookingFees.value.find { it.countryCode.equals(code, ignoreCase = true) }
+            ?: _countryBookingFees.value.find { it.countryCode == "OTHER" }
+            ?: _countryBookingFees.value.firstOrNull()
+            ?: CountryBookingFee()
+    }
+
+    fun serializeCountryBookingFees(list: List<CountryBookingFee>): String {
+        return list.joinToString("||FEE_SEP||") { fee ->
+            listOf(
+                fee.countryCode,
+                fee.countryNameBn,
+                fee.countryNameEn,
+                fee.currencySymbol,
+                fee.ambulanceFee.toString(),
+                fee.doctorFee.toString(),
+                fee.hospitalFee.toString(),
+                fee.hospitalAcceptFeeFree.toString(),
+                fee.hospitalAcceptFeeAdvance.toString(),
+                fee.bloodRequestFee.toString()
+            ).joinToString(";;;")
+        }
+    }
+
+    fun deserializeCountryBookingFees(data: String): List<CountryBookingFee> {
+        if (data.isBlank()) return emptyList()
+        return try {
+            data.split("||FEE_SEP||").mapNotNull { entry ->
+                val parts = entry.split(";;;")
+                if (parts.size >= 10) {
+                    CountryBookingFee(
+                        countryCode = parts[0],
+                        countryNameBn = parts[1],
+                        countryNameEn = parts[2],
+                        currencySymbol = parts[3],
+                        ambulanceFee = parts[4].toDoubleOrNull() ?: 50.0,
+                        doctorFee = parts[5].toDoubleOrNull() ?: 30.0,
+                        hospitalFee = parts[6].toDoubleOrNull() ?: 50.0,
+                        hospitalAcceptFeeFree = parts[7].toDoubleOrNull() ?: 50.0,
+                        hospitalAcceptFeeAdvance = parts[8].toDoubleOrNull() ?: 30.0,
+                        bloodRequestFee = parts[9].toDoubleOrNull() ?: 0.0
+                    )
+                } else null
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
 
     fun updateCommissionRates(standardRate: Double, mPlusRate: Double) {
@@ -367,11 +488,15 @@ class BloodConnectRepository private constructor() {
     private val _googlePlayMerchant = MutableStateFlow("play_v9_premium_active")
     val googlePlayMerchant: StateFlow<String> = _googlePlayMerchant.asStateFlow()
 
-    fun updatePaymentConfig(bkash: String, nagad: String, rocket: String, googlePlay: String) {
+    private val _wiseAccount = MutableStateFlow("daimondtopup32@gmail.com")
+    val wiseAccount: StateFlow<String> = _wiseAccount.asStateFlow()
+
+    fun updatePaymentConfig(bkash: String, nagad: String, rocket: String, googlePlay: String, wise: String = "daimondtopup32@gmail.com") {
         _bkashNumber.value = bkash
         _nagadNumber.value = nagad
         _rocketNumber.value = rocket
         _googlePlayMerchant.value = googlePlay
+        _wiseAccount.value = wise
         saveAppConfigLocal()
         pushAppConfigToRemote()
     }
@@ -419,6 +544,18 @@ class BloodConnectRepository private constructor() {
 
     private val _customAdConfigs = MutableStateFlow<List<CustomAdConfig>>(emptyList())
     val customAdConfigs: StateFlow<List<CustomAdConfig>> = _customAdConfigs.asStateFlow()
+
+    // --- SUPPORT & HELPLINE CONTACT CONFIG ---
+    private val _supportHelplineNumber = MutableStateFlow("+8801700000000")
+    val supportHelplineNumber: StateFlow<String> = _supportHelplineNumber.asStateFlow()
+
+    private val _supportEmailAddress = MutableStateFlow("help.alifshen.ltd@gmail.com")
+    val supportEmailAddress: StateFlow<String> = _supportEmailAddress.asStateFlow()
+
+    fun updateSupportContacts(phone: String, email: String) {
+        if (phone.isNotBlank()) _supportHelplineNumber.value = phone
+        if (email.isNotBlank()) _supportEmailAddress.value = email
+    }
 
     private fun serializeAds(ads: List<CustomAdConfig>): String {
         return ads.joinToString("||AD_SEP||") { ad ->
@@ -1520,11 +1657,17 @@ class BloodConnectRepository private constructor() {
         _standardCommissionRate.value = prefs.getFloat("standard_commission_rate", 30.0f).toDouble()
         _mPlusCommissionRate.value = prefs.getFloat("mplus_commission_rate", 50.0f).toDouble()
         _bookingAcceptanceFee.value = prefs.getFloat("booking_acceptance_fee", 50.0f).toDouble()
+        val savedCountryFeesStr = prefs.getString("country_booking_fees_list", "") ?: ""
+        val loadedCountryFees = deserializeCountryBookingFees(savedCountryFeesStr)
+        if (loadedCountryFees.isNotEmpty()) {
+            _countryBookingFees.value = loadedCountryFees
+        }
 
         _bkashNumber.value = prefs.getString("payment_bkash", _bkashNumber.value) ?: _bkashNumber.value
         _nagadNumber.value = prefs.getString("payment_nagad", _nagadNumber.value) ?: _nagadNumber.value
         _rocketNumber.value = prefs.getString("payment_rocket", _rocketNumber.value) ?: _rocketNumber.value
         _googlePlayMerchant.value = prefs.getString("payment_googleplay", _googlePlayMerchant.value) ?: _googlePlayMerchant.value
+        _wiseAccount.value = prefs.getString("payment_wise", _wiseAccount.value) ?: _wiseAccount.value
 
         _privacyPolicyEn.value = prefs.getString("policy_privacy_en", _privacyPolicyEn.value) ?: _privacyPolicyEn.value
         _privacyPolicyBn.value = prefs.getString("policy_privacy_bn", _privacyPolicyBn.value) ?: _privacyPolicyBn.value
@@ -1533,6 +1676,17 @@ class BloodConnectRepository private constructor() {
         _termsConditionsBn.value = prefs.getString("policy_terms_bn", _termsConditionsBn.value) ?: _termsConditionsBn.value
         _refundPolicyEn.value = prefs.getString("policy_refund_en", _refundPolicyEn.value) ?: _refundPolicyEn.value
         _refundPolicyBn.value = prefs.getString("policy_refund_bn", _refundPolicyBn.value) ?: _refundPolicyBn.value
+
+        _donorRegPolicyEn.value = prefs.getString("policy_donor_reg_en", _donorRegPolicyEn.value) ?: _donorRegPolicyEn.value
+        _donorRegPolicyBn.value = prefs.getString("policy_donor_reg_bn", _donorRegPolicyBn.value) ?: _donorRegPolicyBn.value
+        _bloodReqPolicyEn.value = prefs.getString("policy_blood_req_en", _bloodReqPolicyEn.value) ?: _bloodReqPolicyEn.value
+        _bloodReqPolicyBn.value = prefs.getString("policy_blood_req_bn", _bloodReqPolicyBn.value) ?: _bloodReqPolicyBn.value
+        _ambulanceRegPolicyEn.value = prefs.getString("policy_amb_reg_en", _ambulanceRegPolicyEn.value) ?: _ambulanceRegPolicyEn.value
+        _ambulanceRegPolicyBn.value = prefs.getString("policy_amb_reg_bn", _ambulanceRegPolicyBn.value) ?: _ambulanceRegPolicyBn.value
+        _hospitalRegPolicyEn.value = prefs.getString("policy_hosp_reg_en", _hospitalRegPolicyEn.value) ?: _hospitalRegPolicyEn.value
+        _hospitalRegPolicyBn.value = prefs.getString("policy_hosp_reg_bn", _hospitalRegPolicyBn.value) ?: _hospitalRegPolicyBn.value
+        _doctorRegPolicyEn.value = prefs.getString("policy_doc_reg_en", _doctorRegPolicyEn.value) ?: _doctorRegPolicyEn.value
+        _doctorRegPolicyBn.value = prefs.getString("policy_doc_reg_bn", _doctorRegPolicyBn.value) ?: _doctorRegPolicyBn.value
 
         val bookingsStr = prefs.getString("ambulance_bookings_list", "") ?: ""
         _ambulanceBookings.value = deserializeBookings(bookingsStr)
@@ -3440,11 +3594,74 @@ class BloodConnectRepository private constructor() {
     private val _refundPolicyBn = MutableStateFlow("রিফান্ড এবং অন্যান্য শর্ত: এই মোবাইল অ্যাপ্লিকেশনটি সম্পূর্ণ বিনামূল্যে ব্যবহারযোগ্য একটি অলাভজনক সামাজিক ও মানবিক প্ল্যাটফর্ম। রক্তদাতা অনুসন্ধান, রক্তদানের অনুরোধ বা রেজিস্ট্রেশনে কোনো ফি কিংবা চার্জ নেই।")
     val refundPolicyBn: StateFlow<String> = _refundPolicyBn.asStateFlow()
 
+    // REGISTRATION POLICIES (4 Separate Policies for Admin Control)
+    private val _donorRegPolicyEn = MutableStateFlow("1. Agree to donate blood voluntarily and free of cost.\n2. Donate blood only after 3 to 4 months of your last donation.\n3. Do not provide false or misleading health information.")
+    val donorRegPolicyEn: StateFlow<String> = _donorRegPolicyEn.asStateFlow()
+
+    private val _donorRegPolicyBn = MutableStateFlow("১. স্বেচ্ছায় ও বিনামূল্যে রক্তদানে সম্মতি প্রদান করুন।\n২. শেষ রক্তদানের ৩ থেকে ৪ মাস পর পুনরায় রক্তদান করুন।\n৩. কোনো ভুল বা ভুয়া তথ্য প্রদান করা থেকে বিরত থাকুন।")
+    val donorRegPolicyBn: StateFlow<String> = _donorRegPolicyBn.asStateFlow()
+
+    private val _bloodReqPolicyEn = MutableStateFlow("1. Post blood requests only for genuine medical emergencies.\n2. Provide accurate hospital name and contact phone number.\n3. Mark the request as Completed once blood is arranged.")
+    val bloodReqPolicyEn: StateFlow<String> = _bloodReqPolicyEn.asStateFlow()
+
+    private val _bloodReqPolicyBn = MutableStateFlow("১. শুধুমাত্র প্রকৃত জরুরি প্রয়োজনে রক্তের অনুরোধ পোস্ট করুন।\n২. রোগীর সঠিক হাসপাতাল ও যোগাযোগের নম্বর উল্লেখ করুন।\n৩. রক্ত পাওয়ার পর অনুরোধটি 'সম্পন্ন' (Completed) হিসেবে চিহ্নিত করুন।")
+    val bloodReqPolicyBn: StateFlow<String> = _bloodReqPolicyBn.asStateFlow()
+
+    private val _ambulanceRegPolicyEn = MutableStateFlow("1. Ambulance fare and terms are decided mutually between patient and driver.\n2. Respond quickly during emergencies.\n3. Do not demand unreasonable or excessive fares.")
+    val ambulanceRegPolicyEn: StateFlow<String> = _ambulanceRegPolicyEn.asStateFlow()
+
+    private val _ambulanceRegPolicyBn = MutableStateFlow("১. অ্যাম্বুলেন্স সেবার ভাড়া ও শর্ত রোগী ও চালকের পারস্পরিক আলোচনার মাধ্যমে নির্ধারিত হবে।\n২. জরুরি মুহূর্তে দ্রুত সাড়া দেওয়ার চেষ্টা করুন।\n৩. কোনো অতিরিক্ত বা অযৌক্তিক ভাড়া দাবি করবেন না।")
+    val ambulanceRegPolicyBn: StateFlow<String> = _ambulanceRegPolicyBn.asStateFlow()
+
+    private val _hospitalRegPolicyEn = MutableStateFlow("1. Provide valid address and licensed medical service details.\n2. Network benefits apply according to Free Plan or Premium Subscription.\n3. Keep emergency blood availability and service info updated.")
+    val hospitalRegPolicyEn: StateFlow<String> = _hospitalRegPolicyEn.asStateFlow()
+
+    private val _hospitalRegPolicyBn = MutableStateFlow("১. হাসপাতালের সঠিক ঠিকানা ও লাইসেন্সকৃত সেবার বিবরণ উল্লেখ করুন।\n২. ফ্রি প্ল্যান বা প্রিমিয়াম সাবস্ক্রিপশন অনুযায়ী নেটওয়ার্ক সুবিধা প্রদান করা হবে।\n৩. জরুরি রক্তের প্রাপ্যতা ও সেবার তথ্য নিয়মিত আপডেট রাখুন।")
+    val hospitalRegPolicyBn: StateFlow<String> = _hospitalRegPolicyBn.asStateFlow()
+
+    private val _doctorRegPolicyEn = MutableStateFlow("1. Must be a verified medical practitioner with valid registration credentials (BMDC).\n2. Provide genuine consultation and chamber visiting details.\n3. Maintain professional medical ethics and patient confidentiality.")
+    val doctorRegPolicyEn: StateFlow<String> = _doctorRegPolicyEn.asStateFlow()
+
+    private val _doctorRegPolicyBn = MutableStateFlow("১. বিএমডিসি নিবন্ধিত বা যাচাইকৃত পেশাদার চিকিৎসক তথ্য প্রদান করুন।\n২. সঠিক কনসালটেশন ফি ও চেম্বার রোগী দেখার সময়সূচি উল্লেখ করুন।\n৩. চিকিৎসা সেবার পেশাদার নৈতিকতা ও রোগীর গোপনীয়তা বজায় রাখুন।")
+    val doctorRegPolicyBn: StateFlow<String> = _doctorRegPolicyBn.asStateFlow()
+
+    fun updateRegistrationPolicies(
+        donorEn: String, donorBn: String,
+        bloodEn: String, bloodBn: String,
+        ambEn: String, ambBn: String,
+        hospEn: String, hospBn: String,
+        docEn: String = _doctorRegPolicyEn.value,
+        docBn: String = _doctorRegPolicyBn.value
+    ) {
+        _donorRegPolicyEn.value = donorEn
+        _donorRegPolicyBn.value = donorBn
+        _bloodReqPolicyEn.value = bloodEn
+        _bloodReqPolicyBn.value = bloodBn
+        _ambulanceRegPolicyEn.value = ambEn
+        _ambulanceRegPolicyBn.value = ambBn
+        _hospitalRegPolicyEn.value = hospEn
+        _hospitalRegPolicyBn.value = hospBn
+        _doctorRegPolicyEn.value = docEn
+        _doctorRegPolicyBn.value = docBn
+        saveAppConfigLocal()
+        pushAppConfigToRemote()
+    }
+
     fun updatePolicies(
         privacyEn: String, privacyBn: String,
         termsEn: String, termsBn: String,
         refundEn: String, refundBn: String,
-        privacyUrl: String = _privacyPolicyUrl.value
+        privacyUrl: String = _privacyPolicyUrl.value,
+        donorEn: String = _donorRegPolicyEn.value,
+        donorBn: String = _donorRegPolicyBn.value,
+        regEn: String = _hospitalRegPolicyEn.value,
+        regBn: String = _hospitalRegPolicyBn.value,
+        docEn: String = _doctorRegPolicyEn.value,
+        docBn: String = _doctorRegPolicyBn.value,
+        bloodEn: String = _bloodReqPolicyEn.value,
+        bloodBn: String = _bloodReqPolicyBn.value,
+        ambEn: String = _ambulanceRegPolicyEn.value,
+        ambBn: String = _ambulanceRegPolicyBn.value
     ) {
         _privacyPolicyEn.value = privacyEn
         _privacyPolicyBn.value = privacyBn
@@ -3453,6 +3670,16 @@ class BloodConnectRepository private constructor() {
         _termsConditionsBn.value = termsBn
         _refundPolicyEn.value = refundEn
         _refundPolicyBn.value = refundBn
+        _donorRegPolicyEn.value = donorEn
+        _donorRegPolicyBn.value = donorBn
+        _hospitalRegPolicyEn.value = regEn
+        _hospitalRegPolicyBn.value = regBn
+        _doctorRegPolicyEn.value = docEn
+        _doctorRegPolicyBn.value = docBn
+        _bloodReqPolicyEn.value = bloodEn
+        _bloodReqPolicyBn.value = bloodBn
+        _ambulanceRegPolicyEn.value = ambEn
+        _ambulanceRegPolicyBn.value = ambBn
         saveAppConfigLocal()
         pushAppConfigToRemote()
     }
@@ -3472,7 +3699,11 @@ class BloodConnectRepository private constructor() {
                     terms_conditions_en = _termsConditionsEn.value,
                     terms_conditions_bn = _termsConditionsBn.value,
                     refund_policy_en = _refundPolicyEn.value,
-                    refund_policy_bn = _refundPolicyBn.value
+                    refund_policy_bn = _refundPolicyBn.value,
+                    donor_policy_en = _donorRegPolicyEn.value,
+                    donor_policy_bn = _donorRegPolicyBn.value,
+                    registration_policy_en = _hospitalRegPolicyEn.value,
+                    registration_policy_bn = _hospitalRegPolicyBn.value
                 )
                 val result = BloodConnectApiClient.updateAppConfig(config)
                 if (result.isSuccess) {

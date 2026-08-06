@@ -37,6 +37,8 @@ import com.example.data.HospitalSubscriptionPayment
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.net.Uri
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 
 // Design System Colors for Admin Dark Theme
 val AdminDarkBg = Color(0xFF0F121D)
@@ -62,7 +64,21 @@ fun saveMediaUriToInternalStorage(context: Context, uri: Uri, isVideo: Boolean):
                 input.copyTo(output)
             }
         }
-        destFile.absolutePath
+        Uri.fromFile(destFile).toString()
+    } catch (e: Exception) {
+        e.printStackTrace()
+        uri.toString()
+    }
+}
+
+fun convertUriToUniversalLink(context: Context, uri: Uri, isVideo: Boolean): String {
+    return try {
+        context.contentResolver.openInputStream(uri)?.use { inputStream ->
+            val bytes = inputStream.readBytes()
+            val base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+            val mimeType = if (isVideo) "video/mp4" else "image/jpeg"
+            "data:$mimeType;base64,$base64"
+        } ?: uri.toString()
     } catch (e: Exception) {
         e.printStackTrace()
         uri.toString()
@@ -910,7 +926,26 @@ fun AdminPoliciesTab(
     termsBn: String,
     refundEn: String,
     refundBn: String,
-    onSave: (String, String, String, String, String, String, String) -> Unit
+    donorEn: String = "",
+    donorBn: String = "",
+    docEn: String = "",
+    docBn: String = "",
+    bloodEn: String = "",
+    bloodBn: String = "",
+    ambEn: String = "",
+    ambBn: String = "",
+    hospEn: String = "",
+    hospBn: String = "",
+    onSave: (
+        privacyEn: String, privacyBn: String, privacyUrl: String,
+        termsEn: String, termsBn: String,
+        refundEn: String, refundBn: String,
+        donorEn: String, donorBn: String,
+        docEn: String, docBn: String,
+        bloodEn: String, bloodBn: String,
+        ambEn: String, ambBn: String,
+        hospEn: String, hospBn: String
+    ) -> Unit
 ) {
     var draftPrivacyEn by remember { mutableStateOf(privacyEn) }
     var draftPrivacyBn by remember { mutableStateOf(privacyBn) }
@@ -919,6 +954,18 @@ fun AdminPoliciesTab(
     var draftTermsBn by remember { mutableStateOf(termsBn) }
     var draftRefundEn by remember { mutableStateOf(refundEn) }
     var draftRefundBn by remember { mutableStateOf(refundBn) }
+    var draftDonorEn by remember { mutableStateOf(donorEn) }
+    var draftDonorBn by remember { mutableStateOf(donorBn) }
+    var draftDocEn by remember { mutableStateOf(docEn) }
+    var draftDocBn by remember { mutableStateOf(docBn) }
+    var draftBloodEn by remember { mutableStateOf(bloodEn) }
+    var draftBloodBn by remember { mutableStateOf(bloodBn) }
+    var draftAmbEn by remember { mutableStateOf(ambEn) }
+    var draftAmbBn by remember { mutableStateOf(ambBn) }
+    var draftHospEn by remember { mutableStateOf(hospEn) }
+    var draftHospBn by remember { mutableStateOf(hospBn) }
+
+    var selectedCategoryFilter by remember { mutableStateOf("ALL") }
 
     Column(
         modifier = Modifier
@@ -926,158 +973,464 @@ fun AdminPoliciesTab(
             .verticalScroll(rememberScrollState())
             .padding(vertical = 4.dp)
     ) {
-        Text(
-            text = "Edit Core App Policy Pages",
-            fontWeight = FontWeight.Bold,
-            fontSize = 15.sp,
-            color = AdminTextWhite,
-            modifier = Modifier.padding(bottom = 12.dp)
-        )
-
-        // Privacy Policy
-        Card(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-            colors = CardDefaults.cardColors(containerColor = AdminCardBg),
-            border = BorderStroke(1.dp, AdminBorder)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                Text("1. Privacy Policy (প্রাইভেসি পলিসি)", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AdminAccRed)
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Text("English Text", fontSize = 11.sp, color = AdminTextMuted)
-                OutlinedTextField(
-                    value = draftPrivacyEn,
-                    onValueChange = { draftPrivacyEn = it },
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
-                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = AdminTextWhite),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AdminPrimaryBlue,
-                        unfocusedBorderColor = AdminBorder,
-                        focusedContainerColor = AdminDarkBg,
-                        unfocusedContainerColor = AdminDarkBg
-                    )
+            Column {
+                Text(
+                    text = if (language == AppLanguage.BAN) "পলিসি, টার্মস এন্ড কন্ডিশন ম্যানাজমেন্ট" else "Policy, Terms & Conditions Management",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = AdminTextWhite
                 )
-
-                Text("Bengali Text (বাংলা লেখা)", fontSize = 11.sp, color = AdminTextMuted)
-                OutlinedTextField(
-                    value = draftPrivacyBn,
-                    onValueChange = { draftPrivacyBn = it },
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
-                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = AdminTextWhite),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AdminPrimaryBlue,
-                        unfocusedBorderColor = AdminBorder,
-                        focusedContainerColor = AdminDarkBg,
-                        unfocusedContainerColor = AdminDarkBg
-                    )
+                Text(
+                    text = if (language == AppLanguage.BAN) "সকল সেবার পৃথক নীতিমালা ও শর্তাবলী এখান থেকে পরিবর্তন করুন" else "Manage separate rules & guidelines for each entity",
+                    fontSize = 11.sp,
+                    color = AdminTextMuted
                 )
+            }
+            Button(
+                onClick = {
+                    onSave(
+                        draftPrivacyEn, draftPrivacyBn, draftPrivacyUrl,
+                        draftTermsEn, draftTermsBn,
+                        draftRefundEn, draftRefundBn,
+                        draftDonorEn, draftDonorBn,
+                        draftDocEn, draftDocBn,
+                        draftBloodEn, draftBloodBn,
+                        draftAmbEn, draftAmbBn,
+                        draftHospEn, draftHospBn
+                    )
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = AdminAccRed),
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Icon(Icons.Default.Save, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(if (language == AppLanguage.BAN) "সেভ করুন" else "Save All", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
+        }
 
-                Text("Privacy Policy Web Link / ইউআরএল লিংক (https://...)", fontSize = 11.sp, color = AdminAccGreen, fontWeight = FontWeight.Bold)
-                OutlinedTextField(
-                    value = draftPrivacyUrl,
-                    onValueChange = { draftPrivacyUrl = it },
-                    placeholder = { Text("https://alifshengroup.com/privacy-policy", color = Color.Gray, fontSize = 12.sp) },
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = AdminTextWhite),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AdminAccGreen,
-                        unfocusedBorderColor = AdminBorder,
-                        focusedContainerColor = AdminDarkBg,
-                        unfocusedContainerColor = AdminDarkBg
+        // Category Filter Chips
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(bottom = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            val filters = listOf(
+                "ALL" to if (language == AppLanguage.BAN) "সবগুলো (All)" else "All Policies",
+                "DONOR" to if (language == AppLanguage.BAN) "🩸 ডোনার পলিসি" else "Donor Policy",
+                "DOCTOR" to if (language == AppLanguage.BAN) "🩺 ডাক্তার পলিসি" else "Doctor Policy",
+                "BLOOD" to if (language == AppLanguage.BAN) "🆘 রক্তগ্রহীতা পলিসি" else "Requester Policy",
+                "AMBULANCE" to if (language == AppLanguage.BAN) "🚑 অ্যাম্বুলেন্স পলিসি" else "Ambulance Policy",
+                "HOSPITAL" to if (language == AppLanguage.BAN) "🏥 হাসপাতাল পলিসি" else "Hospital Policy",
+                "PRIVACY" to if (language == AppLanguage.BAN) "🔒 প্রাইভেসি পলিসি" else "Privacy Policy",
+                "TERMS" to if (language == AppLanguage.BAN) "📜 টার্মস এন্ড কন্ডিশন" else "Terms & Conditions",
+                "REFUND" to if (language == AppLanguage.BAN) "💸 রিফান্ড পলিসি" else "Refund Policy"
+            )
+
+            filters.forEach { (key, label) ->
+                val isSelected = selectedCategoryFilter == key
+                FilterChip(
+                    selected = isSelected,
+                    onClick = { selectedCategoryFilter = key },
+                    label = { Text(label, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = AdminPrimaryBlue,
+                        selectedLabelColor = Color.White,
+                        containerColor = AdminCardBg,
+                        labelColor = AdminTextWhite
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled = true,
+                        selected = isSelected,
+                        borderColor = AdminBorder,
+                        selectedBorderColor = AdminPrimaryBlue
                     )
                 )
             }
         }
 
-        // Terms & Conditions
-        Card(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-            colors = CardDefaults.cardColors(containerColor = AdminCardBg),
-            border = BorderStroke(1.dp, AdminBorder)
-        ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                Text("2. Terms & Conditions (টার্মস এন্ড কন্ডিশন)", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AdminAccRed)
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Text("English Text", fontSize = 11.sp, color = AdminTextMuted)
-                OutlinedTextField(
-                    value = draftTermsEn,
-                    onValueChange = { draftTermsEn = it },
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
-                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = AdminTextWhite),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AdminPrimaryBlue,
-                        unfocusedBorderColor = AdminBorder,
-                        focusedContainerColor = AdminDarkBg,
-                        unfocusedContainerColor = AdminDarkBg
+        // 1. Donor Policy (ডোনার পলিসি)
+        if (selectedCategoryFilter == "ALL" || selectedCategoryFilter == "DONOR") {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+                border = BorderStroke(1.dp, AdminBorder)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("🩸 1. Donor Policy (ডোনার পলিসি)", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AdminAccRed)
+                    }
+                    Text("রক্তদাতা রেজিস্ট্রেশন ও রক্তদানের নিয়মাবলী", fontSize = 10.sp, color = AdminTextMuted, modifier = Modifier.padding(bottom = 8.dp))
+                    
+                    Text("English Text", fontSize = 11.sp, color = AdminTextMuted)
+                    OutlinedTextField(
+                        value = draftDonorEn,
+                        onValueChange = { draftDonorEn = it },
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = AdminTextWhite),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        )
                     )
-                )
 
-                Text("Bengali Text (বাংলা লেখা)", fontSize = 11.sp, color = AdminTextMuted)
-                OutlinedTextField(
-                    value = draftTermsBn,
-                    onValueChange = { draftTermsBn = it },
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = AdminTextWhite),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AdminPrimaryBlue,
-                        unfocusedBorderColor = AdminBorder,
-                        focusedContainerColor = AdminDarkBg,
-                        unfocusedContainerColor = AdminDarkBg
+                    Text("Bengali Text (বাংলা লেখা)", fontSize = 11.sp, color = AdminTextMuted)
+                    OutlinedTextField(
+                        value = draftDonorBn,
+                        onValueChange = { draftDonorBn = it },
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = AdminTextWhite),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        )
                     )
-                )
+                }
             }
         }
 
-        // Refund Policy
-        Card(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-            colors = CardDefaults.cardColors(containerColor = AdminCardBg),
-            border = BorderStroke(1.dp, AdminBorder)
-        ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                Text("3. Refund Policy (রিফান্ড পলিসি)", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AdminAccRed)
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Text("English Text", fontSize = 11.sp, color = AdminTextMuted)
-                OutlinedTextField(
-                    value = draftRefundEn,
-                    onValueChange = { draftRefundEn = it },
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
-                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = AdminTextWhite),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AdminPrimaryBlue,
-                        unfocusedBorderColor = AdminBorder,
-                        focusedContainerColor = AdminDarkBg,
-                        unfocusedContainerColor = AdminDarkBg
+        // 2. Doctor Policy (ডাক্তার পলিসি)
+        if (selectedCategoryFilter == "ALL" || selectedCategoryFilter == "DOCTOR") {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+                border = BorderStroke(1.dp, AdminBorder)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Text("🩺 2. Doctor Policy (ডাক্তার পলিসি)", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AdminAccRed)
+                    Text("চিকিৎসক প্রোফাইল, বিএমডিসি ও চেম্বার সেবার শর্তাবলী", fontSize = 10.sp, color = AdminTextMuted, modifier = Modifier.padding(bottom = 8.dp))
+                    
+                    Text("English Text", fontSize = 11.sp, color = AdminTextMuted)
+                    OutlinedTextField(
+                        value = draftDocEn,
+                        onValueChange = { draftDocEn = it },
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = AdminTextWhite),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        )
                     )
-                )
 
-                Text("Bengali Text (বাংলা লেখা)", fontSize = 11.sp, color = AdminTextMuted)
-                OutlinedTextField(
-                    value = draftRefundBn,
-                    onValueChange = { draftRefundBn = it },
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = AdminTextWhite),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AdminPrimaryBlue,
-                        unfocusedBorderColor = AdminBorder,
-                        focusedContainerColor = AdminDarkBg,
-                        unfocusedContainerColor = AdminDarkBg
+                    Text("Bengali Text (বাংলা লেখা)", fontSize = 11.sp, color = AdminTextMuted)
+                    OutlinedTextField(
+                        value = draftDocBn,
+                        onValueChange = { draftDocBn = it },
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = AdminTextWhite),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        )
                     )
-                )
+                }
             }
         }
+
+        // 3. Blood Requester Policy (রক্তের প্রয়োজন গ্রহীতা পলিসি)
+        if (selectedCategoryFilter == "ALL" || selectedCategoryFilter == "BLOOD") {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+                border = BorderStroke(1.dp, AdminBorder)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Text("🆘 3. Blood Requester Policy (রক্তের প্রয়োজন গ্রহীতা / রোগীর পলিসি)", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AdminAccRed)
+                    Text("জরুরি রক্তের অনুরোধ পোস্ট করার নিয়মাবলী", fontSize = 10.sp, color = AdminTextMuted, modifier = Modifier.padding(bottom = 8.dp))
+                    
+                    Text("English Text", fontSize = 11.sp, color = AdminTextMuted)
+                    OutlinedTextField(
+                        value = draftBloodEn,
+                        onValueChange = { draftBloodEn = it },
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = AdminTextWhite),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        )
+                    )
+
+                    Text("Bengali Text (বাংলা লেখা)", fontSize = 11.sp, color = AdminTextMuted)
+                    OutlinedTextField(
+                        value = draftBloodBn,
+                        onValueChange = { draftBloodBn = it },
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = AdminTextWhite),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        )
+                    )
+                }
+            }
+        }
+
+        // 4. Ambulance Policy (অ্যাম্বুলেন্স সার্ভিস পলিসি)
+        if (selectedCategoryFilter == "ALL" || selectedCategoryFilter == "AMBULANCE") {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+                border = BorderStroke(1.dp, AdminBorder)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Text("🚑 4. Ambulance Service Policy (অ্যাম্বুলেন্স সার্ভিস পলিসি)", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AdminAccRed)
+                    Text("অ্যাম্বুলেন্স চালক ও বুকিং সেবার নীতিমালা", fontSize = 10.sp, color = AdminTextMuted, modifier = Modifier.padding(bottom = 8.dp))
+                    
+                    Text("English Text", fontSize = 11.sp, color = AdminTextMuted)
+                    OutlinedTextField(
+                        value = draftAmbEn,
+                        onValueChange = { draftAmbEn = it },
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = AdminTextWhite),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        )
+                    )
+
+                    Text("Bengali Text (বাংলা লেখা)", fontSize = 11.sp, color = AdminTextMuted)
+                    OutlinedTextField(
+                        value = draftAmbBn,
+                        onValueChange = { draftAmbBn = it },
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = AdminTextWhite),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        )
+                    )
+                }
+            }
+        }
+
+        // 5. Hospital Policy (হাসপাতাল ও ডায়াগনস্টিক পলিসি)
+        if (selectedCategoryFilter == "ALL" || selectedCategoryFilter == "HOSPITAL") {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+                border = BorderStroke(1.dp, AdminBorder)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Text("🏥 5. Hospital & Diagnostic Policy (হাসপাতাল ও ডায়াগনস্টিক পলিসি)", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AdminAccRed)
+                    Text("হাসপাতাল পার্টনারশিপ ও বুকিং পলিসি", fontSize = 10.sp, color = AdminTextMuted, modifier = Modifier.padding(bottom = 8.dp))
+                    
+                    Text("English Text", fontSize = 11.sp, color = AdminTextMuted)
+                    OutlinedTextField(
+                        value = draftHospEn,
+                        onValueChange = { draftHospEn = it },
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = AdminTextWhite),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        )
+                    )
+
+                    Text("Bengali Text (বাংলা লেখা)", fontSize = 11.sp, color = AdminTextMuted)
+                    OutlinedTextField(
+                        value = draftHospBn,
+                        onValueChange = { draftHospBn = it },
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = AdminTextWhite),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        )
+                    )
+                }
+            }
+        }
+
+        // 6. Privacy Policy (প্রাইভেসি পলিসি)
+        if (selectedCategoryFilter == "ALL" || selectedCategoryFilter == "PRIVACY") {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+                border = BorderStroke(1.dp, AdminBorder)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Text("🔒 6. Privacy Policy (প্রাইভেসি পলিসি)", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AdminAccRed)
+                    Text("ব্যবহারকারীর তথ্যের সুরক্ষা ও ডাটা প্রাইভেসি নীতি", fontSize = 10.sp, color = AdminTextMuted, modifier = Modifier.padding(bottom = 8.dp))
+                    
+                    Text("English Text", fontSize = 11.sp, color = AdminTextMuted)
+                    OutlinedTextField(
+                        value = draftPrivacyEn,
+                        onValueChange = { draftPrivacyEn = it },
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = AdminTextWhite),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        )
+                    )
+
+                    Text("Bengali Text (বাংলা লেখা)", fontSize = 11.sp, color = AdminTextMuted)
+                    OutlinedTextField(
+                        value = draftPrivacyBn,
+                        onValueChange = { draftPrivacyBn = it },
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = AdminTextWhite),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        )
+                    )
+
+                    Text("Privacy Policy Web Link / ইউআরএল লিংক (https://...)", fontSize = 11.sp, color = AdminAccGreen, fontWeight = FontWeight.Bold)
+                    OutlinedTextField(
+                        value = draftPrivacyUrl,
+                        onValueChange = { draftPrivacyUrl = it },
+                        placeholder = { Text("https://alifshengroup.com/privacy-policy", color = Color.Gray, fontSize = 12.sp) },
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = AdminTextWhite),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminAccGreen,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        )
+                    )
+                }
+            }
+        }
+
+        // 7. Terms & Conditions (টার্মস এন্ড কন্ডিশন)
+        if (selectedCategoryFilter == "ALL" || selectedCategoryFilter == "TERMS") {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+                border = BorderStroke(1.dp, AdminBorder)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Text("📜 7. General Terms & Conditions (সাধারণ টার্মস এন্ড কন্ডিশন)", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AdminAccRed)
+                    Text("সমগ্র অ্যাপ্লিকেশন ব্যবহারের মূল শর্তাবলী", fontSize = 10.sp, color = AdminTextMuted, modifier = Modifier.padding(bottom = 8.dp))
+                    
+                    Text("English Text", fontSize = 11.sp, color = AdminTextMuted)
+                    OutlinedTextField(
+                        value = draftTermsEn,
+                        onValueChange = { draftTermsEn = it },
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = AdminTextWhite),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        )
+                    )
+
+                    Text("Bengali Text (বাংলা লেখা)", fontSize = 11.sp, color = AdminTextMuted)
+                    OutlinedTextField(
+                        value = draftTermsBn,
+                        onValueChange = { draftTermsBn = it },
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = AdminTextWhite),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        )
+                    )
+                }
+            }
+        }
+
+        // 8. Refund Policy (রিফান্ড পলিসি)
+        if (selectedCategoryFilter == "ALL" || selectedCategoryFilter == "REFUND") {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+                border = BorderStroke(1.dp, AdminBorder)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Text("💸 8. Refund Policy (রিফান্ড পলিসি)", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AdminAccRed)
+                    Text("বুকিং বাতিল ও অর্থ ফেরতের নীতি", fontSize = 10.sp, color = AdminTextMuted, modifier = Modifier.padding(bottom = 8.dp))
+                    
+                    Text("English Text", fontSize = 11.sp, color = AdminTextMuted)
+                    OutlinedTextField(
+                        value = draftRefundEn,
+                        onValueChange = { draftRefundEn = it },
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = AdminTextWhite),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        )
+                    )
+
+                    Text("Bengali Text (বাংলা লেখা)", fontSize = 11.sp, color = AdminTextMuted)
+                    OutlinedTextField(
+                        value = draftRefundBn,
+                        onValueChange = { draftRefundBn = it },
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = AdminTextWhite),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        )
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         Button(
             onClick = {
-                onSave(draftPrivacyEn, draftPrivacyBn, draftPrivacyUrl, draftTermsEn, draftTermsBn, draftRefundEn, draftRefundBn)
+                onSave(
+                    draftPrivacyEn, draftPrivacyBn, draftPrivacyUrl,
+                    draftTermsEn, draftTermsBn,
+                    draftRefundEn, draftRefundBn,
+                    draftDonorEn, draftDonorBn,
+                    draftDocEn, draftDocBn,
+                    draftBloodEn, draftBloodBn,
+                    draftAmbEn, draftAmbBn,
+                    draftHospEn, draftHospBn
+                )
             },
             modifier = Modifier.fillMaxWidth().height(48.dp),
             colors = ButtonDefaults.buttonColors(containerColor = AdminAccRed),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Text("Save All Policy Pages", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Icon(Icons.Default.Save, contentDescription = null, tint = Color.White)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(if (language == AppLanguage.BAN) "সকল পলিসি ও টার্মস পেজ সংরক্ষণ করুন" else "Save All Policy Pages", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
         }
     }
 }
@@ -2999,14 +3352,20 @@ fun AdminSettingsTab(
         var customMediaUrlInput by remember { mutableStateOf("") }
         var selectedGalleryUri by remember { mutableStateOf<Uri?>(null) }
 
-        // Setup image/video picker launcher from gallery with persistent storage saving
+        // Setup image/video picker launcher from gallery with persistent storage saving & global link generation
+        val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
         val adMediaPickerLauncher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.GetContent()
         ) { uri: Uri? ->
             if (uri != null) {
                 val persistentPath = saveMediaUriToInternalStorage(context, uri, isVideoType)
                 selectedGalleryUri = Uri.parse(persistentPath)
+                val generatedLink = convertUriToUniversalLink(context, uri, isVideoType)
+                if (generatedLink.isNotBlank()) {
+                    customMediaUrlInput = generatedLink
+                }
                 mediaSourceType = "gallery"
+                Toast.makeText(context, if (language == AppLanguage.ENG) "Global shareable link generated!" else "সার্ভার ও সব ফোনের জন্য গ্লোবাল লিংক সফলভাবে জেনারেট হয়েছে!", Toast.LENGTH_LONG).show()
             }
         }
 
@@ -3595,27 +3954,75 @@ fun AdminSettingsTab(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = if (selectedGalleryUri == null) {
-                                        if (language == AppLanguage.ENG) "Click to Pick File from Gallery" else "গ্যালারি থেকে ফাইল নির্বাচন করতে ক্লিক করুন"
+                                    text = if (selectedGalleryUri == null && customMediaUrlInput.isBlank()) {
+                                        if (language == AppLanguage.ENG) "Click to Pick File from Gallery & Generate Link" else "গ্যালারি থেকে সিলেক্ট করুন (অটো-লিংক জেনারেট হবে)"
                                     } else {
-                                        if (language == AppLanguage.ENG) "File Selected!" else "ফাইল সফলভাবে সিলেক্ট হয়েছে!"
+                                        if (language == AppLanguage.ENG) "File Picked & Global Link Generated!" else "গ্যালারি সিলেক্টেড • ইউনিভার্সাল লিংক প্রস্তুত!"
                                     },
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (selectedGalleryUri == null) AdminTextWhite else AdminAccGreen
+                                    color = if (selectedGalleryUri == null && customMediaUrlInput.isBlank()) AdminTextWhite else AdminAccGreen
                                 )
                             }
                         }
 
-                        if (selectedGalleryUri != null) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "URI: ${selectedGalleryUri.toString()}",
-                                fontSize = 9.sp,
-                                color = AdminTextMuted,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                        if (customMediaUrlInput.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                                border = BorderStroke(1.dp, AdminAccGreen.copy(alpha = 0.6f)),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = if (language == AppLanguage.ENG) "🌐 Generated Shareable Global Link" else "🌐 অটো-জেনারেটেড ইউনিভার্সাল গ্লোবাল লিংক",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = AdminAccGreen
+                                        )
+                                        TextButton(
+                                            onClick = {
+                                                clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(customMediaUrlInput))
+                                                Toast.makeText(context, if (language == AppLanguage.ENG) "Link copied to clipboard!" else "গ্লোবাল লিংক ক্লিপবোর্ডে কপি করা হয়েছে!", Toast.LENGTH_SHORT).show()
+                                            },
+                                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = AdminAccGreen, modifier = Modifier.size(13.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(if (language == AppLanguage.ENG) "Copy Link" else "কপি লিংক", fontSize = 10.sp, color = AdminAccGreen)
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    OutlinedTextField(
+                                        value = customMediaUrlInput,
+                                        onValueChange = { customMediaUrlInput = it },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp, color = AdminTextWhite),
+                                        maxLines = 2,
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = AdminAccGreen,
+                                            unfocusedBorderColor = AdminBorder,
+                                            focusedContainerColor = AdminDarkBg,
+                                            unfocusedContainerColor = AdminDarkBg
+                                        )
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = if (language == AppLanguage.ENG)
+                                            "✅ Safe for cross-device sync! Any phone opening this ad will render the video/photo."
+                                        else
+                                            "✅ গ্লোবাল নেটওয়ার্ক লিংক প্রস্তুত! অন্য যেকোনো ফোনেই এই অ্যাড ভিডিও/ছবি ওপেন ও প্লে হবে।",
+                                        fontSize = 9.sp,
+                                        color = AdminTextMuted
+                                    )
+                                }
+                            }
                         }
                     }
 
@@ -3629,10 +4036,10 @@ fun AdminSettingsTab(
                                 return@Button
                             }
 
-                            val finalMediaUrl = if (mediaSourceType == "url") {
+                            val finalMediaUrl = if (customMediaUrlInput.isNotBlank()) {
                                 customMediaUrlInput
                             } else {
-                                selectedGalleryUri?.toString() ?: customMediaUrlInput
+                                selectedGalleryUri?.toString() ?: ""
                             }
 
                             if (finalMediaUrl.isBlank()) {
@@ -4676,6 +5083,571 @@ fun AdminHospitalsTab(viewModel: MainViewModel, language: AppLanguage) {
             },
             containerColor = AdminCardBg
         )
+    }
+}
+
+@Composable
+fun AdminBookingFeesTab(viewModel: MainViewModel, language: AppLanguage) {
+    val isBn = language == AppLanguage.BAN
+    val context = LocalContext.current
+    val countryFeesList by viewModel.countryBookingFees.collectAsState()
+
+    var selectedFilter by remember { mutableStateOf("ALL") } // "ALL", "BD", "INT"
+    var showAddCountryDialog by remember { mutableStateOf(false) }
+
+    // Dialog state for new country
+    var newCode by remember { mutableStateOf("") }
+    var newNameBn by remember { mutableStateOf("") }
+    var newNameEn by remember { mutableStateOf("") }
+    var newCurrency by remember { mutableStateOf("৳") }
+    var newAmbFee by remember { mutableStateOf("50") }
+    var newDocFee by remember { mutableStateOf("30") }
+    var newHospFee by remember { mutableStateOf("50") }
+    var newAccFreeFee by remember { mutableStateOf("50") }
+    var newAccAdvFee by remember { mutableStateOf("30") }
+    var newBloodReqFee by remember { mutableStateOf("0") }
+
+    val filteredList = remember(countryFeesList, selectedFilter) {
+        when (selectedFilter) {
+            "BD" -> countryFeesList.filter { it.countryCode == "BD" }
+            "INT" -> countryFeesList.filter { it.countryCode != "BD" }
+            else -> countryFeesList
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(bottom = 30.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Top Banner Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+            border = BorderStroke(1.dp, AdminBorder),
+            shape = RoundedCornerShape(14.dp)
+        ) {
+            Column(modifier = Modifier.padding(18.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(46.dp)
+                            .background(AdminPrimaryBlue.copy(alpha = 0.2f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Payments,
+                            contentDescription = null,
+                            tint = AdminPrimaryBlue,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (isBn) "বুকিং ফি সেটিংস ও কান্ট্রি কাস্টমাইজেশন" else "Booking Fees & Country Customization",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AdminTextWhite
+                        )
+                        Text(
+                            text = if (isBn) "বাংলাদেশের জন্য ও বাহিরের প্রত্যেকটি দেশের জন্য আলাদা ফি নির্ধারণ করুন" else "Customize booking fees for Bangladesh & International countries",
+                            fontSize = 11.sp,
+                            color = AdminTextMuted
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+                HorizontalDivider(color = AdminBorder)
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Quick statistics
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text(if (isBn) "মোট কনফিগার করা দেশ:" else "Total Countries:", fontSize = 11.sp, color = AdminTextMuted)
+                        Text("${countryFeesList.size} ${if (isBn) "টি দেশ" else "Countries"}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AdminAccOrange)
+                    }
+                    val bdFeeObj = countryFeesList.find { it.countryCode == "BD" }
+                    Column {
+                        Text(if (isBn) "বাংলাদেশ অ্যাম্বুলেন্স ফি:" else "BD Ambulance Fee:", fontSize = 11.sp, color = AdminTextMuted)
+                        Text("${bdFeeObj?.currencySymbol ?: "৳"}${bdFeeObj?.ambulanceFee?.toInt() ?: 50}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AdminAccGreen)
+                    }
+                    val intlFeeObj = countryFeesList.find { it.countryCode == "OTHER" }
+                    Column {
+                        Text(if (isBn) "ইন্টারন্যাশনাল ফি:" else "International Fee:", fontSize = 11.sp, color = AdminTextMuted)
+                        Text("${intlFeeObj?.currencySymbol ?: "$"}${intlFeeObj?.ambulanceFee ?: 1.0}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AdminPrimaryBlue)
+                    }
+                }
+            }
+        }
+
+        // Sub Navigation Filter Buttons & Add Button
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            listOf(
+                Triple("ALL", if (isBn) "সকল দেশ (${countryFeesList.size})" else "All (${countryFeesList.size})", Icons.Default.Public),
+                Triple("BD", if (isBn) "🇧🇩 বাংলাদেশ" else "🇧🇩 Bangladesh", Icons.Default.Flag),
+                Triple("INT", if (isBn) "🌐 বাহিরের দেশসমূহ" else "🌐 International", Icons.Default.Language)
+            ).forEach { (key, title, icon) ->
+                val isSel = selectedFilter == key
+                Button(
+                    onClick = { selectedFilter = key },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isSel) AdminPrimaryBlue else AdminCardBg
+                    ),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, if (isSel) AdminPrimaryBlue else AdminBorder),
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(vertical = 8.dp, horizontal = 4.dp)
+                ) {
+                    Text(
+                        text = title,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isSel) Color.White else AdminTextMuted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+
+        // Add Custom Country Button
+        Button(
+            onClick = { showAddCountryDialog = true },
+            colors = ButtonDefaults.buttonColors(containerColor = AdminAccGreen),
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                if (isBn) "নতুন দেশ ও কাস্টম বুকিং ফি যুক্ত করুন" else "Add New Country & Custom Booking Fees",
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                fontSize = 13.sp
+            )
+        }
+
+        // Country Fee Editing Cards
+        filteredList.forEach { countryFee ->
+            CountryFeeItemCard(
+                fee = countryFee,
+                isBn = isBn,
+                onSave = { updated ->
+                    viewModel.updateSingleCountryBookingFee(updated)
+                    Toast.makeText(context, "${updated.countryNameBn} - বুকিং ফি আপডেট সম্পন্ন!", Toast.LENGTH_SHORT).show()
+                }
+            )
+        }
+    }
+
+    // Add Country Dialog
+    if (showAddCountryDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddCountryDialog = false },
+            title = {
+                Text(
+                    if (isBn) "নতুন দেশ ও ফি কনফিগারেশন যোগ করুন" else "Add Country Booking Fee Configuration",
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    fontSize = 16.sp
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedTextField(
+                        value = newCode,
+                        onValueChange = { newCode = it.uppercase() },
+                        label = { Text("Country Code (e.g. OM, SG, UK)", color = AdminTextMuted) },
+                        textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    OutlinedTextField(
+                        value = newNameBn,
+                        onValueChange = { newNameBn = it },
+                        label = { Text("Country Name (বাংলা)", color = AdminTextMuted) },
+                        textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = newNameEn,
+                        onValueChange = { newNameEn = it },
+                        label = { Text("Country Name (English)", color = AdminTextMuted) },
+                        textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = newCurrency,
+                        onValueChange = { newCurrency = it },
+                        label = { Text("Currency Symbol (e.g. ৳, $, OMR, SGD)", color = AdminTextMuted) },
+                        textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = newAmbFee,
+                            onValueChange = { newAmbFee = it },
+                            label = { Text("Ambulance Fee", color = AdminTextMuted, fontSize = 11.sp) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AdminPrimaryBlue,
+                                unfocusedBorderColor = AdminBorder,
+                                focusedContainerColor = AdminDarkBg,
+                                unfocusedContainerColor = AdminDarkBg
+                            ),
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = newDocFee,
+                            onValueChange = { newDocFee = it },
+                            label = { Text("Doctor Fee", color = AdminTextMuted, fontSize = 11.sp) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AdminPrimaryBlue,
+                                unfocusedBorderColor = AdminBorder,
+                                focusedContainerColor = AdminDarkBg,
+                                unfocusedContainerColor = AdminDarkBg
+                            ),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = newHospFee,
+                            onValueChange = { newHospFee = it },
+                            label = { Text("Hospital Fee", color = AdminTextMuted, fontSize = 11.sp) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AdminPrimaryBlue,
+                                unfocusedBorderColor = AdminBorder,
+                                focusedContainerColor = AdminDarkBg,
+                                unfocusedContainerColor = AdminDarkBg
+                            ),
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = newBloodReqFee,
+                            onValueChange = { newBloodReqFee = it },
+                            label = { Text("Blood Req Fee", color = AdminTextMuted, fontSize = 11.sp) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AdminPrimaryBlue,
+                                unfocusedBorderColor = AdminBorder,
+                                focusedContainerColor = AdminDarkBg,
+                                unfocusedContainerColor = AdminDarkBg
+                            ),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newCode.isNotBlank() && newNameBn.isNotBlank()) {
+                            val item = com.example.data.CountryBookingFee(
+                                countryCode = newCode.trim(),
+                                countryNameBn = newNameBn.trim(),
+                                countryNameEn = newNameEn.trim().ifBlank { newNameBn },
+                                currencySymbol = newCurrency.trim(),
+                                ambulanceFee = newAmbFee.toDoubleOrNull() ?: 50.0,
+                                doctorFee = newDocFee.toDoubleOrNull() ?: 30.0,
+                                hospitalFee = newHospFee.toDoubleOrNull() ?: 50.0,
+                                hospitalAcceptFeeFree = newAccFreeFee.toDoubleOrNull() ?: 50.0,
+                                hospitalAcceptFeeAdvance = newAccAdvFee.toDoubleOrNull() ?: 30.0,
+                                bloodRequestFee = newBloodReqFee.toDoubleOrNull() ?: 0.0
+                            )
+                            viewModel.updateSingleCountryBookingFee(item)
+                            Toast.makeText(context, "${item.countryNameBn} যুক্ত করা হয়েছে!", Toast.LENGTH_SHORT).show()
+                            showAddCountryDialog = false
+                            // Reset
+                            newCode = ""
+                            newNameBn = ""
+                            newNameEn = ""
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AdminAccGreen)
+                ) {
+                    Text(if (isBn) "সংরক্ষণ করুন" else "Save Country Fee", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddCountryDialog = false }) {
+                    Text(if (isBn) "বাতিল" else "Cancel", color = AdminTextMuted)
+                }
+            },
+            containerColor = AdminCardBg
+        )
+    }
+}
+
+@Composable
+fun CountryFeeItemCard(
+    fee: com.example.data.CountryBookingFee,
+    isBn: Boolean,
+    onSave: (com.example.data.CountryBookingFee) -> Unit
+) {
+    var ambFeeStr by remember(fee) { mutableStateOf(fee.ambulanceFee.toString()) }
+    var docFeeStr by remember(fee) { mutableStateOf(fee.doctorFee.toString()) }
+    var hospFeeStr by remember(fee) { mutableStateOf(fee.hospitalFee.toString()) }
+    var freeAccFeeStr by remember(fee) { mutableStateOf(fee.hospitalAcceptFeeFree.toString()) }
+    var advAccFeeStr by remember(fee) { mutableStateOf(fee.hospitalAcceptFeeAdvance.toString()) }
+    var bloodReqFeeStr by remember(fee) { mutableStateOf(fee.bloodRequestFee.toString()) }
+    var currSym by remember(fee) { mutableStateOf(fee.currencySymbol) }
+
+    val flagEmoji = when (fee.countryCode) {
+        "BD" -> "🇧🇩"
+        "IN" -> "🇮🇳"
+        "SA" -> "🇸🇦"
+        "AE" -> "🇦🇪"
+        "QA" -> "🇶🇦"
+        "KW" -> "🇰🇼"
+        "MY" -> "🇲🇾"
+        "US" -> "🇺🇸"
+        else -> "🌐"
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+        border = BorderStroke(1.dp, if (fee.countryCode == "BD") AdminPrimaryBlue else AdminBorder),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(flagEmoji, fontSize = 22.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            text = if (isBn) fee.countryNameBn else fee.countryNameEn,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            color = AdminTextWhite
+                        )
+                        Text(
+                            text = "Code: ${fee.countryCode} | Symbol: ${currSym}",
+                            fontSize = 11.sp,
+                            color = AdminTextMuted
+                        )
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .background(
+                            if (fee.countryCode == "BD") AdminPrimaryBlue.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.08f),
+                            RoundedCornerShape(6.dp)
+                        )
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = if (fee.countryCode == "BD") (if (isBn) "প্রধান দেশ (BD)" else "Main (BD)") else (if (isBn) "ইন্টারন্যাশনাল" else "International"),
+                        color = if (fee.countryCode == "BD") AdminPrimaryBlue else AdminTextMuted,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = AdminBorder)
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                if (isBn) "ফি রেট সেটিংস (${currSym}):" else "Booking Fees Rates (${currSym}):",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = AdminAccOrange
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Fee Inputs Grid
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = ambFeeStr,
+                        onValueChange = { ambFeeStr = it },
+                        label = { Text(if (isBn) "অ্যাম্বুলেন্স বুকিং ফি" else "Ambulance Fee", color = AdminTextMuted, fontSize = 11.sp) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        ),
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+
+                    OutlinedTextField(
+                        value = docFeeStr,
+                        onValueChange = { docFeeStr = it },
+                        label = { Text(if (isBn) "ডাক্তার বুকিং ফি" else "Doctor Fee", color = AdminTextMuted, fontSize = 11.sp) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        ),
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = hospFeeStr,
+                        onValueChange = { hospFeeStr = it },
+                        label = { Text(if (isBn) "হসপিটাল সার্ভিস ফি" else "Hospital Fee", color = AdminTextMuted, fontSize = 11.sp) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        ),
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+
+                    OutlinedTextField(
+                        value = bloodReqFeeStr,
+                        onValueChange = { bloodReqFeeStr = it },
+                        label = { Text(if (isBn) "জরুরী ব্লাড রিকোয়েস্ট ফি" else "Blood Request Fee", color = AdminTextMuted, fontSize = 11.sp) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        ),
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = freeAccFeeStr,
+                        onValueChange = { freeAccFeeStr = it },
+                        label = { Text(if (isBn) "হাসপাতাল একসেপ্ট (ফ্রি)" else "Hosp Accept (Free)", color = AdminTextMuted, fontSize = 11.sp) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        ),
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+
+                    OutlinedTextField(
+                        value = advAccFeeStr,
+                        onValueChange = { advAccFeeStr = it },
+                        label = { Text(if (isBn) "হাসপাতাল একসেপ্ট (এডভান্স)" else "Hosp Accept (Adv)", color = AdminTextMuted, fontSize = 11.sp) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        ),
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Button(
+                onClick = {
+                    val updated = fee.copy(
+                        ambulanceFee = ambFeeStr.toDoubleOrNull() ?: fee.ambulanceFee,
+                        doctorFee = docFeeStr.toDoubleOrNull() ?: fee.doctorFee,
+                        hospitalFee = hospFeeStr.toDoubleOrNull() ?: fee.hospitalFee,
+                        hospitalAcceptFeeFree = freeAccFeeStr.toDoubleOrNull() ?: fee.hospitalAcceptFeeFree,
+                        hospitalAcceptFeeAdvance = advAccFeeStr.toDoubleOrNull() ?: fee.hospitalAcceptFeeAdvance,
+                        bloodRequestFee = bloodReqFeeStr.toDoubleOrNull() ?: fee.bloodRequestFee,
+                        currencySymbol = currSym
+                    )
+                    onSave(updated)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = AdminPrimaryBlue),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Save, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    if (isBn) "${fee.countryNameBn}-এর ফি সংরক্ষণ করুন" else "Save ${fee.countryNameEn} Fees",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
+                )
+            }
+        }
     }
 }
 
