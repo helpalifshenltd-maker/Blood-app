@@ -91,6 +91,16 @@ class MainViewModel(
         _currentScreen.value = screen
     }
 
+    val autoShowPlanForRole = MutableStateFlow<String?>(null)
+
+    fun triggerAutoShowPlan(role: String) {
+        autoShowPlanForRole.value = role
+    }
+
+    fun clearAutoShowPlan() {
+        autoShowPlanForRole.value = null
+    }
+
     // --- LOCATION/COUNTRY DETECTOR AND STATES ---
     private val _detectedCountry = MutableStateFlow("Bangladesh")
     val detectedCountry: StateFlow<String> = _detectedCountry.asStateFlow()
@@ -161,8 +171,16 @@ class MainViewModel(
         repository.toggleHospitalFeatured(hospitalId, isFeatured)
     }
 
-    fun updateHospitalPlan(hospitalId: String, planType: String, expiryDate: String) {
-        repository.updateHospitalPlan(hospitalId, planType, expiryDate)
+    fun updateHospitalPlan(hospitalId: String, planType: String, expiryDate: String = "2026-12-31", paymentMethod: String = "", txnId: String = "") {
+        repository.updateHospitalPlan(hospitalId, planType, expiryDate, paymentMethod, txnId)
+    }
+
+    fun updateDoctorPlan(doctorId: String, planType: String, expiryDate: String = "2026-12-31", paymentMethod: String = "", txnId: String = "") {
+        repository.updateDoctorPlan(doctorId, planType, expiryDate, paymentMethod, txnId)
+    }
+
+    fun updateAmbulancePlan(phoneOrId: String, planType: String, expiryDate: String = "2026-12-31", paymentMethod: String = "", txnId: String = "") {
+        repository.updateAmbulancePlan(phoneOrId, planType, expiryDate, paymentMethod, txnId)
     }
 
     fun deleteHospital(hospitalId: String) {
@@ -323,13 +341,6 @@ class MainViewModel(
     val customAdTargetUrl: StateFlow<String> = repository.customAdTargetUrl
     val customAdTargetCountries: StateFlow<String> = repository.customAdTargetCountries
     val customAdConfigs: StateFlow<List<CustomAdConfig>> = repository.customAdConfigs
-
-    val supportHelplineNumber: StateFlow<String> = repository.supportHelplineNumber
-    val supportEmailAddress: StateFlow<String> = repository.supportEmailAddress
-
-    fun updateSupportContacts(phone: String, email: String) {
-        repository.updateSupportContacts(phone, email)
-    }
 
     fun updateCustomAdConfigsList(context: android.content.Context, list: List<CustomAdConfig>) {
         repository.updateCustomAdConfigsList(context, list)
@@ -972,22 +983,42 @@ class MainViewModel(
         val emailToUse = if (isGoogle) "help.alifshen.ltd@gmail.com" else if (rawInput.contains("@")) rawInput else loginEmail.trim()
         val phoneToUse = if (isGoogle) "01781223344" else if (!rawInput.contains("@") && rawInput.isNotBlank()) rawInput else loginPhone.trim()
 
-        // Find if user exists in donors OR ambulances
+        // Find if account exists across Donors, Hospitals, Doctors, or Ambulances
         val matchedDonor = repository.donors.value.find {
             (rawInput.isNotBlank() && (it.email.equals(rawInput, ignoreCase = true) || it.phone.equals(rawInput, ignoreCase = true) || phonesMatch(it.phone, rawInput))) ||
             (emailToUse.isNotBlank() && (it.email.equals(emailToUse, ignoreCase = true) || it.phone.equals(emailToUse, ignoreCase = true) || phonesMatch(it.phone, emailToUse))) ||
             (phoneToUse.isNotBlank() && (it.phone.equals(phoneToUse, ignoreCase = true) || phonesMatch(it.phone, phoneToUse) || it.email.equals(phoneToUse, ignoreCase = true)))
         }
 
-        // Enforce password verification if matched donor exists with a password set
-        if (!isGoogle && matchedDonor != null) {
-            val expectedPassword = matchedDonor.password.takeIf { it.isNotBlank() }
-                ?: _userPasswords.value[emailToUse.lowercase()]
-                ?: _userPasswords.value[phoneToUse]
+        val matchedHospital = repository.registeredHospitals.value.find {
+            (rawInput.isNotBlank() && (it.email.equals(rawInput, ignoreCase = true) || it.phone.equals(rawInput, ignoreCase = true) || phonesMatch(it.phone, rawInput))) ||
+            (emailToUse.isNotBlank() && (it.email.equals(emailToUse, ignoreCase = true) || it.phone.equals(emailToUse, ignoreCase = true) || phonesMatch(it.phone, emailToUse))) ||
+            (phoneToUse.isNotBlank() && (it.phone.equals(phoneToUse, ignoreCase = true) || phonesMatch(it.phone, phoneToUse) || it.email.equals(phoneToUse, ignoreCase = true)))
+        }
 
-            if (!expectedPassword.isNullOrBlank() && loginPassword.isNotBlank() && loginPassword != expectedPassword) {
-                return -1 // Incorrect password
-            }
+        val matchedDoctor = repository.registeredDoctors.value.find {
+            (rawInput.isNotBlank() && (it.email.equals(rawInput, ignoreCase = true) || it.phone.equals(rawInput, ignoreCase = true) || phonesMatch(it.phone, rawInput))) ||
+            (emailToUse.isNotBlank() && (it.email.equals(emailToUse, ignoreCase = true) || it.phone.equals(emailToUse, ignoreCase = true) || phonesMatch(it.phone, emailToUse))) ||
+            (phoneToUse.isNotBlank() && (it.phone.equals(phoneToUse, ignoreCase = true) || phonesMatch(it.phone, phoneToUse) || it.email.equals(phoneToUse, ignoreCase = true)))
+        }
+
+        val matchedAmbulance = repository.ambulances.value.find {
+            (rawInput.isNotBlank() && (it.phone.equals(rawInput, ignoreCase = true) || phonesMatch(it.phone, rawInput))) ||
+            (phoneToUse.isNotBlank() && (it.phone.equals(phoneToUse, ignoreCase = true) || phonesMatch(it.phone, phoneToUse)))
+        }
+
+        val expectedPassword = matchedDonor?.password?.takeIf { it.isNotBlank() }
+            ?: matchedHospital?.password?.takeIf { it.isNotBlank() }
+            ?: matchedDoctor?.password?.takeIf { it.isNotBlank() }
+            ?: _userPasswords.value[emailToUse.lowercase()]
+            ?: _userPasswords.value[phoneToUse]
+
+        if (!isGoogle && matchedDonor == null && matchedHospital == null && matchedDoctor == null && matchedAmbulance == null && expectedPassword == null) {
+            return -2 // Account not found
+        }
+
+        if (!isGoogle && expectedPassword != null && loginPassword.isNotBlank() && loginPassword != expectedPassword) {
+            return -1 // Incorrect password
         }
 
         val success = repository.loginWithPhoneOrEmail(phoneToUse, emailToUse, loginPassword, isGoogle)
@@ -1007,6 +1038,132 @@ class MainViewModel(
             return 1 // Success
         }
         return -2 // Account not found
+    }
+
+    fun triggerHospitalSignup(
+        name: String,
+        type: String,
+        address: String,
+        district: String,
+        upazila: String,
+        phone: String,
+        email: String,
+        password: String,
+        services: String,
+        bloodAvailability: String,
+        country: String = _detectedCountry.value
+    ): Boolean {
+        if (name.isBlank() || phone.isBlank()) return false
+
+        val newHospital = RegisteredHospital(
+            id = "hosp_${System.currentTimeMillis()}",
+            name = name,
+            type = if (type.isNotBlank()) type else "Hospital",
+            address = address,
+            district = district,
+            upazila = upazila,
+            phone = phone,
+            email = email,
+            services = if (services.isNotBlank()) services else "Emergency, ICU, Pathology, Blood Bank",
+            bloodAvailability = if (bloodAvailability.isNotBlank()) bloodAvailability else "A+, B+, O+, AB+ Available",
+            country = country,
+            registrationDate = "2026-08-07",
+            password = password
+        )
+        registerHospital(newHospital)
+
+        if (password.isNotBlank()) {
+            val newMap = _userPasswords.value.toMutableMap()
+            if (email.isNotBlank()) newMap[email.lowercase()] = password
+            newMap[phone] = password
+            _userPasswords.value = newMap
+        }
+
+        repository.registerDonor(
+            name = name,
+            phone = phone,
+            email = email,
+            bloodGroup = "N/A",
+            district = district,
+            upazila = upazila,
+            lastDonationDate = "Available",
+            country = country,
+            role = "Hospital",
+            password = password,
+            village = address
+        )
+
+        val user = repository.currentUser.value
+        if (user != null) {
+            seedProfileForm(user)
+        }
+        autoShowPlanForRole.value = "Hospital"
+        return true
+    }
+
+    fun triggerDoctorSignup(
+        name: String,
+        degree: String,
+        specialty: String,
+        hospitalName: String,
+        chamberAddress: String,
+        district: String,
+        upazila: String,
+        phone: String,
+        email: String,
+        password: String,
+        visitingHours: String,
+        consultationFee: String,
+        country: String = _detectedCountry.value
+    ): Boolean {
+        if (name.isBlank() || phone.isBlank()) return false
+
+        val newDoctor = RegisteredDoctor(
+            id = "doc_${System.currentTimeMillis()}",
+            name = name,
+            titleDegree = degree,
+            specialty = specialty,
+            hospitalName = hospitalName,
+            chamberAddress = chamberAddress,
+            district = district,
+            upazila = upazila,
+            phone = phone,
+            email = email,
+            visitingHours = visitingHours,
+            consultationFee = consultationFee,
+            country = country,
+            registrationDate = "2026-08-07",
+            password = password
+        )
+        registerDoctor(newDoctor)
+
+        if (password.isNotBlank()) {
+            val newMap = _userPasswords.value.toMutableMap()
+            if (email.isNotBlank()) newMap[email.lowercase()] = password
+            newMap[phone] = password
+            _userPasswords.value = newMap
+        }
+
+        repository.registerDonor(
+            name = name,
+            phone = phone,
+            email = email,
+            bloodGroup = "N/A",
+            district = district,
+            upazila = upazila,
+            lastDonationDate = "Available",
+            country = country,
+            role = "Doctor",
+            password = password,
+            village = chamberAddress
+        )
+
+        val user = repository.currentUser.value
+        if (user != null) {
+            seedProfileForm(user)
+        }
+        autoShowPlanForRole.value = "Doctor"
+        return true
     }
 
     fun triggerSignup(): Boolean {
@@ -1039,6 +1196,9 @@ class MainViewModel(
         val user = repository.currentUser.value
         if (user != null) {
             seedProfileForm(user)
+        }
+        if (regRole == "Ambulance") {
+            autoShowPlanForRole.value = "Ambulance"
         }
         return true
     }
@@ -1278,6 +1438,7 @@ class MainViewModel(
         ambServiceName = ""
         ambPhone = ""
         ambDescription = ""
+        autoShowPlanForRole.value = "Ambulance"
         navigateTo(AppScreen.AMBULANCE_LIST)
         return true
     }

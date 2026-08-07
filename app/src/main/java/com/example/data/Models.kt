@@ -124,7 +124,9 @@ data class Ambulance(
     val ambulanceType: String = "", // AC, Non-AC, Freezer, ICU
     val isAvailable: Boolean = true,
     val description: String = "",
-    val country: String = "Bangladesh"
+    val country: String = "Bangladesh",
+    val planType: String = "Free",
+    val isFeatured: Boolean = false
 )
 
 data class TeamMember(
@@ -580,7 +582,8 @@ data class RegisteredDoctor(
     val isFeatured: Boolean = false,
     val paymentMethod: String = "",
     val paymentTxnId: String = "",
-    val registrationDate: String = ""
+    val registrationDate: String = "",
+    val password: String = ""
 )
 
 @com.squareup.moshi.JsonClass(generateAdapter = true)
@@ -591,7 +594,8 @@ data class V9SubscriptionPlan(
     val price: Double = 0.0,
     val durationDays: Int = 30,
     val descriptionEn: String = "",
-    val descriptionBn: String = ""
+    val descriptionBn: String = "",
+    val targetRole: String = "All"
 )
 
 @com.squareup.moshi.JsonClass(generateAdapter = true)
@@ -632,7 +636,8 @@ data class RegisteredHospital(
     val country: String = "Bangladesh",
     val paymentMethod: String = "", // "bKash", "Nagad", "Rocket", "Google Pay"
     val paymentTxnId: String = "",
-    val registrationDate: String = ""
+    val registrationDate: String = "",
+    val password: String = ""
 )
 
 @com.squareup.moshi.JsonClass(generateAdapter = true)

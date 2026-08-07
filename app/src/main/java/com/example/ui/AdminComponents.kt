@@ -71,20 +71,6 @@ fun saveMediaUriToInternalStorage(context: Context, uri: Uri, isVideo: Boolean):
     }
 }
 
-fun convertUriToUniversalLink(context: Context, uri: Uri, isVideo: Boolean): String {
-    return try {
-        context.contentResolver.openInputStream(uri)?.use { inputStream ->
-            val bytes = inputStream.readBytes()
-            val base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
-            val mimeType = if (isVideo) "video/mp4" else "image/jpeg"
-            "data:$mimeType;base64,$base64"
-        } ?: uri.toString()
-    } catch (e: Exception) {
-        e.printStackTrace()
-        uri.toString()
-    }
-}
-
 @Composable
 fun AdminStatCard(
     title: String,
@@ -3352,20 +3338,14 @@ fun AdminSettingsTab(
         var customMediaUrlInput by remember { mutableStateOf("") }
         var selectedGalleryUri by remember { mutableStateOf<Uri?>(null) }
 
-        // Setup image/video picker launcher from gallery with persistent storage saving & global link generation
-        val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+        // Setup image/video picker launcher from gallery with persistent storage saving
         val adMediaPickerLauncher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.GetContent()
         ) { uri: Uri? ->
             if (uri != null) {
                 val persistentPath = saveMediaUriToInternalStorage(context, uri, isVideoType)
                 selectedGalleryUri = Uri.parse(persistentPath)
-                val generatedLink = convertUriToUniversalLink(context, uri, isVideoType)
-                if (generatedLink.isNotBlank()) {
-                    customMediaUrlInput = generatedLink
-                }
                 mediaSourceType = "gallery"
-                Toast.makeText(context, if (language == AppLanguage.ENG) "Global shareable link generated!" else "সার্ভার ও সব ফোনের জন্য গ্লোবাল লিংক সফলভাবে জেনারেট হয়েছে!", Toast.LENGTH_LONG).show()
             }
         }
 
@@ -3954,75 +3934,27 @@ fun AdminSettingsTab(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = if (selectedGalleryUri == null && customMediaUrlInput.isBlank()) {
-                                        if (language == AppLanguage.ENG) "Click to Pick File from Gallery & Generate Link" else "গ্যালারি থেকে সিলেক্ট করুন (অটো-লিংক জেনারেট হবে)"
+                                    text = if (selectedGalleryUri == null) {
+                                        if (language == AppLanguage.ENG) "Click to Pick File from Gallery" else "গ্যালারি থেকে ফাইল নির্বাচন করতে ক্লিক করুন"
                                     } else {
-                                        if (language == AppLanguage.ENG) "File Picked & Global Link Generated!" else "গ্যালারি সিলেক্টেড • ইউনিভার্সাল লিংক প্রস্তুত!"
+                                        if (language == AppLanguage.ENG) "File Selected!" else "ফাইল সফলভাবে সিলেক্ট হয়েছে!"
                                     },
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (selectedGalleryUri == null && customMediaUrlInput.isBlank()) AdminTextWhite else AdminAccGreen
+                                    color = if (selectedGalleryUri == null) AdminTextWhite else AdminAccGreen
                                 )
                             }
                         }
 
-                        if (customMediaUrlInput.isNotBlank()) {
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
-                                border = BorderStroke(1.dp, AdminAccGreen.copy(alpha = 0.6f)),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Column(modifier = Modifier.padding(10.dp)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = if (language == AppLanguage.ENG) "🌐 Generated Shareable Global Link" else "🌐 অটো-জেনারেটেড ইউনিভার্সাল গ্লোবাল লিংক",
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = AdminAccGreen
-                                        )
-                                        TextButton(
-                                            onClick = {
-                                                clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(customMediaUrlInput))
-                                                Toast.makeText(context, if (language == AppLanguage.ENG) "Link copied to clipboard!" else "গ্লোবাল লিংক ক্লিপবোর্ডে কপি করা হয়েছে!", Toast.LENGTH_SHORT).show()
-                                            },
-                                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
-                                        ) {
-                                            Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = AdminAccGreen, modifier = Modifier.size(13.dp))
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text(if (language == AppLanguage.ENG) "Copy Link" else "কপি লিংক", fontSize = 10.sp, color = AdminAccGreen)
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    OutlinedTextField(
-                                        value = customMediaUrlInput,
-                                        onValueChange = { customMediaUrlInput = it },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp, color = AdminTextWhite),
-                                        maxLines = 2,
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            focusedBorderColor = AdminAccGreen,
-                                            unfocusedBorderColor = AdminBorder,
-                                            focusedContainerColor = AdminDarkBg,
-                                            unfocusedContainerColor = AdminDarkBg
-                                        )
-                                    )
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Text(
-                                        text = if (language == AppLanguage.ENG)
-                                            "✅ Safe for cross-device sync! Any phone opening this ad will render the video/photo."
-                                        else
-                                            "✅ গ্লোবাল নেটওয়ার্ক লিংক প্রস্তুত! অন্য যেকোনো ফোনেই এই অ্যাড ভিডিও/ছবি ওপেন ও প্লে হবে।",
-                                        fontSize = 9.sp,
-                                        color = AdminTextMuted
-                                    )
-                                }
-                            }
+                        if (selectedGalleryUri != null) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "URI: ${selectedGalleryUri.toString()}",
+                                fontSize = 9.sp,
+                                color = AdminTextMuted,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                     }
 
@@ -4036,10 +3968,10 @@ fun AdminSettingsTab(
                                 return@Button
                             }
 
-                            val finalMediaUrl = if (customMediaUrlInput.isNotBlank()) {
+                            val finalMediaUrl = if (mediaSourceType == "url") {
                                 customMediaUrlInput
                             } else {
-                                selectedGalleryUri?.toString() ?: ""
+                                selectedGalleryUri?.toString() ?: customMediaUrlInput
                             }
 
                             if (finalMediaUrl.isBlank()) {

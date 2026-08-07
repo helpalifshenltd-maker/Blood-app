@@ -2020,6 +2020,33 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
     var expandedUpazila by remember { mutableStateOf(false) }
     var expandedCountry by remember { mutableStateOf(false) }
 
+    // Unified Account Dropdown States
+    var regAccountType by remember { mutableStateOf("Donor") } // "Donor", "Requester", "Hospital", "Doctor", "Ambulance"
+    var expandedAccountType by remember { mutableStateOf(false) }
+
+    // Hospital Specific Registration States
+    var hospNameInput by remember { mutableStateOf("") }
+    var hospTypeInput by remember { mutableStateOf("Hospital") }
+    var hospAddressInput by remember { mutableStateOf("") }
+    var hospPhoneInput by remember { mutableStateOf("") }
+    var hospEmailInput by remember { mutableStateOf("") }
+    var hospPasswordInput by remember { mutableStateOf("") }
+    var hospServicesInput by remember { mutableStateOf("Emergency, ICU, Pathology, Blood Bank") }
+    var hospBloodAvailInput by remember { mutableStateOf("A+, B+, O+, AB+ Available") }
+    var expandedHospType by remember { mutableStateOf(false) }
+
+    // Doctor Specific Registration States
+    var docNameInput by remember { mutableStateOf("") }
+    var docDegreeInput by remember { mutableStateOf("MBBS, FCPS") }
+    var docSpecialtyInput by remember { mutableStateOf("General Medicine") }
+    var docHospitalNameInput by remember { mutableStateOf("") }
+    var docChamberAddressInput by remember { mutableStateOf("") }
+    var docPhoneInput by remember { mutableStateOf("") }
+    var docEmailInput by remember { mutableStateOf("") }
+    var docPasswordInput by remember { mutableStateOf("") }
+    var docVisitingHoursInput by remember { mutableStateOf("5:00 PM - 9:00 PM") }
+    var docFeeInput by remember { mutableStateOf("500 BDT") }
+
     // Sync regRoleInput when selectedTab changes
     androidx.compose.runtime.LaunchedEffect(selectedTab) {
         if (selectedTab == 1) {
@@ -2606,13 +2633,12 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
 
         Spacer(modifier = Modifier.height(30.dp))
 
-        // Tab Row Switcher (4 options)
+        // Tab Row Switcher (Unified 2 options: Sign In & Register)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color.White, RoundedCornerShape(25.dp))
-                .padding(4.dp)
-                .horizontalScroll(rememberScrollState()),
+                .padding(4.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             Button(
@@ -2623,76 +2649,42 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
                 ),
                 shape = RoundedCornerShape(25.dp),
                 modifier = Modifier
+                    .weight(1f)
                     .testTag("tab_login"),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp)
             ) {
                 Text(
-                    text = if (language == AppLanguage.BAN) "লগ ইন" else "Sign In",
+                    text = if (language == AppLanguage.BAN) "লগ ইন (Sign In)" else "Sign In",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp,
+                    fontSize = 13.sp,
                     maxLines = 1
                 )
             }
+
+            Spacer(modifier = Modifier.width(4.dp))
 
             Button(
                 onClick = { selectedTab = 1 },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (selectedTab == 1) BloodRed else Color.Transparent,
-                    contentColor = if (selectedTab == 1) Color.White else DarkText
+                    containerColor = if (selectedTab != 0) BloodRed else Color.Transparent,
+                    contentColor = if (selectedTab != 0) Color.White else DarkText
                 ),
                 shape = RoundedCornerShape(25.dp),
                 modifier = Modifier
-                    .testTag("tab_register_seeker"),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
+                    .weight(1f)
+                    .testTag("tab_register"),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp)
             ) {
                 Text(
-                    text = if (language == AppLanguage.BAN) "রক্ত গ্রহীতা" else "Blood Seeker",
+                    text = if (language == AppLanguage.BAN) "রেজিস্ট্রেশন করুন (Register)" else "Register Account",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp,
-                    maxLines = 1
-                )
-            }
-
-            Button(
-                onClick = { selectedTab = 2 },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (selectedTab == 2) BloodRed else Color.Transparent,
-                    contentColor = if (selectedTab == 2) Color.White else DarkText
-                ),
-                shape = RoundedCornerShape(25.dp),
-                modifier = Modifier
-                    .testTag("tab_register_donor"),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
-            ) {
-                Text(
-                    text = if (language == AppLanguage.BAN) "রক্তদাতা" else "Join Donor",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp,
-                    maxLines = 1
-                )
-            }
-
-            Button(
-                onClick = { selectedTab = 3 },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (selectedTab == 3) BloodRed else Color.Transparent,
-                    contentColor = if (selectedTab == 3) Color.White else DarkText
-                ),
-                shape = RoundedCornerShape(25.dp),
-                modifier = Modifier
-                    .testTag("tab_register_ambulance"),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
-            ) {
-                Text(
-                    text = if (language == AppLanguage.BAN) "অ্যাম্বুলেন্স" else "Ambulance",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp,
+                    fontSize = 13.sp,
                     maxLines = 1
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         if (selectedTab == 0) {
             // LOGIN FORM
@@ -2791,18 +2783,18 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
                             Toast.makeText(
                                 context,
                                 if (language == AppLanguage.BAN) 
-                                    "ভুল পাসওয়ার্ড! পাসওয়ার্ড মনে না থাকলে দয়া করে 'পাসওয়ার্ড ভুলে গেছেন?' অপশনে ক্লিক করে পাসওয়ার্ড রিসেট করুন।" 
+                                    "ভুল পাসওয়ার্ড! দয়া করে সঠিক পাসওয়ার্ড দিয়ে চেষ্টা করুন।" 
                                 else 
-                                    "Incorrect password! If you don't remember your password, please use the 'Forgot Password?' option to reset it.",
+                                    "Incorrect password! Please try with the correct password.",
                                 Toast.LENGTH_LONG
                             ).show()
                         } else {
                             Toast.makeText(
                                 context,
                                 if (language == AppLanguage.BAN) 
-                                    "লগইন ব্যর্থ হয়েছে! এই ইমেইল বা ফোন নম্বর দিয়ে কোনো অ্যাকাউন্ট নেই।" 
+                                    "লগইন ব্যর্থ হয়েছে! এই ইমেইল বা ফোন নম্বর দিয়ে কোনো অ্যাকাউন্ট তৈরি করা নেই। অনুগ্রহ করে প্রথমে রেজিস্ট্রেশন সম্পন্ন করুন।" 
                                 else 
-                                    "Login failed! There is no account registered with this email or phone.",
+                                    "Login failed! No account is created with this email or phone number. Please complete registration first.",
                                 Toast.LENGTH_LONG
                             ).show()
                         }
@@ -2835,11 +2827,11 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
                     fontSize = 14.sp
                 )
                 Text(
-                    text = if (language == AppLanguage.BAN) "নিবন্ধন করুন" else "Register Now",
+                    text = if (language == AppLanguage.BAN) "রেজিস্ট্রেশন করুন" else "Register Now",
                     color = BloodRed,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
-                    modifier = Modifier.clickable { selectedTab = 2 }
+                    modifier = Modifier.clickable { selectedTab = 1 }
                 )
             }
 
@@ -2866,103 +2858,138 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
                 )
             }
         } else {
-            // REGISTER FORM
-            Text(
-                text = if (selectedTab == 1) {
-                    if (language == AppLanguage.BAN) "রক্ত গ্রহীতা (Seeker) হিসেবে নিবন্ধন" else "Register as Blood Seeker"
-                } else {
-                    if (language == AppLanguage.BAN) "রক্তদাতা (Donor) হিসেবে যোগ দিন" else "Join as Blood Donor"
-                },
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = BloodRed
-                ),
-                modifier = Modifier.padding(bottom = 16.dp).align(Alignment.Start)
-            )
-
-            OutlinedTextField(
-                value = regNameInput,
-                onValueChange = { regNameInput = it },
-                label = { Text(strings["name_label"] ?: "Full Name") },
+            // REGISTER FORM WITH UNIFIED DROPDOWN SELECTOR
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .testTag("reg_name_input"),
-                shape = RoundedCornerShape(12.dp),
-                leadingIcon = { Icon(Icons.Filled.Person, contentDescription = "User icon") }
-            )
+                    .padding(bottom = 16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
+                border = BorderStroke(1.5.dp, Color(0xFFFF9800)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Text(
+                        text = if (language == AppLanguage.BAN) "অ্যাকাউন্ট ক্যাটাগরি / ধরন নির্বাচন করুন (Dropdown):" else "Select Account Category (Dropdown):",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = Color(0xFFE65100)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = when (regAccountType) {
+                                "Doctor" -> if (language == AppLanguage.BAN) "🩺 ডাক্তার / কনসালটেন্ট একাউন্ট" else "🩺 Doctor / Specialist"
+                                "Hospital" -> if (language == AppLanguage.BAN) "🏥 হাসপাতাল / ডায়াগনস্টিক সেন্টারের একাউন্ট" else "🏥 Hospital / Diagnostic Center"
+                                "Donor" -> if (language == AppLanguage.BAN) "🩸 সাধারণ রক্তদাতা (Blood Donor)" else "🩸 Blood Donor"
+                                "Requester" -> if (language == AppLanguage.BAN) "🩸 রক্ত গ্রহীতা (Blood Seeker)" else "🩸 Blood Seeker"
+                                "Ambulance" -> if (language == AppLanguage.BAN) "🚑 অ্যাম্বুলেন্স সার্ভিস একাউন্ট" else "🚑 Ambulance Service"
+                                else -> "🩸 Blood Donor"
+                            },
+                            onValueChange = {},
+                            readOnly = true,
+                            trailingIcon = { Icon(Icons.Filled.ArrowDropDown, "down", tint = BloodRed) },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = BloodRed,
+                                unfocusedBorderColor = Color(0xFFFFB74D),
+                                focusedContainerColor = Color.White,
+                                unfocusedContainerColor = Color.White
+                            )
+                        )
+                        Box(modifier = Modifier.matchParentSize().clickable { expandedAccountType = true })
 
-            Spacer(modifier = Modifier.height(12.dp))
+                        DropdownMenu(
+                            expanded = expandedAccountType,
+                            onDismissRequest = { expandedAccountType = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("🩺 " + (if (language == AppLanguage.BAN) "ডাক্তার / কনসালটেন্ট একাউন্ট (Doctor)" else "Doctor / Specialist"), fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)) },
+                                onClick = {
+                                    regAccountType = "Doctor"
+                                    regRoleInput = "Doctor"
+                                    expandedAccountType = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("🏥 " + (if (language == AppLanguage.BAN) "হাসপাতাল / ডায়াগনস্টিক সেন্টার (Hospital)" else "Hospital / Clinic"), fontWeight = FontWeight.Bold, color = Color(0xFF1565C0)) },
+                                onClick = {
+                                    regAccountType = "Hospital"
+                                    regRoleInput = "Hospital"
+                                    expandedAccountType = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("🩸 " + (if (language == AppLanguage.BAN) "সাধারণ রক্তদাতা (Blood Donor)" else "Blood Donor"), fontWeight = FontWeight.Bold) },
+                                onClick = {
+                                    regAccountType = "Donor"
+                                    regRoleInput = "Donor"
+                                    expandedAccountType = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("🩸 " + (if (language == AppLanguage.BAN) "রক্ত গ্রহীতা (Blood Seeker)" else "Blood Seeker"), fontWeight = FontWeight.Bold) },
+                                onClick = {
+                                    regAccountType = "Requester"
+                                    regRoleInput = "Requester"
+                                    expandedAccountType = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("🚑 " + (if (language == AppLanguage.BAN) "অ্যাম্বুলেন্স সার্ভিস একাউন্ট (Ambulance)" else "Ambulance Service"), fontWeight = FontWeight.Bold) },
+                                onClick = {
+                                    regAccountType = "Ambulance"
+                                    regRoleInput = "Ambulance"
+                                    expandedAccountType = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
 
-            OutlinedTextField(
-                value = regPhoneInput,
-                onValueChange = { regPhoneInput = it },
-                label = { Text(strings["phone_label"] ?: "Phone Number") },
-                placeholder = { Text("e.g. 01712345678") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("reg_phone_input"),
-                shape = RoundedCornerShape(12.dp),
-                leadingIcon = { Icon(Icons.Filled.Phone, contentDescription = "Phone") }
-            )
+            if (regAccountType == "Hospital") {
+                // HOSPITAL REGISTRATION FORM
+                Text(
+                    text = if (language == AppLanguage.BAN) "🏥 হাসপাতাল / ডায়াগনস্টিক সেন্টার রেজিস্ট্রেশন" else "🏥 Hospital / Clinic Account Setup",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1565C0)),
+                    modifier = Modifier.padding(bottom = 12.dp).align(Alignment.Start)
+                )
 
-            Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = hospNameInput,
+                    onValueChange = { hospNameInput = it },
+                    label = { Text(if (language == AppLanguage.BAN) "হাসপাতাল / ক্লিকের নাম" else "Hospital / Clinic Name") },
+                    placeholder = { Text("e.g. Labaid Hospital & Diagnostic") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    leadingIcon = { Icon(Icons.Filled.LocalHospital, contentDescription = "Hospital") }
+                )
 
-            OutlinedTextField(
-                value = regEmailInput,
-                onValueChange = { regEmailInput = it },
-                label = { Text(strings["email_label"] ?: "Email Address") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("reg_email_input"),
-                shape = RoundedCornerShape(12.dp),
-                leadingIcon = { Icon(Icons.Filled.Email, contentDescription = "Email") }
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            OutlinedTextField(
-                value = regPasswordInput,
-                onValueChange = { regPasswordInput = it },
-                label = { Text(strings["password_label"] ?: "Password") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("reg_password_input"),
-                shape = RoundedCornerShape(12.dp),
-                leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = "Lock") }
-            )
-
-            if (regRoleInput != "Ambulance") {
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Dropdown for Blood Group selector
                 Box(modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(
-                        value = regBloodInput,
+                        value = hospTypeInput,
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text(strings["bg_label"] ?: "Blood Group") },
+                        label = { Text(if (language == AppLanguage.BAN) "প্রতিষ্ঠানের ধরণ (Category)" else "Facility Type") },
                         trailingIcon = { Icon(Icons.Filled.ArrowDropDown, "down") },
-                        modifier = Modifier
-                            .fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        leadingIcon = { Icon(Icons.Filled.Bloodtype, contentDescription = "Blood Group") }
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
                     )
-                    Box(modifier = Modifier.matchParentSize().clickable { expandedBlood = true })
-                    
+                    Box(modifier = Modifier.matchParentSize().clickable { expandedHospType = true })
+
                     DropdownMenu(
-                        expanded = expandedBlood,
-                        onDismissRequest = { expandedBlood = false }
+                        expanded = expandedHospType,
+                        onDismissRequest = { expandedHospType = false }
                     ) {
-                        bloodGroups.forEach { group ->
+                        listOf("Hospital", "Diagnostic Center", "Hospital & Diagnostic").forEach { hType ->
                             DropdownMenuItem(
-                                text = { Text(group, fontWeight = FontWeight.Bold, color = BloodRed) },
+                                text = { Text(hType, fontWeight = FontWeight.Bold) },
                                 onClick = {
-                                    regBloodInput = group
-                                    expandedBlood = false
+                                    hospTypeInput = hType
+                                    expandedHospType = false
                                 }
                             )
                         }
@@ -2970,133 +2997,476 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
-            } else {
-                Spacer(modifier = Modifier.height(12.dp))
-            }
 
-            val isBD = regCountryInput.equals("Bangladesh", ignoreCase = true)
-
-            Row(modifier = Modifier.fillMaxWidth()) {
-                Box(modifier = Modifier.weight(1f)) {
-                    OutlinedTextField(
-                        value = regDistrictInput,
-                        onValueChange = { regDistrictInput = it },
-                        label = { Text(if (isBD) (strings["district_label"] ?: "District") else (strings["city_state_label"] ?: "City / State")) },
-                        placeholder = { Text(if (isBD) "e.g., Dhaka" else "e.g., New York") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Box(modifier = Modifier.weight(1f)) {
-                    OutlinedTextField(
-                        value = regUpazilaInput,
-                        onValueChange = { regUpazilaInput = it },
-                        label = { Text(if (isBD) (strings["upazila_label"] ?: "Upazila") else (if (language == AppLanguage.BAN) "অঞ্চল" else "Region")) },
-                        placeholder = { Text(if (isBD) "e.g., Mirpur" else "e.g., Queens") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            OutlinedTextField(
-                value = regVillageInput,
-                onValueChange = { regVillageInput = it },
-                label = { Text(if (language == AppLanguage.BAN) "গ্রাম / ইউনিয়ন / সুনির্দিষ্ট ঠিকানা" else "Village / Union / Detailed Address") },
-                placeholder = { Text(if (language == AppLanguage.BAN) "আপনার গ্রাম বা সুনির্দিষ্ট এলাকার নাম লিখুন" else "e.g., Moddhopara, Ward 3") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-            ) {
                 OutlinedTextField(
-                    value = regCountryInput,
-                    onValueChange = {},
-                    readOnly = true,
-                    enabled = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = DarkText,
-                        unfocusedTextColor = DarkText,
-                        focusedBorderColor = BloodRed,
-                        unfocusedBorderColor = LightBorder,
-                        focusedLeadingIconColor = BloodRed,
-                        unfocusedLeadingIconColor = BloodRed,
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White
-                    ),
-                    label = { Text(if (language == AppLanguage.BAN) "দেশ (Country)" else "Country (দেশ)") },
-                    placeholder = { Text("e.g. Bangladesh") },
-                    trailingIcon = { Icon(Icons.Filled.ArrowDropDown, "down") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("reg_country_input"),
+                    value = hospPhoneInput,
+                    onValueChange = { hospPhoneInput = it },
+                    label = { Text(if (language == AppLanguage.BAN) "জরুরি যোগাযোগ ফোন নাম্বার" else "Emergency Phone Number") },
+                    placeholder = { Text("e.g. 01712345678") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    leadingIcon = { Icon(Icons.Filled.LocationOn, contentDescription = "Country") }
+                    leadingIcon = { Icon(Icons.Filled.Phone, contentDescription = "Phone") }
                 )
-                Box(modifier = Modifier.matchParentSize().clickable { expandedCountry = true })
 
-                DropdownMenu(
-                    expanded = expandedCountry,
-                    onDismissRequest = { expandedCountry = false }
-                ) {
-                    val countryList by viewModel.customCountries.collectAsState()
-                    countryList.forEach { (ctyName, ctyCode) ->
-                        val flag = try {
-                            val firstChar = Character.codePointAt(ctyCode.uppercase(), 0) - 0x41 + 0x1F1E6
-                            val secondChar = Character.codePointAt(ctyCode.uppercase(), 1) - 0x41 + 0x1F1E6
-                            String(Character.toChars(firstChar)) + String(Character.toChars(secondChar))
-                        } catch (e: Exception) {
-                            "🌐"
-                        }
-                        DropdownMenuItem(
-                            text = { Text("$flag $ctyName", fontSize = 14.sp) },
-                            onClick = {
-                                regCountryInput = ctyName
-                                if (ctyName != "Bangladesh") {
-                                    regDistrictInput = ""
-                                    regUpazilaInput = ""
-                                } else {
-                                    regDistrictInput = "Dhaka"
-                                    regUpazilaInput = "Mirpur"
-                                }
-                                expandedCountry = false
-                            }
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = hospEmailInput,
+                    onValueChange = { hospEmailInput = it },
+                    label = { Text(if (language == AppLanguage.BAN) "ইমেইল এড্রেস" else "Email Address") },
+                    placeholder = { Text("e.g. labaid@hospital.com") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    leadingIcon = { Icon(Icons.Filled.Email, contentDescription = "Email") }
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = hospPasswordInput,
+                    onValueChange = { hospPasswordInput = it },
+                    label = { Text(if (language == AppLanguage.BAN) "পাসওয়ার্ড" else "Password") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = "Lock") }
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = hospAddressInput,
+                    onValueChange = { hospAddressInput = it },
+                    label = { Text(if (language == AppLanguage.BAN) "ঠিকানা / লোকেশন" else "Address / Location") },
+                    placeholder = { Text("e.g. Green Road, Dhanmondi") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    leadingIcon = { Icon(Icons.Filled.LocationOn, contentDescription = "Address") }
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                val isBD = regCountryInput.equals("Bangladesh", ignoreCase = true)
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        OutlinedTextField(
+                            value = regDistrictInput,
+                            onValueChange = { regDistrictInput = it },
+                            label = { Text(if (isBD) (strings["district_label"] ?: "District") else "City / State") },
+                            placeholder = { Text("e.g. Dhaka") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Box(modifier = Modifier.weight(1f)) {
+                        OutlinedTextField(
+                            value = regUpazilaInput,
+                            onValueChange = { regUpazilaInput = it },
+                            label = { Text(if (isBD) (strings["upazila_label"] ?: "Upazila") else "Region") },
+                            placeholder = { Text("e.g. Dhanmondi") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
                         )
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-            if (regRoleInput == "Donor") {
                 OutlinedTextField(
-                    value = regLastDonationInput,
-                    onValueChange = { regLastDonationInput = it },
-                    label = { Text(strings["last_donation_label"] ?: "Last Donation Date") },
-                    placeholder = { Text(strings["last_donation_placeholder"] ?: "e.g. 2026-03-10 or Never") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("reg_last_donation_input"),
-                    shape = RoundedCornerShape(12.dp),
-                    leadingIcon = { Icon(Icons.Filled.CalendarMonth, contentDescription = "Calendar") }
+                    value = hospServicesInput,
+                    onValueChange = { hospServicesInput = it },
+                    label = { Text(if (language == AppLanguage.BAN) "উপলব্ধ সার্ভিসসমূহ" else "Available Services") },
+                    placeholder = { Text("e.g. Emergency, ICU, Pathology, Blood Bank, MRI") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
-            } else {
                 Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = hospBloodAvailInput,
+                    onValueChange = { hospBloodAvailInput = it },
+                    label = { Text(if (language == AppLanguage.BAN) "রক্তের প্রাপ্যতা তথ্য" else "Blood Availability Status") },
+                    placeholder = { Text("e.g. A+, B+, O+, AB+ Available") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+            } else if (regAccountType == "Doctor") {
+                // DOCTOR REGISTRATION FORM
+                Text(
+                    text = if (language == AppLanguage.BAN) "🩺 ডাক্তার / কনসালটেন্ট অ্যাকাউন্ট রেজিস্ট্রেশন" else "🩺 Doctor / Specialist Registration",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)),
+                    modifier = Modifier.padding(bottom = 12.dp).align(Alignment.Start)
+                )
+
+                OutlinedTextField(
+                    value = docNameInput,
+                    onValueChange = { docNameInput = it },
+                    label = { Text(if (language == AppLanguage.BAN) "ডাক্তারের পূর্ণ নাম" else "Doctor's Full Name") },
+                    placeholder = { Text("e.g. Dr. Md. Rahman") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    leadingIcon = { Icon(Icons.Filled.Person, contentDescription = "Doctor") }
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = docDegreeInput,
+                    onValueChange = { docDegreeInput = it },
+                    label = { Text(if (language == AppLanguage.BAN) "ডিগ্রি ও খেতাব (Degrees)" else "Degrees & Qualifications") },
+                    placeholder = { Text("e.g. MBBS, FCPS (Cardiology)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = docSpecialtyInput,
+                    onValueChange = { docSpecialtyInput = it },
+                    label = { Text(if (language == AppLanguage.BAN) "বিশেষজ্ঞতা / ডিপার্টমেন্ট" else "Specialty / Department") },
+                    placeholder = { Text("e.g. Cardiology, Medicine, Surgery") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = docHospitalNameInput,
+                    onValueChange = { docHospitalNameInput = it },
+                    label = { Text(if (language == AppLanguage.BAN) "হাসপাতাল / চেম্বারের নাম" else "Hospital / Chamber Name") },
+                    placeholder = { Text("e.g. Popular Diagnostic Center") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = docChamberAddressInput,
+                    onValueChange = { docChamberAddressInput = it },
+                    label = { Text(if (language == AppLanguage.BAN) "চেম্বারের ঠিকানা" else "Chamber Address") },
+                    placeholder = { Text("e.g. House 12, Road 5, Dhanmondi") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = docPhoneInput,
+                    onValueChange = { docPhoneInput = it },
+                    label = { Text(if (language == AppLanguage.BAN) "যোগাযোগের ফোন নম্বর" else "Contact Phone Number") },
+                    placeholder = { Text("e.g. 01712345678") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    leadingIcon = { Icon(Icons.Filled.Phone, contentDescription = "Phone") }
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = docEmailInput,
+                    onValueChange = { docEmailInput = it },
+                    label = { Text(if (language == AppLanguage.BAN) "ইমেইল এড্রেস" else "Email Address") },
+                    placeholder = { Text("e.g. doctor@email.com") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    leadingIcon = { Icon(Icons.Filled.Email, contentDescription = "Email") }
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = docPasswordInput,
+                    onValueChange = { docPasswordInput = it },
+                    label = { Text(if (language == AppLanguage.BAN) "পাসওয়ার্ড" else "Password") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = "Lock") }
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                val isBD = regCountryInput.equals("Bangladesh", ignoreCase = true)
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        OutlinedTextField(
+                            value = regDistrictInput,
+                            onValueChange = { regDistrictInput = it },
+                            label = { Text(if (isBD) (strings["district_label"] ?: "District") else "City / State") },
+                            placeholder = { Text("e.g. Dhaka") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Box(modifier = Modifier.weight(1f)) {
+                        OutlinedTextField(
+                            value = regUpazilaInput,
+                            onValueChange = { regUpazilaInput = it },
+                            label = { Text(if (isBD) (strings["upazila_label"] ?: "Upazila") else "Region") },
+                            placeholder = { Text("e.g. Dhanmondi") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = docVisitingHoursInput,
+                    onValueChange = { docVisitingHoursInput = it },
+                    label = { Text(if (language == AppLanguage.BAN) "রোগী দেখার সময়সূচী" else "Visiting Hours") },
+                    placeholder = { Text("e.g. 5:00 PM - 9:00 PM (Fri Off)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = docFeeInput,
+                    onValueChange = { docFeeInput = it },
+                    label = { Text(if (language == AppLanguage.BAN) "রোগী দেখার ভিজিট ফি" else "Consultation Fee") },
+                    placeholder = { Text("e.g. 500 BDT") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+            } else {
+                // DONOR / SEEKER / AMBULANCE FORM
+                OutlinedTextField(
+                    value = regNameInput,
+                    onValueChange = { regNameInput = it },
+                    label = { Text(strings["name_label"] ?: "Full Name") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("reg_name_input"),
+                    shape = RoundedCornerShape(12.dp),
+                    leadingIcon = { Icon(Icons.Filled.Person, contentDescription = "User icon") }
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = regPhoneInput,
+                    onValueChange = { regPhoneInput = it },
+                    label = { Text(strings["phone_label"] ?: "Phone Number") },
+                    placeholder = { Text("e.g. 01712345678") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("reg_phone_input"),
+                    shape = RoundedCornerShape(12.dp),
+                    leadingIcon = { Icon(Icons.Filled.Phone, contentDescription = "Phone") }
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = regEmailInput,
+                    onValueChange = { regEmailInput = it },
+                    label = { Text(strings["email_label"] ?: "Email Address") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("reg_email_input"),
+                    shape = RoundedCornerShape(12.dp),
+                    leadingIcon = { Icon(Icons.Filled.Email, contentDescription = "Email") }
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = regPasswordInput,
+                    onValueChange = { regPasswordInput = it },
+                    label = { Text(strings["password_label"] ?: "Password") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("reg_password_input"),
+                    shape = RoundedCornerShape(12.dp),
+                    leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = "Lock") }
+                )
+
+                if (regRoleInput != "Ambulance") {
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = regBloodInput,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text(strings["bg_label"] ?: "Blood Group") },
+                            trailingIcon = { Icon(Icons.Filled.ArrowDropDown, "down") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            leadingIcon = { Icon(Icons.Filled.Bloodtype, contentDescription = "Blood Group") }
+                        )
+                        Box(modifier = Modifier.matchParentSize().clickable { expandedBlood = true })
+                        
+                        DropdownMenu(
+                            expanded = expandedBlood,
+                            onDismissRequest = { expandedBlood = false }
+                        ) {
+                            bloodGroups.forEach { group ->
+                                DropdownMenuItem(
+                                    text = { Text(group, fontWeight = FontWeight.Bold, color = BloodRed) },
+                                    onClick = {
+                                        regBloodInput = group
+                                        expandedBlood = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                } else {
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                val isBD = regCountryInput.equals("Bangladesh", ignoreCase = true)
+
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        OutlinedTextField(
+                            value = regDistrictInput,
+                            onValueChange = { regDistrictInput = it },
+                            label = { Text(if (isBD) (strings["district_label"] ?: "District") else (strings["city_state_label"] ?: "City / State")) },
+                            placeholder = { Text(if (isBD) "e.g., Dhaka" else "e.g., New York") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Box(modifier = Modifier.weight(1f)) {
+                        OutlinedTextField(
+                            value = regUpazilaInput,
+                            onValueChange = { regUpazilaInput = it },
+                            label = { Text(if (isBD) (strings["upazila_label"] ?: "Upazila") else (if (language == AppLanguage.BAN) "অঞ্চল" else "Region")) },
+                            placeholder = { Text(if (isBD) "e.g., Mirpur" else "e.g., Queens") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedTextField(
+                    value = regVillageInput,
+                    onValueChange = { regVillageInput = it },
+                    label = { Text(if (language == AppLanguage.BAN) "গ্রাম / ইউনিয়ন / সুনির্দিষ্ট ঠিকানা" else "Village / Union / Detailed Address") },
+                    placeholder = { Text(if (language == AppLanguage.BAN) "আপনার গ্রাম বা সুনির্দিষ্ট এলাকার নাম লিখুন" else "e.g., Moddhopara, Ward 3") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Box(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedTextField(
+                        value = regCountryInput,
+                        onValueChange = {},
+                        readOnly = true,
+                        enabled = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = DarkText,
+                            unfocusedTextColor = DarkText,
+                            focusedBorderColor = BloodRed,
+                            unfocusedBorderColor = LightBorder,
+                            focusedLeadingIconColor = BloodRed,
+                            unfocusedLeadingIconColor = BloodRed,
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White
+                        ),
+                        label = { Text(if (language == AppLanguage.BAN) "দেশ (Country)" else "Country (দেশ)") },
+                        placeholder = { Text("e.g. Bangladesh") },
+                        trailingIcon = { Icon(Icons.Filled.ArrowDropDown, "down") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("reg_country_input"),
+                        shape = RoundedCornerShape(12.dp),
+                        leadingIcon = { Icon(Icons.Filled.LocationOn, contentDescription = "Country") }
+                    )
+                    Box(modifier = Modifier.matchParentSize().clickable { expandedCountry = true })
+
+                    DropdownMenu(
+                        expanded = expandedCountry,
+                        onDismissRequest = { expandedCountry = false }
+                    ) {
+                        val countryList by viewModel.customCountries.collectAsState()
+                        countryList.forEach { (ctyName, ctyCode) ->
+                            val flag = try {
+                                val firstChar = Character.codePointAt(ctyCode.uppercase(), 0) - 0x41 + 0x1F1E6
+                                val secondChar = Character.codePointAt(ctyCode.uppercase(), 1) - 0x41 + 0x1F1E6
+                                String(Character.toChars(firstChar)) + String(Character.toChars(secondChar))
+                            } catch (e: Exception) {
+                                "🌐"
+                            }
+                            DropdownMenuItem(
+                                text = { Text("$flag $ctyName", fontSize = 14.sp) },
+                                onClick = {
+                                    regCountryInput = ctyName
+                                    if (ctyName != "Bangladesh") {
+                                        regDistrictInput = ""
+                                        regUpazilaInput = ""
+                                    } else {
+                                        regDistrictInput = "Dhaka"
+                                        regUpazilaInput = "Mirpur"
+                                    }
+                                    expandedCountry = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                if (regRoleInput == "Donor") {
+                    OutlinedTextField(
+                        value = regLastDonationInput,
+                        onValueChange = { regLastDonationInput = it },
+                        label = { Text(strings["last_donation_label"] ?: "Last Donation Date") },
+                        placeholder = { Text(strings["last_donation_placeholder"] ?: "e.g. 2026-03-10 or Never") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("reg_last_donation_input"),
+                        shape = RoundedCornerShape(12.dp),
+                        leadingIcon = { Icon(Icons.Filled.CalendarMonth, contentDescription = "Calendar") }
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+                } else {
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
             }
 
-            // DONOR REGISTRATION POLICY CHECKBOX & LINK
+            // REGISTRATION POLICY CHECKBOX & LINK
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -3111,24 +3481,47 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
                         .padding(horizontal = 8.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    val (policyTitle, policyThemeColor) = when (regAccountType) {
+                        "Doctor" -> Pair(
+                            if (language == AppLanguage.BAN) "ডাক্তার রেজিস্ট্রেশন নীতি ও শর্তাবলীতে" else "Doctor Registration Terms & Policy",
+                            Color(0xFF8E24AA)
+                        )
+                        "Hospital" -> Pair(
+                            if (language == AppLanguage.BAN) "হাসপাতাল লিস্টিং নীতি ও শর্তাবলীতে" else "Hospital Listing Terms & Policy",
+                            Color(0xFF0288D1)
+                        )
+                        "Ambulance" -> Pair(
+                            if (language == AppLanguage.BAN) "অ্যাম্বুলেন্স সার্ভিস নীতি ও শর্তাবলীতে" else "Ambulance Service Terms & Policy",
+                            Color(0xFFD32F2F)
+                        )
+                        "Requester" -> Pair(
+                            if (language == AppLanguage.BAN) "রক্ত গ্রহীতা নীতি ও শর্তাবলীতে" else "Blood Seeker Terms & Policy",
+                            Color(0xFFE65100)
+                        )
+                        else -> Pair(
+                            if (language == AppLanguage.BAN) "ডোনার নিবন্ধন নীতি ও শর্তাবলীতে" else "Donor Registration Terms & Policy",
+                            BloodRed
+                        )
+                    }
+
                     Checkbox(
                         checked = regPolicyAgreed,
                         onCheckedChange = { regPolicyAgreed = it },
-                        colors = CheckboxDefaults.colors(checkedColor = BloodRed)
+                        colors = CheckboxDefaults.colors(checkedColor = policyThemeColor)
                     )
 
                     val policyText = androidx.compose.ui.text.buildAnnotatedString {
                         append(if (language == AppLanguage.BAN) "আমি " else "I agree to the ")
                         pushStyle(
                             androidx.compose.ui.text.SpanStyle(
-                                color = BloodRed,
+                                color = policyThemeColor,
                                 fontWeight = FontWeight.Bold,
                                 textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
                             )
                         )
-                        append(if (language == AppLanguage.BAN) "ডোনার রেজিস্ট্রেশন পলিসি" else "Donor Registration Policy")
+                        append(policyTitle)
                         pop()
-                        append(if (language == AppLanguage.BAN) " মেনে চলব ও তাতে সম্মত।" else " & Terms.")
+                        append(if (language == AppLanguage.BAN) " সম্মত।" else ".")
                     }
 
                     Text(
@@ -3144,6 +3537,7 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
 
             if (showDonorPolicyDialog) {
                 DonorRegistrationPolicyDialog(
+                    accountType = regAccountType,
                     language = language,
                     onDismiss = { showDonorPolicyDialog = false },
                     onAgree = {
@@ -3157,30 +3551,72 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
 
             Button(
                 onClick = {
-                    if (regNameInput.isBlank() || regPhoneInput.isBlank()) {
-                        Toast.makeText(context, if (language == AppLanguage.BAN) "নাম এবং ফোন নম্বর দেওয়া বাধ্যতামূলক!" else "Name and Phone are mandatory!", Toast.LENGTH_SHORT).show()
-                    } else if (!regPolicyAgreed) {
+                    if (!regPolicyAgreed) {
                         Toast.makeText(
                             context,
-                            if (language == AppLanguage.BAN) "রেজিস্ট্রেশন করতে ডোনার রেজিস্ট্রেশন পলিসিতে টিক চিহ্ন দিয়ে সম্মত হন!" else "Please agree to the Donor Registration Policy to proceed!",
+                            if (language == AppLanguage.BAN) "নিবন্ধন করতে পলিসিতে টিক চিহ্ন দিয়ে সম্মত হন!" else "Please agree to the Registration Policy to proceed!",
                             Toast.LENGTH_LONG
                         ).show()
+                    } else if (regAccountType == "Hospital") {
+                        if (hospNameInput.isBlank() || hospPhoneInput.isBlank()) {
+                            Toast.makeText(context, if (language == AppLanguage.BAN) "হাসপাতালের নাম এবং যোগাযোগের ফোন নম্বর বাধ্যতামূলক!" else "Hospital Name and Phone are required!", Toast.LENGTH_SHORT).show()
+                        } else {
+                            val ok = viewModel.triggerHospitalSignup(
+                                name = hospNameInput,
+                                type = hospTypeInput,
+                                address = hospAddressInput,
+                                district = regDistrictInput.ifBlank { "Dhaka" },
+                                upazila = regUpazilaInput.ifBlank { "Dhanmondi" },
+                                phone = hospPhoneInput,
+                                email = hospEmailInput,
+                                password = hospPasswordInput,
+                                services = hospServicesInput,
+                                bloodAvailability = hospBloodAvailInput,
+                                country = regCountryInput
+                            )
+                            if (ok) showSignupSuccessPopup = true
+                        }
+                    } else if (regAccountType == "Doctor") {
+                        if (docNameInput.isBlank() || docPhoneInput.isBlank()) {
+                            Toast.makeText(context, if (language == AppLanguage.BAN) "ডাক্তারের নাম এবং যোগাযোগের ফোন নম্বর বাধ্যতামূলক!" else "Doctor Name and Phone are required!", Toast.LENGTH_SHORT).show()
+                        } else {
+                            val ok = viewModel.triggerDoctorSignup(
+                                name = docNameInput,
+                                degree = docDegreeInput,
+                                specialty = docSpecialtyInput,
+                                hospitalName = docHospitalNameInput,
+                                chamberAddress = docChamberAddressInput,
+                                district = regDistrictInput.ifBlank { "Dhaka" },
+                                upazila = regUpazilaInput.ifBlank { "Dhanmondi" },
+                                phone = docPhoneInput,
+                                email = docEmailInput,
+                                password = docPasswordInput,
+                                visitingHours = docVisitingHoursInput,
+                                consultationFee = docFeeInput,
+                                country = regCountryInput
+                            )
+                            if (ok) showSignupSuccessPopup = true
+                        }
                     } else {
-                        viewModel.regName = regNameInput
-                        viewModel.regPhone = regPhoneInput
-                        viewModel.regEmail = regEmailInput
-                        viewModel.regPassword = regPasswordInput
-                        viewModel.regBloodGroup = regBloodInput
-                        viewModel.regDistrict = regDistrictInput
-                        viewModel.regUpazila = regUpazilaInput
-                        viewModel.regVillage = regVillageInput
-                        viewModel.regLastDonation = if (regRoleInput == "Donor") regLastDonationInput else "N/A"
-                        viewModel.regCountry = regCountryInput
-                        viewModel.regRole = regRoleInput
+                        if (regNameInput.isBlank() || regPhoneInput.isBlank()) {
+                            Toast.makeText(context, if (language == AppLanguage.BAN) "নাম এবং ফোন নম্বর দেওয়া বাধ্যতামূলক!" else "Name and Phone are mandatory!", Toast.LENGTH_SHORT).show()
+                        } else {
+                            viewModel.regName = regNameInput
+                            viewModel.regPhone = regPhoneInput
+                            viewModel.regEmail = regEmailInput
+                            viewModel.regPassword = regPasswordInput
+                            viewModel.regBloodGroup = regBloodInput
+                            viewModel.regDistrict = regDistrictInput
+                            viewModel.regUpazila = regUpazilaInput
+                            viewModel.regVillage = regVillageInput
+                            viewModel.regLastDonation = if (regRoleInput == "Donor") regLastDonationInput else "N/A"
+                            viewModel.regCountry = regCountryInput
+                            viewModel.regRole = regRoleInput
 
-                        val ok = viewModel.triggerSignup()
-                        if (ok) {
-                            showSignupSuccessPopup = true
+                            val ok = viewModel.triggerSignup()
+                            if (ok) {
+                                showSignupSuccessPopup = true
+                            }
                         }
                     }
                 },
@@ -3188,12 +3624,22 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
                     .fillMaxWidth()
                     .height(54.dp)
                     .testTag("register_btn"),
-                colors = ButtonDefaults.buttonColors(containerColor = BloodRed),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = when (regAccountType) {
+                        "Hospital" -> Color(0xFF1565C0)
+                        "Doctor" -> Color(0xFF2E7D32)
+                        else -> BloodRed
+                    }
+                ),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
-                    text = strings["btn_register"] ?: "Register",
-                    fontSize = 16.sp,
+                    text = when (regAccountType) {
+                        "Hospital" -> if (language == AppLanguage.BAN) "হাসপাতাল একাউন্ট রেজিস্ট্রেশন সম্পন্ন করুন" else "Register Hospital Account"
+                        "Doctor" -> if (language == AppLanguage.BAN) "ডাক্তার একাউন্ট রেজিস্ট্রেশন সম্পন্ন করুন" else "Register Doctor Account"
+                        else -> strings["btn_register"] ?: "Register"
+                    },
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -3285,11 +3731,20 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
 
     if (showSignupSuccessPopup) {
         val isBn = language == AppLanguage.BAN
-        val isAmbulance = viewModel.currentUser.collectAsState().value?.role == "Ambulance"
-        val targetScreen = if (isAmbulance) AppScreen.AMBULANCE_DASHBOARD else AppScreen.HOME
+        val role = viewModel.currentUser.collectAsState().value?.role ?: regAccountType
+        val isAmbulance = role == "Ambulance"
+        val targetScreen = when (role) {
+            "Hospital" -> AppScreen.HOSPITAL_DIRECTORY
+            "Doctor" -> AppScreen.DOCTOR_DIRECTORY
+            "Ambulance" -> AppScreen.AMBULANCE_LIST
+            else -> AppScreen.HOME
+        }
         AlertDialog(
             onDismissRequest = {
                 showSignupSuccessPopup = false
+                if (role == "Hospital" || role == "Doctor" || role == "Ambulance") {
+                    viewModel.triggerAutoShowPlan(role)
+                }
                 viewModel.clearBackStackAndNavigateTo(targetScreen)
             },
             icon = {
@@ -3311,9 +3766,19 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
             text = {
                 Text(
                     text = if (isBn) {
-                        if (isAmbulance) "অভিনন্দন! আপনার অ্যাম্বুলেন্স চালক/মালিক অ্যাকাউন্ট সফলভাবে তৈরি করা হয়েছে।" else "অভিনন্দন! আপনার অ্যাকাউন্টটি সফলভাবে তৈরি করা হয়েছে। আপনি এখন এই সেভিংস ক্লাবের একজন গর্বিত সদস্য।"
+                        when (role) {
+                            "Doctor" -> "অভিনন্দন! আপনার ডাক্তার অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে। এবার প্ল্যান বেছে নিয়ে আপনার প্রোফাইল অ্যাক্টিভ করুন।"
+                            "Hospital" -> "অভিনন্দন! আপনার হাসপাতাল অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে। এবার প্ল্যান বেছে নিয়ে লিস্টিং অ্যাক্টিভ করুন।"
+                            "Ambulance" -> "অভিনন্দন! আপনার অ্যাম্বুলেন্স অ্যাকাউন্ট সফলভাবে তৈরি করা হয়েছে। প্ল্যান নির্বাচন করে সার্ভিস চালু করুন।"
+                            else -> "অভিনন্দন! আপনার অ্যাকাউন্টটি সফলভাবে তৈরি করা হয়েছে।"
+                        }
                     } else {
-                        if (isAmbulance) "Congratulations! Your Ambulance driver/owner account has been created successfully." else "Congratulations! Your account has been created successfully. You are now a proud member of this life-saving club."
+                        when (role) {
+                            "Doctor" -> "Congratulations! Your Doctor account has been created. Select a plan to activate your chamber profile."
+                            "Hospital" -> "Congratulations! Your Hospital account has been created. Select a plan to activate your listing."
+                            "Ambulance" -> "Congratulations! Your Ambulance driver/owner account has been created successfully."
+                            else -> "Congratulations! Your account has been created successfully."
+                        }
                     },
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     fontSize = 14.sp,
@@ -3324,6 +3789,9 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
                 Button(
                     onClick = {
                         showSignupSuccessPopup = false
+                        if (role == "Hospital" || role == "Doctor" || role == "Ambulance") {
+                            viewModel.triggerAutoShowPlan(role)
+                        }
                         viewModel.clearBackStackAndNavigateTo(targetScreen)
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
@@ -3331,9 +3799,9 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
                 ) {
                     Text(
                         text = if (isBn) {
-                            if (isAmbulance) "ড্যাশবোর্ডে যান" else "হোমে যান"
+                            if (role == "Hospital" || role == "Doctor" || role == "Ambulance") "প্ল্যান নির্বাচন করুন" else "হোমে যান"
                         } else {
-                            if (isAmbulance) "Go to Dashboard" else "Go to Home"
+                            if (role == "Hospital" || role == "Doctor" || role == "Ambulance") "Select Plan" else "Go to Home"
                         },
                         color = Color.White,
                         fontWeight = FontWeight.Bold
@@ -5026,31 +5494,9 @@ fun HomeScreen(viewModel: MainViewModel) {
             val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
             val videoUri = remember(videoPath) {
-                try {
-                    if (videoPath.startsWith("data:")) {
-                        val parts = videoPath.split(",")
-                        if (parts.size > 1) {
-                            val base64Data = parts[1]
-                            val bytes = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
-                            val cacheFile = java.io.File(context.cacheDir, "cpa_ad_video_cache.mp4")
-                            java.io.FileOutputStream(cacheFile).use { it.write(bytes) }
-                            android.net.Uri.fromFile(cacheFile)
-                        } else {
-                            android.net.Uri.parse(videoPath)
-                        }
-                    } else if (videoPath.startsWith("file://") || videoPath.startsWith("/")) {
-                        val filePath = if (videoPath.startsWith("file://")) videoPath.substring(7) else videoPath
-                        val f = java.io.File(filePath)
-                        if (f.exists()) {
-                            android.net.Uri.fromFile(f)
-                        } else {
-                            android.net.Uri.parse(videoPath)
-                        }
-                    } else {
-                        android.net.Uri.parse(videoPath)
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
+                if (videoPath.startsWith("/")) {
+                    android.net.Uri.fromFile(java.io.File(videoPath))
+                } else {
                     android.net.Uri.parse(videoPath)
                 }
             }
@@ -5291,19 +5737,8 @@ fun HomeScreen(viewModel: MainViewModel) {
                             )
                         }
                     } else {
-                        val imageModel: Any = remember(selectedAd.bannerUrl) {
-                            if (selectedAd.bannerUrl.startsWith("data:")) {
-                                try {
-                                    val parts = selectedAd.bannerUrl.split(",")
-                                    if (parts.size > 1) {
-                                        android.util.Base64.decode(parts[1], android.util.Base64.DEFAULT)
-                                    } else {
-                                        selectedAd.bannerUrl
-                                    }
-                                } catch (e: Exception) {
-                                    selectedAd.bannerUrl
-                                }
-                            } else if (selectedAd.bannerUrl.startsWith("/")) {
+                        val imageModel = remember(selectedAd.bannerUrl) {
+                            if (selectedAd.bannerUrl.startsWith("/")) {
                                 java.io.File(selectedAd.bannerUrl)
                             } else {
                                 selectedAd.bannerUrl
@@ -9853,14 +10288,6 @@ fun UserProfileScreen(viewModel: MainViewModel) {
         val requestsList by viewModel.requests.collectAsState()
         val ambulancesList by viewModel.ambulances.collectAsState()
         val donationClaimsList by viewModel.donationClaims.collectAsState()
-        val allRegisteredDoctorsList by viewModel.registeredDoctors.collectAsState()
-
-        val myDoctorProfile = remember(allRegisteredDoctorsList, finalUser) {
-            allRegisteredDoctorsList.find { doc ->
-                (doc.phone.isNotBlank() && doc.phone == finalUser.phone) ||
-                (doc.name.isNotBlank() && finalUser.name.isNotBlank() && doc.name.contains(finalUser.name, ignoreCase = true))
-            }
-        }
 
         val isAmbulanceUser = finalUser.role.equals("Ambulance", ignoreCase = true) || 
                                ambulancesList.any { it.phone == finalUser.phone || it.ownerName.equals(finalUser.name, ignoreCase = true) }
@@ -10036,128 +10463,6 @@ fun UserProfileScreen(viewModel: MainViewModel) {
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // DOCTOR ACCOUNT PORTAL CARD (LOGIN & COMMISSION POLICY STATUS)
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = if (myDoctorProfile?.planType?.lowercase()?.contains("advance") == true) Color(0xFFFFF8E1) else Color(0xFFF3E5F5)
-            ),
-            border = BorderStroke(
-                1.5.dp,
-                if (myDoctorProfile?.planType?.lowercase()?.contains("advance") == true) Color(0xFFFFB300) else Color(0xFF8E24AA)
-            ),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .background(Color(0xFF8E24AA), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.MedicalServices,
-                                contentDescription = "Doctor Portal",
-                                tint = Color.White,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                text = if (myDoctorProfile != null) myDoctorProfile.name else (if (language == AppLanguage.BAN) "🩺 ডাক্তার পোর্টাল & অ্যাকাউন্ট লগইন" else "🩺 Doctor Portal & Login"),
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF4A148C)
-                            )
-                            Text(
-                                text = if (myDoctorProfile != null) "${myDoctorProfile.specialty} • ${myDoctorProfile.hospitalName}" else (if (language == AppLanguage.BAN) "মাই অ্যাকাউন্ট থেকে ডাক্তার প্যানেল অ্যাক্সেস ও লগইন করুন" else "Access doctor portal & manage bookings"),
-                                fontSize = 11.sp,
-                                color = SecondaryText
-                            )
-                        }
-                    }
-                    Surface(
-                        color = if (myDoctorProfile?.planType?.lowercase()?.contains("advance") == true) Color(0xFFFF8F00) else Color(0xFF8E24AA),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Text(
-                            text = if (myDoctorProfile != null) {
-                                if (myDoctorProfile.planType.lowercase().contains("advance")) (if (language == AppLanguage.BAN) "অ্যাডভান্স (৫% কমিশন)" else "Advance (5% Comm)")
-                                else (if (language == AppLanguage.BAN) "ফ্রি (১০% কমিশন)" else "Free (10% Comm)")
-                            } else {
-                                if (language == AppLanguage.BAN) "ডাক্তার সার্ভিস" else "Doctor Portal"
-                            },
-                            color = Color.White,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                if (myDoctorProfile != null) {
-                    val isAdv = myDoctorProfile.planType.lowercase().contains("advance") || myDoctorProfile.isFeatured
-                    val commRate = if (isAdv) "5%" else "10%"
-                    Surface(
-                        color = if (isAdv) Color(0xFFFFF59D) else Color(0xFFE1BEE7),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = if (isAdv) Icons.Default.CheckCircle else Icons.Default.OndemandVideo,
-                                contentDescription = null,
-                                tint = if (isAdv) Color(0xFF1B5E20) else Color(0xFF4A148C),
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = if (language == AppLanguage.BAN)
-                                    "সিরিয়াল বুকিং কমিশন: ${commRate} (ফি হতে কর্তন) • ${if (isAdv) "ভিডিও এড সম্পূর্ণ বন্ধ" else "ভিডিও এড সক্রিয়"}"
-                                else
-                                    "Serial Booking Commission: ${commRate} • ${if (isAdv) "Video Ads Disabled" else "Video Ads Active"}",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isAdv) Color(0xFF1B5E20) else Color(0xFF4A148C)
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-
-                Button(
-                    onClick = { viewModel.navigateTo(AppScreen.DOCTOR_DIRECTORY) },
-                    modifier = Modifier.fillMaxWidth().height(36.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8E24AA)),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Icon(Icons.Default.MedicalServices, contentDescription = null, modifier = Modifier.size(14.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = if (myDoctorProfile != null) (if (language == AppLanguage.BAN) "ডাক্তার ড্যাশবোর্ড & সিরিয়াল দেখুন" else "Go to Doctor Dashboard") else (if (language == AppLanguage.BAN) "ডাক্তার প্যানেলে যান / রেজিস্ট্রেশন করুন" else "Go to Doctor Portal / Register"),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
                     )
                 }
             }
@@ -11419,6 +11724,7 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
 
     val adminMenus = listOf(
         Triple("DASHBOARD", if (language == AppLanguage.ENG) "Dashboard" else "ড্যাশবোর্ড", Icons.Default.Dashboard),
+        Triple("PLANS", if (language == AppLanguage.ENG) "Plans & Pricing" else "প্ল্যান ম্যানেজার (Plan)", Icons.Default.WorkspacePremium),
         Triple("BOOKING_FEES", if (language == AppLanguage.ENG) "Booking Fees & Rates" else "বুকিং ফি সেটিংস", Icons.Default.Payments),
         Triple("HOSPITALS", if (language == AppLanguage.ENG) "Hospitals & Diagnostics" else "হাসপাতাল ও ডায়াগনস্টিক", Icons.Default.Domain),
         Triple("DONORS", if (language == AppLanguage.ENG) "Donors List" else "রক্তদাতা তালিকা", Icons.Default.Person),
@@ -11429,7 +11735,7 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
         Triple("SUPPORT", if (language == AppLanguage.ENG) "Live Support" else "লাইভ সাপোর্ট", Icons.Default.Chat),
         Triple("POLICIES", if (language == AppLanguage.ENG) "Policy, Terms & Conditions" else "পলিসি, টার্মস এন্ড কন্ডিশন", Icons.Default.Gavel),
         Triple("REPORTS", if (language == AppLanguage.ENG) "Fraud Reports" else "প্রতারণা রিপোর্ট", Icons.Default.Warning),
-        Triple("V9_SUBSCRIPTIONS", if (language == AppLanguage.ENG) "V9 Subscriptions" else "ভি৯ সাবস্ক্রিপশন", Icons.Default.Star),
+        Triple("V9_SUBSCRIPTIONS", if (language == AppLanguage.ENG) "Subscribers" else "গ্রাহক সাবস্ক্রিপশন", Icons.Default.Star),
         Triple("SETTINGS", if (language == AppLanguage.ENG) "App Settings" else "অ্যাপ সেটিংস", Icons.Default.Settings)
     )
 
@@ -13477,10 +13783,108 @@ fun RefundPolicyScreen(viewModel: MainViewModel) {
 
 @Composable
 fun DonorRegistrationPolicyDialog(
+    accountType: String = "Donor",
     language: AppLanguage,
     onDismiss: () -> Unit,
     onAgree: () -> Unit
 ) {
+    val isBn = language == AppLanguage.BAN
+    val (titleText, themeColor, headerText) = when (accountType) {
+        "Doctor" -> Triple(
+            if (isBn) "ডাক্তার রেজিস্ট্রেশন পলিসি ও শর্তাবলী" else "Doctor Registration Policy & Terms",
+            Color(0xFF8E24AA),
+            if (isBn) "ডাক্তার হিসেবে একাউন্ট তৈরি ও চেম্বার লিস্টিং করার আগে নিম্নে বর্ণিত শর্তসমূহ পড়ুন:" else "Please read the following doctor registration terms & listing conditions:"
+        )
+        "Hospital" -> Triple(
+            if (isBn) "হাসপাতাল রেজিস্ট্রেশন পলিসি ও শর্তাবলী" else "Hospital Registration Policy & Terms",
+            Color(0xFF0288D1),
+            if (isBn) "হাসপাতাল/ক্লিনিক লিস্টিং ও ইমার্জেন্সি সার্ভিস রেজিস্ট্রেশনের নীতিমালার বিবরণ:" else "Please read the hospital registration terms & emergency listing terms:"
+        )
+        "Ambulance" -> Triple(
+            if (isBn) "অ্যাম্বুলেন্স সার্ভিস রেজিস্ট্রেশন পলিসি" else "Ambulance Registration Policy",
+            Color(0xFFD32F2F),
+            if (isBn) "অ্যাম্বুলেন্স সার্ভিস লিস্টিং ও জরুরি ড্রাইভার সেবার নীতিমালার বিবরণ:" else "Please read the ambulance service registration policy:"
+        )
+        "Requester" -> Triple(
+            if (isBn) "রক্ত গ্রহীতা ও সদস্য নীতি" else "Blood Seeker & Member Policy",
+            Color(0xFFE65100),
+            if (isBn) "রক্ত গ্রহীতা হিসেবে একাউন্ট তৈরি ও জরুরি সার্ভিস ব্যবহারের নীতিমালা:" else "Please read the blood seeker terms & emergency services rules:"
+        )
+        else -> Triple(
+            if (isBn) "ডোনার রেজিস্ট্রেশন পলিসি" else "Donor Registration Policy",
+            BloodRed,
+            if (isBn) "রক্তদাতা হিসেবে রেজিস্ট্রেশন করার পূর্বে নিম্নে উল্লেখিত নিয়মাবলী ও নির্দেশিকা মনোযোগ সহকারে পড়ুন:" else "Please read the following guidelines and terms carefully before registering as a blood donor:"
+        )
+    }
+
+    val policyItems = when (accountType) {
+        "Doctor" -> if (isBn) listOf(
+            "১. বিএমডিসি (BMDC) রেজিস্ট্রেশন নম্বর এবং ডিগ্রি/স্পেশাল্টি তথ্য শতভাগ সঠিক প্রদান করা বাধ্যতামূলক।",
+            "২. চেম্বারের ঠিকানা, যোগাযোগের মোবাইল নম্বর এবং দেখার সময়সূচি নির্ভুল রাখতে হবে।",
+            "৩. ফ্রি প্ল্যানে আপনার চেম্বার লিস্টিং ৩০ দিন বিনামূল্যে প্রদর্শিত হবে এবং অনলাইন সিরিয়াল সুবিধা চালু থাকবে।",
+            "৪. অ্যাডভান্স প্রিমিয়াম প্ল্যানে আপনার প্রোফাইলে সরাসরি কল বাটন চালু হবে এবং গোল্ডেন প্রিমিয়াম স্পেশালিস্ট ব্যাজ যুক্ত হবে।",
+            "৫. রোগীদের সাথে পেশাদার আচরণ এবং অ্যাপয়েন্টমেন্ট সময়সূচি বজায় রাখা আবশ্যক।"
+        ) else listOf(
+            "1. Valid BMDC registration number and medical degree details are mandatory.",
+            "2. Chamber address, mobile contact, and visiting hours must be accurately provided.",
+            "3. Free Doctor Plan lists your chamber for 30 days with online serial booking support.",
+            "4. Advance Plan enables direct call button, golden specialist badge, and top search ranking.",
+            "5. Professional consultation conduct & honoring patient appointments is strictly required."
+        )
+        "Hospital" -> if (isBn) listOf(
+            "১. হাসপাতালের সরকারি অনুমোদন/লাইসেন্স, ইমার্জেন্সি হটলাইন ও শয্যা ক্ষমতার সঠিক তথ্য প্রদান করতে হবে।",
+            "২. জরুরি আইসিইউ, সিসিইউ, এনআইসিইউ ও অ্যাম্বুলেন্স সংক্রান্ত তথ্য হালনাগাদ রাখার অনুরোধ করা হচ্ছে।",
+            "৩. ফ্রি প্ল্যানে হাসপাতালে ৫ মিনিটের অ্যাপয়েন্টমেন্ট বুকিং একসেপ্ট সময়সীমা প্রযোজ্য হবে।",
+            "৪. অ্যাডভান্স প্ল্যানে ১ ঘণ্টা (৬০ মিনিট) বুকিং উইন্ডো, সরাসরি ইমার্জেন্সি কল বাটন এবং প্রিমিয়াম হাইলাইট চালু থাকবে।",
+            "৫. রোগী সেবা ও জরুরি রক্তের চাহিদায় মানবিক সহায়তা প্রদান করা আবশ্যক।"
+        ) else listOf(
+            "1. Valid government license, emergency hotline, and bed capacity details are required.",
+            "2. Keep ICU, CCU, NICU, and emergency unit status updated accurately.",
+            "3. Free Hospital Plan includes a 5-minute booking acceptance window.",
+            "4. Advance Hospital Plan features 60-minute window, direct emergency calls & top priority badge.",
+            "5. Committed to urgent healthcare assistance and emergency blood coordination."
+        )
+        "Ambulance" -> if (isBn) listOf(
+            "১. বিআরটিএ (BRTA) অ্যাম্বুলেন্স রেজিস্ট্রেশন এবং সচল ইমার্জেন্সি ড্রাইভার মোবাইল নম্বর প্রদান করা বাধ্যতামূলক।",
+            "২. জরুরি রোগীর ক্ষেত্রে অতিরিক্ত বা অযৌক্তিক ভাড়া দাবি সম্পূর্ণ নিষিদ্ধ।",
+            "৩. ফ্রি প্ল্যানে অনলাইন বুকিং রিকুয়েস্ট গ্রহণ করা যাবে এবং ৩০ দিন সচল থাকবে।",
+            "৪. অ্যাডভান্স প্ল্যানে সরাসরি কল বাটন, ইমার্জেন্সি ভিআইপি ব্যাজ এবং সার্চে সবার উপরে প্রদর্শন সুবিধা চালু থাকবে।",
+            "৫. দ্রুততম সময়ে দুর্ঘটনাস্থল বা হাসপাতালে পৌঁছানোর মানবিক প্রতিশ্রুতি বজায় রাখতে হবে।"
+        ) else listOf(
+            "1. Valid BRTA ambulance registration and active emergency mobile number required.",
+            "2. Arbitrary surge pricing or unfair fare extortion during medical emergencies is strictly prohibited.",
+            "3. Free Ambulance Plan provides standard 30-day listing with online booking request support.",
+            "4. Advance Plan unlocks direct driver calling, VIP emergency badge & top search placement.",
+            "5. Must maintain rapid emergency dispatch commitments to save patient lives."
+        )
+        "Requester" -> if (isBn) listOf(
+            "১. রক্তের জরুরি প্রয়োজনে সত্য ও নির্ভুল তথ্য দিয়ে রক্তের রিকুয়েস্ট পোস্ট করুন।",
+            "২. রক্ত পাওয়ার পর অবিলম্বে পোস্টটি সম্পন্ন/হালনাগাদ করার বিনীত অনুরোধ করা হচ্ছে।",
+            "৩. রক্তদাতাদের সাথে শালীন আচরণ করুন এবং কোনো অবস্থাতেই আর্থিক লেনদেনের অফার বা প্রলোভন দেবেন না।",
+            "৪. গ্রহীতা হিসেবে আপনি অ্যাপ থেকে ডাক্তার, হাসপাতাল এবং অ্যাম্বুলেন্স সরাসরি বুক বা যোগাযোগ করতে পারবেন।"
+        ) else listOf(
+            "1. Post blood requests with genuine medical urgency and verified patient details.",
+            "2. Update or resolve the request as soon as blood donors are managed.",
+            "3. Treat voluntary blood donors with respect and strictly refrain from offering money.",
+            "4. As a registered seeker, you can also access emergency doctor, hospital & ambulance bookings."
+        )
+        else -> if (isBn) listOf(
+            "১. রক্তদান সম্পূর্ণ স্বেচ্ছাসেবী ও মানবিক সেবা। রক্তদানের জন্য কোনো আর্থিক লেনদেন বা সুবিধা গ্রহণ সম্পূর্ণ নিষিদ্ধ।",
+            "২. আপনার নাম, রক্তের গ্রুপ, মোবাইল নম্বর, অবস্থান ও শেষ রক্তদানের তারিখের তথ্য শতভাগ নির্ভুল প্রদান করা বাধ্যতামূলক।",
+            "৩. জরুরি প্রয়োজনে রক্তগ্রহীতা বা রোগীর প্রতিনিধি যেন আপনার সাথে যোগাযোগ করতে পারেন, সেজন্য আপনার ফোন নম্বর প্রদর্শনের সম্মতি দিচ্ছেন।",
+            "৪. প্রতি ৩ থেকে ৪ মাস পর পর একজন সুস্থ মানুষ রক্তদান করতে পারেন। শারীরিক অসুস্থতা থাকলে রক্তদান থেকে বিরত থাকুন।",
+            "৫. ভুয়া তথ্য বা আর্থিক দাবি করলে অ্যাকাউন্ট স্থায়ীভাবে ব্যান হবে এবং আইনগত ব্যবস্থা নেওয়া হতে পারে।",
+            "৬. আপনার ব্যক্তিগত তথ্য নিরাপদে সংরক্ষিত থাকে এবং শুধুমাত্র মানবিক রক্তদান সেবায় ব্যবহৃত হয়।"
+        ) else listOf(
+            "1. Blood donation is entirely voluntary & humanitarian. Requesting monetary payment is strictly prohibited.",
+            "2. Provide 100% accurate name, blood group, contact number, location, and last donation date.",
+            "3. Phone number will be visible to verified patients in urgent blood emergencies.",
+            "4. Healthy adults can donate every 3-4 months. Refrain if medically unfit or sick.",
+            "5. Financial extortion or fake details will result in permanent account ban.",
+            "6. Data is securely stored and used exclusively for life-saving blood matches."
+        )
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -13488,14 +13892,14 @@ fun DonorRegistrationPolicyDialog(
                 Icon(
                     imageVector = Icons.Filled.VerifiedUser,
                     contentDescription = null,
-                    tint = BloodRed,
+                    tint = themeColor,
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = if (language == AppLanguage.BAN) "ডোনার রেজিস্ট্রেশন পলিসি" else "Donor Registration Policy",
+                    text = titleText,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
+                    fontSize = 17.sp,
                     color = DarkText
                 )
             }
@@ -13507,9 +13911,7 @@ fun DonorRegistrationPolicyDialog(
                     .verticalScroll(rememberScrollState())
             ) {
                 Text(
-                    text = if (language == AppLanguage.BAN)
-                        "রক্তদাতা হিসেবে রেজিস্ট্রেশন করার পূর্বে নিম্নে উল্লেখিত নিয়মাবলী ও নির্দেশিকা মনোযোগ সহকারে পড়ুন:"
-                        else "Please read the following guidelines and terms carefully before registering as a blood donor:",
+                    text = headerText,
                     fontSize = 12.sp,
                     color = SecondaryText,
                     fontWeight = FontWeight.Medium
@@ -13517,29 +13919,14 @@ fun DonorRegistrationPolicyDialog(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                val policyItems = if (language == AppLanguage.BAN) listOf(
-                    "১. রক্তদান সম্পূর্ণ স্বেচ্ছাসেবী ও মানবিক সেবা। রক্তদানের জন্য কোনো আর্থিক লেনদেন বা সুবিধা গ্রহণ সম্পূর্ণ নিষিদ্ধ।",
-                    "২. আপনার নাম, রক্তের গ্রুপ, মোবাইল নম্বর, অবস্থান ও শেষ রক্তদানের তারিখের তথ্য শতভাগ নির্ভুল প্রদান করা বাধ্যতামূলক।",
-                    "৩. জরুরি প্রয়োজনে রক্তগ্রহীতা বা রোগীর প্রতিনিধি যেন আপনার সাথে যোগাযোগ করতে পারেন, সেজন্য আপনার ফোন নম্বরটি সম্মানিত রক্তগ্রহীতাদের প্রদর্শন করার সম্মতি দিচ্ছেন।",
-                    "৪. প্রতি ৩ থেকে ৪ মাস পর পর একজন সুস্থ মানুষ রক্তদান করতে পারেন। শারীরিক অসুস্থতা বা দীর্ঘমেয়াদি রোগ থাকলে রক্তদান থেকে বিরত থাকুন।",
-                    "৫. রক্তদানের নামে কোনো আর্থিক দাবি বা ভুয়া তথ্য প্রদান করলে অ্যাকাউন্ট স্থায়ীভাবে ব্যান হবে এবং আইনগত ব্যবস্থা নেওয়া হতে পারে।",
-                    "৬. আপনার ব্যক্তিগত তথ্য নিরাপদে সংরক্ষিত থাকে এবং শুধুমাত্র মানবিক রক্তদান সেবায় ব্যবহৃত হয়।"
-                ) else listOf(
-                    "1. Blood donation is entirely voluntary & humanitarian. Requesting or taking monetary compensation is strictly prohibited.",
-                    "2. You must provide 100% accurate information regarding your name, blood group, contact number, location, and last donation date.",
-                    "3. By registering, you agree that your contact phone number can be displayed to verified requesters in emergency medical need.",
-                    "4. Healthy adults can donate every 3-4 months. Refrain from donating if you are unwell, under medication, or medically unfit.",
-                    "5. Falsification of information or financial extortion will lead to permanent account termination and legal action.",
-                    "6. Your data is stored securely and used solely for facilitating emergency blood donation connections."
-                )
-
                 policyItems.forEach { item ->
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 4.dp),
-                        colors = CardDefaults.cardColors(containerColor = LightPinkRed.copy(alpha = 0.4f)),
-                        shape = RoundedCornerShape(8.dp)
+                        colors = CardDefaults.cardColors(containerColor = themeColor.copy(alpha = 0.08f)),
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(0.5.dp, themeColor.copy(alpha = 0.2f))
                     ) {
                         Text(
                             text = item,
@@ -13555,11 +13942,11 @@ fun DonorRegistrationPolicyDialog(
         confirmButton = {
             Button(
                 onClick = onAgree,
-                colors = ButtonDefaults.buttonColors(containerColor = BloodRed),
+                colors = ButtonDefaults.buttonColors(containerColor = themeColor),
                 shape = RoundedCornerShape(10.dp)
             ) {
                 Text(
-                    text = if (language == AppLanguage.BAN) "আমি সম্মত (I Agree)" else "I Agree & Accept",
+                    text = if (isBn) "আমি সম্মত (I Agree)" else "I Agree & Accept",
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp
                 )
@@ -13571,9 +13958,8 @@ fun DonorRegistrationPolicyDialog(
                 shape = RoundedCornerShape(10.dp)
             ) {
                 Text(
-                    text = if (language == AppLanguage.BAN) "বন্ধ করুন" else "Close",
-                    fontSize = 13.sp,
-                    color = SecondaryText
+                    text = if (isBn) "বাতিল" else "Cancel",
+                    fontSize = 13.sp
                 )
             }
         },
@@ -15144,6 +15530,18 @@ fun AmbulanceListScreen(viewModel: MainViewModel) {
     var expandedDistrict by remember { mutableStateOf(false) }
     var expandedUpazila by remember { mutableStateOf(false) }
     var expandedType by remember { mutableStateOf(false) }
+    var showPlanSelectionModal by remember { mutableStateOf(false) }
+    var showAmbulancePaymentSheet by remember { mutableStateOf(false) }
+    var subSenderPhone by remember { mutableStateOf("") }
+    var subTxnId by remember { mutableStateOf("") }
+
+    val autoShowPlanRole by viewModel.autoShowPlanForRole.collectAsState()
+    LaunchedEffect(autoShowPlanRole) {
+        if (autoShowPlanRole == "Ambulance") {
+            showPlanSelectionModal = true
+            viewModel.clearAutoShowPlan()
+        }
+    }
 
     val detectedCountry by viewModel.detectedCountry.collectAsState()
 
@@ -15509,6 +15907,178 @@ fun AmbulanceListScreen(viewModel: MainViewModel) {
                         )
                     }
                 }
+            }
+
+            // Modal: Ambulance Subscription Plan Selection Modal
+            if (showPlanSelectionModal) {
+                AlertDialog(
+                    onDismissRequest = { showPlanSelectionModal = false },
+                    title = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.WorkspacePremium, contentDescription = "Plans", tint = Color(0xFFD32F2F))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                if (language == AppLanguage.BAN) "অ্যাম্বুলেন্স সাবস্ক্রিপশন প্ল্যান নির্বাচন করুন" else "Select Ambulance Subscription Plan",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    },
+                    text = {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(
+                                text = if (language == AppLanguage.BAN) "আপনার অ্যাম্বুলেন্স সার্ভিসের জন্য উপযুক্ত সাবস্ক্রিপশন প্ল্যান বেছে নিন:" else "Select a subscription plan for your ambulance service:",
+                                fontSize = 12.sp,
+                                color = SecondaryText
+                            )
+
+                            // Plan 1: Free Plan
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
+                                border = BorderStroke(1.5.dp, Color(0xFF0288D1))
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Color(0xFF0288D1), modifier = Modifier.size(20.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = if (language == AppLanguage.BAN) "ফ্রি প্ল্যান (Free Package)" else "Free Package",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 14.sp,
+                                                color = Color(0xFF0288D1)
+                                            )
+                                        }
+                                        Surface(
+                                            color = Color(0xFF0288D1),
+                                            shape = RoundedCornerShape(12.dp)
+                                        ) {
+                                            Text(
+                                                text = if (language == AppLanguage.BAN) "৳০ / ৩০ দিন মেয়াদ" else "Free / 30 Days",
+                                                color = Color.White,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(if (language == AppLanguage.BAN) "✓ বিনামূল্যে অ্যাম্বুলেন্স লিস্টিং (৩০ দিন মেয়াদ)" else "✓ Free ambulance listing (30 days validity)", fontSize = 11.sp, color = DarkText)
+                                    Text(if (language == AppLanguage.BAN) "✓ অনলাইন বুকিং রিকুয়েস্ট গ্রহণ" else "✓ Online booking request support", fontSize = 11.sp, color = DarkText)
+                                    Text(if (language == AppLanguage.BAN) "✖ সরাসরি ফোন নম্বর ও কল বাটন বন্ধ" else "✖ Direct phone number & call button disabled", fontSize = 11.sp, color = Color.Gray)
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Button(
+                                        onClick = {
+                                            viewModel.updateAmbulancePlan("", "Free")
+                                            Toast.makeText(context, if (language == AppLanguage.BAN) "ফ্রি প্ল্যান সফলভাবে সক্রিয় হয়েছে!" else "Free plan activated successfully!", Toast.LENGTH_SHORT).show()
+                                            showPlanSelectionModal = false
+                                        },
+                                        modifier = Modifier.fillMaxWidth().height(38.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0288D1)),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text(if (language == AppLanguage.BAN) "ফ্রি প্ল্যান সক্রিয় করুন" else "Activate Free Plan", fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+
+                            // Plan 2: Advance Plan
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+                                border = BorderStroke(1.5.dp, Color(0xFFD32F2F))
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Filled.WorkspacePremium, contentDescription = null, tint = Color(0xFFD32F2F), modifier = Modifier.size(20.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = if (language == AppLanguage.BAN) "অ্যাডভান্স প্ল্যান (Advance Package)" else "Advance Package",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 14.sp,
+                                                color = Color(0xFFB71C1C)
+                                            )
+                                        }
+                                        Surface(
+                                            color = Color(0xFFD32F2F),
+                                            shape = RoundedCornerShape(12.dp)
+                                        ) {
+                                            Text(
+                                                text = if (language == AppLanguage.BAN) "৳৭৯৯ / ৩০ দিন মেয়াদ" else "$7.99 / 30 Days",
+                                                color = Color.White,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(if (language == AppLanguage.BAN) "✓ সরাসরি ড্রাইভারের ফোন নম্বর ও ডায়রেক্ট কল বাটন অন" else "✓ Direct driver phone number & direct call button enabled", fontSize = 11.sp, color = DarkText, fontWeight = FontWeight.Bold)
+                                    Text(if (language == AppLanguage.BAN) "✓ ইমার্জেন্সি অ্যাম্বুলেন্স লিস্টিং-এ প্রিমিয়াম হাইলাইট" else "✓ Premium highlight in emergency ambulance list", fontSize = 11.sp, color = DarkText)
+                                    Text(if (language == AppLanguage.BAN) "✓ সার্চ রেজাল্টে সবার উপরে টপ পজিশন" else "✓ Top position in search results", fontSize = 11.sp, color = DarkText)
+                                    
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    HorizontalDivider(color = Color(0xFFEF9A9A))
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    Button(
+                                        onClick = { showAmbulancePaymentSheet = true },
+                                        modifier = Modifier.fillMaxWidth().height(42.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Icon(Icons.Filled.Payments, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = if (language == AppLanguage.BAN) "পে করুন (৳৭৯৯)" else "Pay (৳799)",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {},
+                    dismissButton = {
+                        TextButton(onClick = { showPlanSelectionModal = false }) {
+                            Text(if (language == AppLanguage.BAN) "বন্ধ করুন" else "Close")
+                        }
+                    }
+                )
+            }
+
+            if (showAmbulancePaymentSheet) {
+                PlanPaymentModalDialog(
+                    planTitle = if (language == AppLanguage.BAN) "অ্যাম্বুলেন্স অ্যাডভান্স প্ল্যান" else "Ambulance Advance Plan",
+                    planPrice = 799.0,
+                    language = language,
+                    viewModel = viewModel,
+                    onDismiss = { showAmbulancePaymentSheet = false },
+                    onPaymentSuccess = { method, txnId ->
+                        viewModel.updateAmbulancePlan("", "Advance (Monthly)", paymentMethod = method, txnId = txnId)
+                        Toast.makeText(context, if (language == AppLanguage.BAN) "পেমেন্ট সফল! অ্যাম্বুলেন্স অ্যাডভান্স সার্ভিস সক্রিয় হয়েছে।" else "Payment Successful! Ambulance Advance Plan activated.", Toast.LENGTH_LONG).show()
+                        showAmbulancePaymentSheet = false
+                        showPlanSelectionModal = false
+                    }
+                )
             }
         }
     }
@@ -18666,6 +19236,333 @@ fun BookingLocationRow(from: String, to: String, language: AppLanguage) {
 }
 
 @Composable
+fun PlanPaymentModalDialog(
+    planTitle: String,
+    planPrice: Double,
+    language: AppLanguage,
+    viewModel: MainViewModel,
+    onDismiss: () -> Unit,
+    onPaymentSuccess: (method: String, txnId: String) -> Unit
+) {
+    var mainOption by remember { mutableStateOf("MOBILE_WALLET") } // "GOOGLE_PAY" or "MOBILE_WALLET"
+    var selectedWallet by remember { mutableStateOf("bKash") } // "bKash", "Nagad", "Rocket", "Upay"
+    var senderPhone by remember { mutableStateOf("") }
+    var txnId by remember { mutableStateOf("") }
+
+    val bkashNum by viewModel.bkashNumber.collectAsState()
+    val nagadNum by viewModel.nagadNumber.collectAsState()
+    val rocketNum by viewModel.rocketNumber.collectAsState()
+    val wiseAccount by viewModel.wiseAccount.collectAsState()
+
+    val context = LocalContext.current
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Payments,
+                        contentDescription = null,
+                        tint = Color(0xFF2E7D32),
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (language == AppLanguage.BAN) "পেমেন্ট মাধ্যম বেছে নিন" else "Select Payment Gateway",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = DarkText
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "$planTitle • ৳${planPrice.toInt()} BDT",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF2E7D32)
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = if (language == AppLanguage.BAN) "নিচের যেকোনো ২টি পেমেন্ট অপশন থেকে পেমেন্ট সম্পন্ন করুন:" else "Select from 2 total payment options below:",
+                    fontSize = 11.sp,
+                    color = Color.Gray
+                )
+
+                // 2 MAIN OPTIONS TABS
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Option 1: Mobile Wallet
+                    Card(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { mainOption = "MOBILE_WALLET" },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (mainOption == "MOBILE_WALLET") Color(0xFFE8F5E9) else Color(0xFFF5F5F5)
+                        ),
+                        border = BorderStroke(
+                            1.5.dp,
+                            if (mainOption == "MOBILE_WALLET") Color(0xFF2E7D32) else Color.Transparent
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(10.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AccountBalanceWallet,
+                                contentDescription = null,
+                                tint = if (mainOption == "MOBILE_WALLET") Color(0xFF2E7D32) else Color.Gray,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = if (language == AppLanguage.BAN) "১. মোবাইল ওয়ালেট" else "1. Mobile Wallet",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (mainOption == "MOBILE_WALLET") Color(0xFF1B5E20) else DarkText,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+                    }
+
+                    // Option 2: Google Pay
+                    Card(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { mainOption = "GOOGLE_PAY" },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (mainOption == "GOOGLE_PAY") Color(0xFFE8F0FE) else Color(0xFFF5F5F5)
+                        ),
+                        border = BorderStroke(
+                            1.5.dp,
+                            if (mainOption == "GOOGLE_PAY") Color(0xFF4285F4) else Color.Transparent
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(10.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Payment,
+                                contentDescription = null,
+                                tint = if (mainOption == "GOOGLE_PAY") Color(0xFF4285F4) else Color.Gray,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = if (language == AppLanguage.BAN) "২. গুগল পে (Google Pay)" else "2. Google Pay",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (mainOption == "GOOGLE_PAY") Color(0xFF1565C0) else DarkText,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+                    }
+                }
+
+                if (mainOption == "MOBILE_WALLET") {
+                    // Mobile Wallet Sub Options: bKash, Nagad, Rocket, Upay/Wise
+                    Text(
+                        text = if (language == AppLanguage.BAN) "মোবাইল ওয়ালেট বেছে নিন:" else "Select Mobile Wallet Option:",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = DarkText
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf(
+                            "bKash" to (if (language == AppLanguage.BAN) "বিকাশ" else "bKash") to Color(0xFFE91E63),
+                            "Nagad" to (if (language == AppLanguage.BAN) "নগদ" else "Nagad") to Color(0xFFFF9800),
+                            "Rocket" to (if (language == AppLanguage.BAN) "রকেট" else "Rocket") to Color(0xFF673AB7),
+                            "Upay" to (if (language == AppLanguage.BAN) "উপায়/ওয়ালেট" else "Upay/Wise") to Color(0xFF00897B)
+                        ).forEach { (pair, color) ->
+                            val (key, label) = pair
+                            val isSelected = selectedWallet == key
+                            Surface(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { selectedWallet = key },
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isSelected) color.copy(alpha = 0.15f) else Color(0xFFFAFAFA),
+                                border = BorderStroke(1.dp, if (isSelected) color else Color.LightGray)
+                            ) {
+                                Text(
+                                    text = label,
+                                    fontSize = 10.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSelected) color else DarkText,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    modifier = Modifier.padding(vertical = 8.dp, horizontal = 2.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    // Dynamic Account Number & Form
+                    val targetNum = when (selectedWallet) {
+                        "bKash" -> bkashNum
+                        "Nagad" -> nagadNum
+                        "Rocket" -> rocketNum
+                        else -> wiseAccount
+                    }
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFAFAFA)),
+                        border = BorderStroke(1.dp, Color(0xFFE0E0E0))
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = "$selectedWallet অফিশিয়াল নম্বর:",
+                                        fontSize = 11.sp,
+                                        color = Color.Gray
+                                    )
+                                    Text(
+                                        text = targetNum.ifBlank { "01700000000" },
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = DarkText
+                                    )
+                                }
+                                TextButton(
+                                    onClick = {
+                                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                        val clip = android.content.ClipData.newPlainText("Payment Number", targetNum.ifBlank { "01700000000" })
+                                        clipboard.setPrimaryClip(clip)
+                                        Toast.makeText(context, if (language == AppLanguage.BAN) "নম্বর কপি হয়েছে!" else "Number Copied!", Toast.LENGTH_SHORT).show()
+                                    }
+                                ) {
+                                    Text(if (language == AppLanguage.BAN) "কপি" else "Copy", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            OutlinedTextField(
+                                value = senderPhone,
+                                onValueChange = { senderPhone = it },
+                                label = { Text(if (language == AppLanguage.BAN) "আপনার ওয়ালেট / পেমেন্ট নম্বর" else "Your Wallet / Phone No") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            OutlinedTextField(
+                                value = txnId,
+                                onValueChange = { txnId = it },
+                                label = { Text(if (language == AppLanguage.BAN) "ট্রানজেকশন আইডি (Txn ID) *" else "Transaction ID (Txn ID) *") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Button(
+                                onClick = {
+                                    if (txnId.isBlank()) {
+                                        Toast.makeText(context, if (language == AppLanguage.BAN) "অনুগ্রহ করে ট্রানজেকশন আইডি (Txn ID) প্রদান করুন" else "Please enter Transaction ID", Toast.LENGTH_SHORT).show()
+                                        return@Button
+                                    }
+                                    onPaymentSuccess(selectedWallet, txnId)
+                                },
+                                modifier = Modifier.fillMaxWidth().height(42.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (language == AppLanguage.BAN) "পেমেন্ট নিশ্চিত করুন (৳${planPrice.toInt()})" else "Confirm Payment (৳${planPrice.toInt()})",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    // Google Pay View
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F0FE)),
+                        border = BorderStroke(1.dp, Color(0xFF4285F4))
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Payment,
+                                contentDescription = null,
+                                tint = Color(0xFF4285F4),
+                                modifier = Modifier.size(36.dp)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = if (language == AppLanguage.BAN) "গুগল পে ও আন্তর্জাতিক পেমেন্ট" else "Google Play & Card Billing",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = Color(0xFF1565C0)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = if (language == AppLanguage.BAN) "Google Pay ও যেকোনো ইন্টারন্যাশনাল ডেবিট/ক্রেডিট কার্ডের মাধ্যমে তাৎক্ষণিক পে করুন।" else "Pay instantly using Google Pay or Credit/Debit cards.",
+                                fontSize = 11.sp,
+                                color = DarkText.copy(alpha = 0.8f),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Button(
+                                onClick = {
+                                    onPaymentSuccess("Google Pay", "GPAY_${System.currentTimeMillis()}")
+                                },
+                                modifier = Modifier.fillMaxWidth().height(42.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4285F4)),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = if (language == AppLanguage.BAN) "Google Pay দিয়ে পে করুন (৳${planPrice.toInt()})" else "Pay with Google Pay ($${planPrice.toInt()})",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(if (language == AppLanguage.BAN) "বাতিল" else "Cancel")
+            }
+        }
+    )
+}
+
+@Composable
 fun AdminSubscriptionsTab(
     viewModel: MainViewModel,
     language: AppLanguage
@@ -18695,6 +19592,7 @@ fun AdminSubscriptionsTab(
     var durationDays by remember { mutableStateOf("") }
     var descEn by remember { mutableStateOf("") }
     var descBn by remember { mutableStateOf("") }
+    var targetRole by remember { mutableStateOf("All") }
 
     val context = androidx.compose.ui.platform.LocalContext.current
 
@@ -18772,7 +19670,7 @@ fun AdminSubscriptionsTab(
                 OutlinedTextField(
                     value = editWise,
                     onValueChange = { editWise = it },
-                    label = { Text(if (language == AppLanguage.ENG) "Wise Email / Account Tag / Pay ID" else "ওয়াইজ (Wise) অ্যাকাউন্ট ইমেইল / ট্যাগ") },
+                    label = { Text(if (language == AppLanguage.ENG) "Wise / Upay Wallet Tag" else "উপায় / ওয়াইজ (Wise) অ্যাকাউন্ট নম্বর") },
                     leadingIcon = { Icon(Icons.Default.WorkspacePremium, null, tint = Color(0xFF2E008B)) },
                     modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
                 )
@@ -18796,7 +19694,7 @@ fun AdminSubscriptionsTab(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = if (language == AppLanguage.ENG) "V9 Subscription Plans" else "ভি৯ সাবস্ক্রিপশন প্ল্যানসমূহ",
+                text = if (language == AppLanguage.ENG) "Plan Manager & Pricing" else "প্ল্যান ম্যানেজার ও প্রাইস সেটিংস",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = BloodRed
@@ -18808,14 +19706,15 @@ fun AdminSubscriptionsTab(
                     nameEn = ""
                     nameBn = ""
                     price = ""
-                    durationDays = ""
+                    durationDays = "30"
                     descEn = ""
                     descBn = ""
+                    targetRole = "All"
                     showAddPlanDialog = true
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = BloodRed)
             ) {
-                Text(if (language == AppLanguage.ENG) "+ Add Plan" else "+ প্ল্যান যোগ করুন", fontSize = 12.sp)
+                Text(if (language == AppLanguage.ENG) "+ Create Plan" else "+ নতুন প্ল্যান ক্রিয়েট করুন", fontSize = 12.sp)
             }
         }
 
@@ -18828,7 +19727,7 @@ fun AdminSubscriptionsTab(
             ) {
                 Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                     Text(
-                        text = if (language == AppLanguage.ENG) "No V9 subscription plans created yet." else "কোন প্ল্যান এখনও তৈরি করা হয়নি।",
+                        text = if (language == AppLanguage.ENG) "No plans created yet." else "কোন প্ল্যান তৈরি করা হয়নি।",
                         color = Color.Gray,
                         fontSize = 13.sp
                     )
@@ -18849,20 +19748,41 @@ fun AdminSubscriptionsTab(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = if (language == AppLanguage.ENG) plan.nameEn else plan.nameBn,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = DarkText
+                                )
+                                Surface(
+                                    color = when (plan.targetRole) {
+                                        "Doctor" -> Color(0xFF8E24AA)
+                                        "Hospital" -> Color(0xFF00897B)
+                                        "Ambulance" -> Color(0xFFD32F2F)
+                                        "Donor" -> Color(0xFFE65100)
+                                        else -> Color(0xFF1976D2)
+                                    },
+                                    shape = RoundedCornerShape(4.dp),
+                                    modifier = Modifier.padding(top = 4.dp)
+                                ) {
+                                    Text(
+                                        text = "Target: ${plan.targetRole}",
+                                        color = Color.White,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
                             Text(
-                                text = if (language == AppLanguage.ENG) plan.nameEn else plan.nameBn,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp,
-                                color = DarkText
-                            )
-                            Text(
-                                text = "${plan.price} BDT",
+                                text = "৳${plan.price.toInt()} BDT",
                                 fontWeight = FontWeight.Black,
-                                fontSize = 15.sp,
+                                fontSize = 16.sp,
                                 color = BloodRed
                             )
                         }
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
                         Text(
                             text = "${if (language == AppLanguage.ENG) "Duration" else "মেয়াদ"}: ${plan.durationDays} ${if (language == AppLanguage.ENG) "Days" else "দিন"}",
                             fontSize = 12.sp,
@@ -18889,10 +19809,11 @@ fun AdminSubscriptionsTab(
                                     durationDays = plan.durationDays.toString()
                                     descEn = plan.descriptionEn
                                     descBn = plan.descriptionBn
+                                    targetRole = plan.targetRole
                                     showAddPlanDialog = true
                                 }
                             ) {
-                                Text(if (language == AppLanguage.ENG) "Edit" else "সম্পাদনা", color = Color(0xFF1976D2))
+                                Text(if (language == AppLanguage.ENG) "Edit Price & Info" else "এডিট ও প্রাইস পরিবর্তন", color = Color(0xFF1976D2))
                             }
                             Spacer(modifier = Modifier.width(8.dp))
                             TextButton(
@@ -18912,7 +19833,7 @@ fun AdminSubscriptionsTab(
         Spacer(modifier = Modifier.height(24.dp))
 
         Text(
-            text = if (language == AppLanguage.ENG) "Registered V9 Subscribers" else "নিবন্ধিত ভি৯ গ্রাহকগণ",
+            text = if (language == AppLanguage.ENG) "Registered Subscribers" else "নিবন্ধিত সাবস্ক্রাইবার তালিকা",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             color = BloodRed,
@@ -19000,9 +19921,9 @@ fun AdminSubscriptionsTab(
             title = {
                 Text(
                     text = if (editingPlan == null) 
-                        (if (language == AppLanguage.ENG) "Create V9 Plan" else "ভি৯ প্ল্যান তৈরি করুন")
+                        (if (language == AppLanguage.ENG) "Create Plan & Set Price" else "নতুন প্ল্যান তৈরি ও প্রাইস সেট করুন")
                     else 
-                        (if (language == AppLanguage.ENG) "Edit V9 Plan" else "ভি৯ প্ল্যান সংশোধন")
+                        (if (language == AppLanguage.ENG) "Edit Plan & Price" else "প্ল্যান ও প্রাইস তথ্য আপডেট")
                 )
             },
             text = {
@@ -19012,12 +19933,32 @@ fun AdminSubscriptionsTab(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    OutlinedTextField(
-                        value = nameEn,
-                        onValueChange = { nameEn = it },
-                        label = { Text(if (language == AppLanguage.ENG) "Plan Name (English)" else "প্ল্যানের নাম (ইংরেজি)") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    Text("টার্গেট অ্যাকাউন্ট ক্যাটাগরি (Target Role):", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        listOf("All", "Doctor", "Hospital", "Ambulance", "Donor").forEach { role ->
+                            val isSel = targetRole == role
+                            Surface(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { targetRole = role },
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (isSel) BloodRed else Color(0xFFF0F0F0)
+                            ) {
+                                Text(
+                                    text = role,
+                                    fontSize = 10.sp,
+                                    color = if (isSel) Color.White else DarkText,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    modifier = Modifier.padding(vertical = 6.dp)
+                                )
+                            }
+                        }
+                    }
+
                     OutlinedTextField(
                         value = nameBn,
                         onValueChange = { nameBn = it },
@@ -19025,9 +19966,15 @@ fun AdminSubscriptionsTab(
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
+                        value = nameEn,
+                        onValueChange = { nameEn = it },
+                        label = { Text(if (language == AppLanguage.ENG) "Plan Name (English)" else "প্ল্যানের নাম (ইংরেজি)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
                         value = price,
                         onValueChange = { price = it },
-                        label = { Text(if (language == AppLanguage.ENG) "Price (BDT)" else "মূল্য (টাকা)") },
+                        label = { Text(if (language == AppLanguage.ENG) "Price (BDT / টাকা)" else "প্রাইস / মূল্য (টাকা)") },
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
@@ -19037,15 +19984,15 @@ fun AdminSubscriptionsTab(
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
-                        value = descEn,
-                        onValueChange = { descEn = it },
-                        label = { Text(if (language == AppLanguage.ENG) "Description (English)" else "বিবরণ (ইংরেজি)") },
+                        value = descBn,
+                        onValueChange = { descBn = it },
+                        label = { Text(if (language == AppLanguage.ENG) "Description (Bengali)" else "বিবরণ / সুবিধার বিবরণ (বাংলা)") },
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
-                        value = descBn,
-                        onValueChange = { descBn = it },
-                        label = { Text(if (language == AppLanguage.ENG) "Description (Bengali)" else "বিবরণ (বাংলা)") },
+                        value = descEn,
+                        onValueChange = { descEn = it },
+                        label = { Text(if (language == AppLanguage.ENG) "Description (English)" else "বিবরণ (ইংরেজি)") },
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -19055,17 +20002,20 @@ fun AdminSubscriptionsTab(
                     onClick = {
                         val dPrice = price.toDoubleOrNull() ?: 0.0
                         val iDur = durationDays.toIntOrNull() ?: 30
-                        if (nameEn.isBlank() || nameBn.isBlank() || dPrice <= 0.0 || iDur <= 0) {
-                            android.widget.Toast.makeText(context, "Please fill in all fields correctly", android.widget.Toast.LENGTH_SHORT).show()
+                        if (nameEn.isBlank() && nameBn.isBlank()) {
+                            android.widget.Toast.makeText(context, "Please enter plan name", android.widget.Toast.LENGTH_SHORT).show()
+                        } else if (dPrice <= 0.0) {
+                            android.widget.Toast.makeText(context, "Please enter valid price", android.widget.Toast.LENGTH_SHORT).show()
                         } else {
                             val plan = V9SubscriptionPlan(
                                 id = planId,
-                                nameEn = nameEn,
-                                nameBn = nameBn,
+                                nameEn = nameEn.ifBlank { nameBn },
+                                nameBn = nameBn.ifBlank { nameEn },
                                 price = dPrice,
                                 durationDays = iDur,
                                 descriptionEn = descEn,
-                                descriptionBn = descBn
+                                descriptionBn = descBn,
+                                targetRole = targetRole
                             )
                             viewModel.triggerAddOrUpdateSubscriptionPlan(plan)
                             android.widget.Toast.makeText(context, "Subscription Plan Saved!", android.widget.Toast.LENGTH_SHORT).show()
@@ -19074,7 +20024,7 @@ fun AdminSubscriptionsTab(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = BloodRed)
                 ) {
-                    Text(if (language == AppLanguage.ENG) "Save" else "সংরক্ষণ করুন")
+                    Text(if (language == AppLanguage.ENG) "Save Plan" else "প্ল্যান সেভ করুন")
                 }
             },
             dismissButton = {
@@ -20461,10 +21411,17 @@ fun HospitalDirectoryScreen(viewModel: MainViewModel) {
     var selectedFilter by remember { mutableStateOf("ALL") }
 
     var showPlanSelectionModal by remember { mutableStateOf(false) }
-    var showRegisterModal by remember { mutableStateOf(false) }
-    var selectedPlanForReg by remember { mutableStateOf("FREE") } // "FREE" or "ADVANCE"
+    var showHospitalPaymentSheet by remember { mutableStateOf(false) }
     var selectedHospitalForChat by remember { mutableStateOf<RegisteredHospital?>(null) }
     var selectedHospitalForBooking by remember { mutableStateOf<RegisteredHospital?>(null) }
+
+    val autoShowPlanRole by viewModel.autoShowPlanForRole.collectAsState()
+    LaunchedEffect(autoShowPlanRole) {
+        if (autoShowPlanRole == "Hospital") {
+            showPlanSelectionModal = true
+            viewModel.clearAutoShowPlan()
+        }
+    }
 
     // Booking Form States
     var hospBookPatientName by remember { mutableStateOf("") }
@@ -20845,7 +21802,7 @@ fun HospitalDirectoryScreen(viewModel: MainViewModel) {
                     Icon(Icons.Filled.WorkspacePremium, contentDescription = "Plans", tint = Color(0xFFFF8F00))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        if (language == AppLanguage.BAN) "সাবস্ক্রিপশন প্ল্যান নির্বাচন করুন" else "Select Subscription Plan",
+                        if (language == AppLanguage.BAN) "হাসপাতাল সাবস্ক্রিপশন প্ল্যান নির্বাচন করুন" else "Select Hospital Subscription Plan",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -20866,13 +21823,7 @@ fun HospitalDirectoryScreen(viewModel: MainViewModel) {
 
                     // Plan 1: Free Plan (ফ্রি প্ল্যান)
                     Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                selectedPlanForReg = "FREE"
-                                showPlanSelectionModal = false
-                                showRegisterModal = true
-                            },
+                        modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
                         border = BorderStroke(1.5.dp, Color(0xFF0288D1))
@@ -20908,34 +21859,28 @@ fun HospitalDirectoryScreen(viewModel: MainViewModel) {
                             }
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(if (language == AppLanguage.BAN) "✓ বিনামূল্যে সাধারণ হাসপাতাল লিস্টিং (৩০ দিন মেয়াদ)" else "✓ Free standard hospital listing (30 days validity)", fontSize = 11.sp, color = DarkText)
-                            Text(if (language == AppLanguage.BAN) "✓ ৫ মিনিটের মধ্যে বুকিং একসেপ্ট সময়সীমা (নতুবা অটো বাতিল)" else "✓ 5-minute booking acceptance deadline (auto-cancel if expired)", fontSize = 11.sp, color = DarkText)
-                            Text(if (language == AppLanguage.BAN) "✓ বুকিং একসেপ্ট ফি ৳৫০ (মাই একাউন্ট ওয়ালেট থেকে কর্তনযোগ্য)" else "✓ Booking acceptance fee $0.50 / ৳50 (Deductible from Wallet)", fontSize = 11.sp, color = DarkText)
-                            Text(if (language == AppLanguage.BAN) "✖ সরাসরি ফোন নম্বর ও কল বাটন বন্ধ (শুধুমাত্র চ্যাট ও বুকিং)" else "✖ Direct phone number & call button disabled (Chat & Booking only)", fontSize = 11.sp, color = Color.Gray)
+                            Text(if (language == AppLanguage.BAN) "✓ ৫ মিনিটের মধ্যে বুকিং একসেপ্ট সময়সীমা" else "✓ 5-minute booking acceptance deadline", fontSize = 11.sp, color = DarkText)
+                            Text(if (language == AppLanguage.BAN) "✓ বুকিং একসেপ্ট ফি ৳৫০ (মাই একাউন্ট ওয়ালেট থেকে কর্তনযোগ্য)" else "✓ Booking acceptance fee ৳50", fontSize = 11.sp, color = DarkText)
+                            Text(if (language == AppLanguage.BAN) "✖ সরাসরি ফোন নম্বর ও কল বাটন বন্ধ (শুধুমাত্র চ্যাট ও বুকিং)" else "✖ Direct phone number & call button disabled", fontSize = 11.sp, color = Color.Gray)
                             Spacer(modifier = Modifier.height(10.dp))
                             Button(
                                 onClick = {
-                                    selectedPlanForReg = "FREE"
+                                    viewModel.updateHospitalPlan("", "Free")
+                                    Toast.makeText(context, if (language == AppLanguage.BAN) "ফ্রি প্ল্যান সফলভাবে সক্রিয় হয়েছে!" else "Free plan activated successfully!", Toast.LENGTH_SHORT).show()
                                     showPlanSelectionModal = false
-                                    showRegisterModal = true
                                 },
-                                modifier = Modifier.fillMaxWidth().height(36.dp),
+                                modifier = Modifier.fillMaxWidth().height(38.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0288D1)),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Text(if (language == AppLanguage.BAN) "ফ্রি রেজিস্ট্রেশন করুন" else "Register Free Plan")
+                                Text(if (language == AppLanguage.BAN) "ফ্রি প্ল্যান সক্রিয় করুন" else "Activate Free Plan", fontWeight = FontWeight.Bold)
                             }
                         }
                     }
 
                     // Plan 2: Advance Plan (অ্যাডভান্স প্রিমিয়াম প্ল্যান)
                     Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                selectedPlanForReg = "ADVANCE"
-                                showPlanSelectionModal = false
-                                showRegisterModal = true
-                            },
+                        modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8E1)),
                         border = BorderStroke(1.5.dp, Color(0xFFFF8F00))
@@ -20971,22 +21916,35 @@ fun HospitalDirectoryScreen(viewModel: MainViewModel) {
                             }
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(if (language == AppLanguage.BAN) "✓ সরাসরি মোবাইল নম্বর ও ডায়রেক্ট কল বাটন অন" else "✓ Direct mobile number & direct call button enabled", fontSize = 11.sp, color = DarkText, fontWeight = FontWeight.Bold)
-                            Text(if (language == AppLanguage.BAN) "✓ ১ ঘণ্টা (৬০ মিনিট) পর্যন্ত বুকিং একসেপ্ট সময়সীমা" else "✓ Up to 1 hour (60 mins) booking acceptance window", fontSize = 11.sp, color = DarkText)
-                            Text(if (language == AppLanguage.BAN) "✓ বুকিং একসেপ্ট স্পেশাল ফি মাত্র ৳৩০ (ওয়ালেট থেকে কর্তন)" else "✓ Reduced booking acceptance fee only $0.30 / ৳30 (Wallet deduction)", fontSize = 11.sp, color = DarkText)
+                            Text(if (language == AppLanguage.BAN) "✓ ১ ঘণ্টা (৬০ মিনিট) পর্যন্ত বুকিং একসেপ্ট সময়সীমা" else "✓ Up to 1 hour booking acceptance window", fontSize = 11.sp, color = DarkText)
+                            Text(if (language == AppLanguage.BAN) "✓ বুকিং একসেপ্ট স্পেশাল ফি মাত্র ৳৩০" else "✓ Reduced booking fee only ৳30", fontSize = 11.sp, color = DarkText)
                             Text(if (language == AppLanguage.BAN) "✓ সার্চ রেজাল্টে গোল্ডেন প্রিমিয়াম ব্যাজ ও সবার উপরে টপ পজিশন" else "✓ Golden Premium badge & top position in search results", fontSize = 11.sp, color = DarkText)
-                            Text(if (language == AppLanguage.BAN) "✓ প্রায়োরিটি হেল্পডেস্ক ও অফার প্রমোশন ফিচার" else "✓ Priority helpdesk & offer promotion features", fontSize = 11.sp, color = DarkText)
-                            Spacer(modifier = Modifier.height(10.dp))
+                            
+                            Spacer(modifier = Modifier.height(12.dp))
+                            HorizontalDivider(color = Color(0xFFFFCC80))
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Text(
+                                text = if (language == AppLanguage.BAN) "পেমেন্ট মাধ্যম বেছে নিন:" else "Select Payment Method:",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFE65100)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+
                             Button(
-                                onClick = {
-                                    selectedPlanForReg = "ADVANCE"
-                                    showPlanSelectionModal = false
-                                    showRegisterModal = true
-                                },
-                                modifier = Modifier.fillMaxWidth().height(36.dp),
+                                onClick = { showHospitalPaymentSheet = true },
+                                modifier = Modifier.fillMaxWidth().height(42.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF8F00)),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Text(if (language == AppLanguage.BAN) "অ্যাডভান্স রেজিস্ট্রেশন করুন" else "Register Advance Plan")
+                                Icon(Icons.Filled.Payments, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (language == AppLanguage.BAN) "পে করুন (৳৯৯৯)" else "Pay (৳999)",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
@@ -21001,361 +21959,18 @@ fun HospitalDirectoryScreen(viewModel: MainViewModel) {
         )
     }
 
-    // Modal 1: Hospital Registration Form Modal (Multi-step for Advance plan)
-    if (showRegisterModal) {
-        var regStep by remember { mutableStateOf(1) } // 1: Details, 2: Payment options (for Advance)
-
-        AlertDialog(
-            onDismissRequest = { 
-                showRegisterModal = false
-                regStep = 1
-            },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        if (selectedPlanForReg == "ADVANCE") Icons.Filled.WorkspacePremium else Icons.Filled.AppRegistration,
-                        contentDescription = "Reg",
-                        tint = if (selectedPlanForReg == "ADVANCE") Color(0xFFFF8F00) else Color(0xFF0288D1)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = if (regStep == 2)
-                            (if (language == AppLanguage.BAN) "পেমেন্ট মাধ্যম নির্বাচন (Advance Plan)" else "Payment Method Selection")
-                        else if (selectedPlanForReg == "ADVANCE")
-                            (if (language == AppLanguage.BAN) "হাসপাতাল ডিটেইলস (অ্যাডভান্স প্ল্যান)" else "Hospital Details (Advance Plan)")
-                        else
-                            (if (language == AppLanguage.BAN) "হাসপাতাল রেজিস্ট্রেশন (ফ্রি প্ল্যান)" else "Hospital Registration (Free Plan)"),
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            },
-            text = {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Selected Plan Banner
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (selectedPlanForReg == "ADVANCE") Color(0xFFFFF8E1) else Color(0xFFE3F2FD)
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(10.dp)) {
-                            Text(
-                                text = if (selectedPlanForReg == "ADVANCE")
-                                    "নির্বাচিত প্ল্যান: অ্যাডভান্স প্রিমিয়াম প্ল্যান (৳৯৯৯ / ৩০ দিন)"
-                                else
-                                    "নির্বাচিত প্ল্যান: ফ্রি প্ল্যান (৳০ - বিনামূল্যে)",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp,
-                                color = if (selectedPlanForReg == "ADVANCE") Color(0xFFE65100) else Color(0xFF0288D1)
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = if (regStep == 2) "ধাপ ২: পেমেন্ট সম্পন্ন করুন" else "ধাপ ১: হাসপাতালের সকল প্রয়োজনীয় তথ্য পূরণ করুন",
-                                fontSize = 11.sp,
-                                color = DarkText.copy(alpha = 0.8f)
-                            )
-                        }
-                    }
-
-                    if (regStep == 1) {
-                        // Step 1: Fill Hospital Details
-                        OutlinedTextField(
-                            value = regName,
-                            onValueChange = { regName = it },
-                            label = { Text("Hospital / Diagnostic Name (হাসপাতালের নাম) *") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-
-                        OutlinedTextField(
-                            value = regEmail,
-                            onValueChange = { regEmail = it },
-                            label = { Text("Email Address (ইমেইল ঠিকানা) *") },
-                            modifier = Modifier.fillMaxWidth(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                            singleLine = true
-                        )
-
-                        OutlinedTextField(
-                            value = regPhone,
-                            onValueChange = { regPhone = it },
-                            label = { Text("Contact Phone (মোবাইল নম্বর) *") },
-                            modifier = Modifier.fillMaxWidth(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                            singleLine = true
-                        )
-
-                        OutlinedTextField(
-                            value = regPassword,
-                            onValueChange = { regPassword = it },
-                            label = { Text("Account Password (পাসওয়ার্ড) *") },
-                            modifier = Modifier.fillMaxWidth(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                            visualTransformation = PasswordVisualTransformation(),
-                            singleLine = true
-                        )
-
-                        OutlinedTextField(
-                            value = regDistrict,
-                            onValueChange = { regDistrict = it },
-                            label = { Text("District (জেলা) *") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-
-                        OutlinedTextField(
-                            value = regUpazila,
-                            onValueChange = { regUpazila = it },
-                            label = { Text("Upazila / Thana (উপজেলা / থানা)") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-
-                        OutlinedTextField(
-                            value = regAddress,
-                            onValueChange = { regAddress = it },
-                            label = { Text("Full Address (সম্পূর্ণ ঠিকানা) *") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        OutlinedTextField(
-                            value = regIcuBeds,
-                            onValueChange = { regIcuBeds = it },
-                            label = { Text("Services / ICU Beds (সেবা ও আইসিইউ সংখ্যা)") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-                    } else {
-                        // Step 2: Payment Options for Advance Plan
-                        Text(
-                            text = if (language == AppLanguage.BAN) "আপনার পছন্দনীয় পেমেন্ট মাধ্যম বেছে নিয়ে ফি পরিশোধ করুন:" else "Select your preferred payment method to pay:",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = DarkText
-                        )
-
-                        // Option 1: Google Play Payment
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .border(1.dp, Color(0xFF4285F4), RoundedCornerShape(10.dp)),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F5FE))
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Filled.Payment, contentDescription = "Google Play", tint = Color(0xFF4285F4))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = if (language == AppLanguage.BAN) "গুগল প্লে পেমেন্ট (Google Play Billing)" else "Google Play Payment Billing",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp,
-                                        color = Color(0xFF1A73E8)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = if (language == AppLanguage.BAN) "Google Play Account / Card দিয়ে সরাসরি ইন-অ্যাপ সাবস্ক্রিপশন ফি ৳৯৯৯ পরিশোধ করুন।" else "Pay in-app subscription fee $9.99 directly via Google Play account / card.",
-                                    fontSize = 11.sp,
-                                    color = SecondaryText
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Button(
-                                    onClick = {
-                                        val newHosp = RegisteredHospital(
-                                            id = "HOSP_${System.currentTimeMillis()}",
-                                            name = regName,
-                                            type = regType,
-                                            district = regDistrict,
-                                            upazila = regUpazila.ifBlank { regDistrict },
-                                            address = regAddress,
-                                            phone = regPhone,
-                                            services = if (regIcuBeds.isNotBlank()) "ICU Available ($regIcuBeds beds), Emergency" else "Emergency Care",
-                                            isApproved = true,
-                                            isFeatured = true,
-                                            country = viewModel.detectedCountry.value
-                                        )
-                                        viewModel.registerHospital(newHosp)
-                                        Toast.makeText(context, if (language == AppLanguage.BAN) "Google Play পেমেন্ট সফল! সাবস্ক্রিপশন সক্রিয় হয়েছে।" else "Google Play Payment Successful! Subscription activated.", Toast.LENGTH_LONG).show()
-                                        regName = ""
-                                        regAddress = ""
-                                        regPhone = ""
-                                        regIcuBeds = ""
-                                        subTrxId = ""
-                                        subSenderPhone = ""
-                                        showRegisterModal = false
-                                        regStep = 1
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4285F4)),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.fillMaxWidth().height(36.dp)
-                                ) {
-                                    Text(if (language == AppLanguage.BAN) "Google Play দিয়ে পে করুন (৳৯৯৯)" else "Pay with Google Play ($9.99)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        // Option 2: bKash / Nagad / Wise Mobile Banking & Global
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .border(1.dp, Color(0xFFE91E63), RoundedCornerShape(10.dp)),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFCE4EC))
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Filled.AccountBalanceWallet, contentDescription = "bKash Wise", tint = Color(0xFFE91E63))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = if (language == AppLanguage.BAN) "বিকাশ / নগদ / ওয়াইজ পেমেন্ট (bKash, Nagad & Wise)" else "bKash, Nagad & Wise Payment",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp,
-                                        color = Color(0xFFC2185B)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Merchant / Wallet: 01700000000 | Wise: daimondtopup32@gmail.com",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = BloodRed
-                                )
-                                Text(
-                                    text = if (language == AppLanguage.BAN) "উপরের নম্বরে ৳৯৯৯ অথবা Wise Email-এ $9.99 পাঠিয়া ট্রানজেকশন আইডি দিন:" else "Send ৳999 to phone or $9.99 to Wise email, then enter Transaction ID:",
-                                    fontSize = 11.sp,
-                                    color = DarkText
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-
-                                OutlinedTextField(
-                                    value = subSenderPhone,
-                                    onValueChange = { subSenderPhone = it },
-                                    label = { Text(if (language == AppLanguage.BAN) "আপনার বিকাশ/নগদ/Wise নম্বর বা ইমেইল *" else "Your Phone / Wise Email *") },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    singleLine = true
-                                )
-
-                                OutlinedTextField(
-                                    value = subTrxId,
-                                    onValueChange = { subTrxId = it },
-                                    label = { Text("Transaction ID (TrxID) *") },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    singleLine = true
-                                )
-
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Button(
-                                    onClick = {
-                                        if (subTrxId.isBlank() || subSenderPhone.isBlank()) {
-                                            Toast.makeText(context, "অনুগ্রহ করে বিকাশ/নগদ নম্বর ও TrxID দিন", Toast.LENGTH_SHORT).show()
-                                            return@Button
-                                        }
-                                        val newHosp = RegisteredHospital(
-                                            id = "HOSP_${System.currentTimeMillis()}",
-                                            name = regName,
-                                            type = regType,
-                                            district = regDistrict,
-                                            upazila = regUpazila.ifBlank { regDistrict },
-                                            address = regAddress,
-                                            phone = regPhone,
-                                            services = if (regIcuBeds.isNotBlank()) "ICU Available ($regIcuBeds beds), Emergency Care" else "Emergency Care",
-                                            isApproved = true,
-                                            isFeatured = true
-                                        )
-                                        viewModel.registerHospital(newHosp)
-                                        Toast.makeText(context, "বিকাশ/নগদ পেমেন্ট ও রেজিস্ট্রেশন সফলভাবে জমা হয়েছে!", Toast.LENGTH_LONG).show()
-                                        regName = ""
-                                        regAddress = ""
-                                        regPhone = ""
-                                        regIcuBeds = ""
-                                        subTrxId = ""
-                                        subSenderPhone = ""
-                                        showRegisterModal = false
-                                        regStep = 1
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE91E63)),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.fillMaxWidth().height(36.dp)
-                                ) {
-                                    Text("বিকাশ/নগদ দিয়ে সাবমিট করুন", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                if (regStep == 1) {
-                    Button(
-                        onClick = {
-                            if (regName.isBlank() || regPhone.isBlank() || regEmail.isBlank() || regPassword.isBlank() || regDistrict.isBlank() || regAddress.isBlank()) {
-                                Toast.makeText(context, "অনুগ্রহ করে নাম, ইমেইল, মোবাইল, পাসওয়ার্ড, জেলা ও ঠিকানা পূরণ করুন", Toast.LENGTH_SHORT).show()
-                                return@Button
-                            }
-                            // Register Hospital and Auto-login to My Account
-                            val isAdv = (selectedPlanForReg == "ADVANCE")
-                            val newHosp = RegisteredHospital(
-                                id = "HOSP_${System.currentTimeMillis()}",
-                                name = regName,
-                                type = regType,
-                                district = regDistrict,
-                                upazila = regUpazila.ifBlank { regDistrict },
-                                address = regAddress,
-                                phone = regPhone,
-                                services = if (regIcuBeds.isNotBlank()) "ICU Available ($regIcuBeds beds), Emergency Care" else "Emergency Care",
-                                isApproved = true,
-                                isFeatured = isAdv
-                            )
-                            viewModel.registerHospital(newHosp)
-                            Toast.makeText(context, "রেজিস্ট্রেশন ও 'মাই একাউন্ট'-এ অটোমেটিক লগইন সফল হয়েছে!", Toast.LENGTH_SHORT).show()
-
-                            if (isAdv) {
-                                regStep = 2 // Seamlessly move to Payment Gateway (Google Play & bKash/Nagad)
-                            } else {
-                                regName = ""
-                                regEmail = ""
-                                regPassword = ""
-                                regAddress = ""
-                                regPhone = ""
-                                regIcuBeds = ""
-                                showRegisterModal = false
-                                regStep = 1
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (selectedPlanForReg == "ADVANCE") Color(0xFFFF8F00) else Color(0xFF0288D1)
-                        )
-                    ) {
-                        Text(
-                            if (selectedPlanForReg == "ADVANCE")
-                                (if (language == AppLanguage.BAN) "রেজিস্ট্রেশন করুন ও পেমেন্ট গেটওয়েতে যান" else "Register & Proceed to Payment")
-                            else
-                                (if (language == AppLanguage.BAN) "ফ্রি রেজিস্ট্রেশন ও লগইন করুন" else "Submit Free Registration")
-                        )
-                    }
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { 
-                    if (regStep == 2) {
-                        regStep = 1 // Go back to details step
-                    } else {
-                        showRegisterModal = false
-                        regStep = 1
-                    }
-                }) {
-                    Text(
-                        if (regStep == 2) (if (language == AppLanguage.BAN) "পেছনে যান" else "Back")
-                        else (if (language == AppLanguage.BAN) "বাতিল" else "Cancel")
-                    )
-                }
+    if (showHospitalPaymentSheet) {
+        PlanPaymentModalDialog(
+            planTitle = if (language == AppLanguage.BAN) "হাসপাতাল অ্যাডভান্স প্ল্যান" else "Hospital Advance Plan",
+            planPrice = 999.0,
+            language = language,
+            viewModel = viewModel,
+            onDismiss = { showHospitalPaymentSheet = false },
+            onPaymentSuccess = { method, txnId ->
+                viewModel.updateHospitalPlan("", "Advance (Monthly)", paymentMethod = method, txnId = txnId)
+                Toast.makeText(context, if (language == AppLanguage.BAN) "পেমেন্ট সফল! হাসপাতাল অ্যাডভান্স ফিচার সক্রিয় হয়েছে।" else "Payment Successful! Hospital Advance Plan activated.", Toast.LENGTH_LONG).show()
+                showHospitalPaymentSheet = false
+                showPlanSelectionModal = false
             }
         )
     }
@@ -21557,10 +22172,17 @@ fun DoctorDirectoryScreen(viewModel: MainViewModel) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedSpecialty by remember { mutableStateOf("ALL") }
     var showPlanSelectionModal by remember { mutableStateOf(false) }
-    var showRegisterModal by remember { mutableStateOf(false) }
-    var selectedPlanForReg by remember { mutableStateOf("FREE") } // "FREE" or "ADVANCE"
+    var showDoctorPaymentSheet by remember { mutableStateOf(false) }
     var selectedDoctorForChat by remember { mutableStateOf<RegisteredDoctor?>(null) }
     var selectedDoctorForBooking by remember { mutableStateOf<RegisteredDoctor?>(null) }
+
+    val autoShowPlanRole by viewModel.autoShowPlanForRole.collectAsState()
+    LaunchedEffect(autoShowPlanRole) {
+        if (autoShowPlanRole == "Doctor") {
+            showPlanSelectionModal = true
+            viewModel.clearAutoShowPlan()
+        }
+    }
 
     // Doctor Booking Form States
     var docBookPatientName by remember { mutableStateOf("") }
@@ -21877,59 +22499,6 @@ fun DoctorDirectoryScreen(viewModel: MainViewModel) {
                             }
                         }
 
-                        // VIDEO AD SHOW / HIDE BASED ON PLAN
-                        Spacer(modifier = Modifier.height(8.dp))
-                        if (isAdvanceDoc) {
-                            Surface(
-                                color = Color(0xFFE8F5E9),
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Color(0xFF2E7D32), modifier = Modifier.size(15.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = if (language == AppLanguage.BAN) "🚫 ভিডিও বিজ্ঞাপন রিমুভড • ৫% কমিশন পলিসি (অ্যাডভান্স প্রিমিয়াম)" else "🚫 Video Ads Removed • 5% Commission Policy",
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF1B5E20)
-                                    )
-                                }
-                            }
-                        } else {
-                            // Free Plan Doctor - Video Ad Display Box
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFFF3E5F5)),
-                                shape = RoundedCornerShape(8.dp),
-                                border = BorderStroke(1.dp, Color(0xFFCE93D8))
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(Icons.Filled.OndemandVideo, contentDescription = "Video Ad", tint = Color(0xFF8E24AA), modifier = Modifier.size(20.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = if (language == AppLanguage.BAN) "🎬 স্পন্সরড ভিডিও বিজ্ঞাপন চলছে (ফ্রি প্ল্যান ডক্টর)" else "🎬 Video Ad Active (Free Plan Doctor)",
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color(0xFF6A1B9A)
-                                        )
-                                        Text(
-                                            text = if (language == AppLanguage.BAN) "অ্যাডভান্স প্রিমিয়াম প্ল্যানে উন্নীত করলে ভিডিও বিজ্ঞাপন সম্পূর্ণ রিমুভ হয়ে যাবে" else "Upgrade to Advance Plan to disable video ads",
-                                            fontSize = 10.sp,
-                                            color = DarkText.copy(alpha = 0.8f)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Row(
@@ -21993,7 +22562,7 @@ fun DoctorDirectoryScreen(viewModel: MainViewModel) {
                     Icon(Icons.Filled.WorkspacePremium, contentDescription = "Plan", tint = Color(0xFF8E24AA))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (language == AppLanguage.BAN) "ডাক্তার সাবস্ক্রিপশন প্ল্যানসমূহ" else "Doctor Subscription Plans",
+                        text = if (language == AppLanguage.BAN) "ডাক্তার সাবস্ক্রিপশন প্ল্যান নির্বাচন করুন" else "Select Doctor Subscription Plan",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -22021,7 +22590,7 @@ fun DoctorDirectoryScreen(viewModel: MainViewModel) {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = if (language == AppLanguage.BAN) "১. ফ্রি ডাক্তার রেজিস্ট্রেশন" else "1. Free Doctor Registration",
+                                    text = if (language == AppLanguage.BAN) "১. ফ্রি ডাক্তার প্ল্যান" else "1. Free Doctor Plan",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp,
                                     color = DarkText
@@ -22046,15 +22615,15 @@ fun DoctorDirectoryScreen(viewModel: MainViewModel) {
                             Spacer(modifier = Modifier.height(10.dp))
                             Button(
                                 onClick = {
-                                    selectedPlanForReg = "FREE"
+                                    viewModel.updateDoctorPlan("", "Free")
+                                    Toast.makeText(context, if (language == AppLanguage.BAN) "ফ্রি প্ল্যান সফলভাবে সক্রিয় হয়েছে!" else "Free plan activated successfully!", Toast.LENGTH_SHORT).show()
                                     showPlanSelectionModal = false
-                                    showRegisterModal = true
                                 },
-                                modifier = Modifier.fillMaxWidth().height(36.dp),
+                                modifier = Modifier.fillMaxWidth().height(38.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Text(if (language == AppLanguage.BAN) "ফ্রি প্ল্যানে যুক্ত হোন" else "Register Free Plan", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text(if (language == AppLanguage.BAN) "ফ্রি প্ল্যান সক্রিয় করুন" else "Activate Free Plan", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -22096,18 +22665,32 @@ fun DoctorDirectoryScreen(viewModel: MainViewModel) {
                             Text(if (language == AppLanguage.BAN) "✓ সরাসরি মোবাইল নম্বর ও ডায়রেক্ট কল বাটন অন" else "✓ Direct mobile number & direct call button enabled", fontSize = 11.sp, color = DarkText, fontWeight = FontWeight.Bold)
                             Text(if (language == AppLanguage.BAN) "✓ সার্চ রেজাল্টে গোল্ডেন প্রিমিয়াম ব্যাজ ও সবার উপরে টপ পজিশন" else "✓ Golden Premium badge & top position in specialty search", fontSize = 11.sp, color = DarkText)
                             Text(if (language == AppLanguage.BAN) "✓ গুগল প্লে ও ওয়াইজ ইন্টারন্যাশনাল পেমেন্ট সাপোর্টেড" else "✓ Google Play & Wise international payment supported", fontSize = 11.sp, color = DarkText)
-                            Spacer(modifier = Modifier.height(10.dp))
+                            
+                            Spacer(modifier = Modifier.height(12.dp))
+                            HorizontalDivider(color = Color(0xFFE1BEE7))
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Text(
+                                text = if (language == AppLanguage.BAN) "পেমেন্ট মাধ্যম বেছে নিন:" else "Select Payment Method:",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF6A1B9A)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+
                             Button(
-                                onClick = {
-                                    selectedPlanForReg = "ADVANCE"
-                                    showPlanSelectionModal = false
-                                    showRegisterModal = true
-                                },
-                                modifier = Modifier.fillMaxWidth().height(36.dp),
+                                onClick = { showDoctorPaymentSheet = true },
+                                modifier = Modifier.fillMaxWidth().height(42.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8E24AA)),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Text(if (language == AppLanguage.BAN) "অ্যাডভান্স প্ল্যান নিন (৳৪৯৯)" else "Get Advance Plan ($4.99)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Icon(Icons.Filled.Payments, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (language == AppLanguage.BAN) "পে করুন (৳৪৯৯)" else "Pay (৳499)",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
@@ -22122,380 +22705,18 @@ fun DoctorDirectoryScreen(viewModel: MainViewModel) {
         )
     }
 
-    // Modal 2: Doctor Registration Form Modal (Multi-step for Advance plan)
-    if (showRegisterModal) {
-        var regStep by remember { mutableStateOf(1) } // 1: Details, 2: Payment options (for Advance)
-
-        AlertDialog(
-            onDismissRequest = {
-                showRegisterModal = false
-                regStep = 1
-            },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        if (selectedPlanForReg == "ADVANCE") Icons.Filled.WorkspacePremium else Icons.Filled.PersonAdd,
-                        contentDescription = "Reg",
-                        tint = Color(0xFF8E24AA)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = if (regStep == 2)
-                            (if (language == AppLanguage.BAN) "পেমেন্ট মাধ্যম নির্বাচন (Advance Plan)" else "Payment Method Selection")
-                        else if (selectedPlanForReg == "ADVANCE")
-                            (if (language == AppLanguage.BAN) "ডাক্তার রেজিস্ট্রেশন (অ্যাডভান্স প্ল্যান)" else "Doctor Registration (Advance Plan)")
-                        else
-                            (if (language == AppLanguage.BAN) "ডাক্তার রেজিস্ট্রেশন (ফ্রি প্ল্যান)" else "Doctor Registration (Free Plan)"),
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            },
-            text = {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Selected Plan Banner
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (selectedPlanForReg == "ADVANCE") Color(0xFFF3E5F5) else Color(0xFFF5F5F5)
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(10.dp)) {
-                            Text(
-                                text = if (selectedPlanForReg == "ADVANCE")
-                                    (if (language == AppLanguage.BAN) "নির্বাচিত প্ল্যান: অ্যাডভান্স প্রিমিয়াম প্ল্যান (৳৪৯৯ / ৩০ দিন)" else "Selected Plan: Advance Premium Plan ($4.99 / 30 Days)")
-                                else
-                                    (if (language == AppLanguage.BAN) "নির্বাচিত প্ল্যান: ফ্রি প্ল্যান (৳০ - বিনামূল্যে)" else "Selected Plan: Free Plan ($0 / Free)"),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp,
-                                color = Color(0xFF6A1B9A)
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = if (regStep == 2)
-                                    (if (language == AppLanguage.BAN) "ধাপ ২: পেমেন্ট সম্পন্ন করুন" else "Step 2: Complete Payment")
-                                else
-                                    (if (language == AppLanguage.BAN) "ধাপ ১: ডাক্তারের সকল প্রয়োজনীয় তথ্য পূরণ করুন" else "Step 1: Fill Doctor Details"),
-                                fontSize = 11.sp,
-                                color = DarkText.copy(alpha = 0.8f)
-                            )
-                        }
-                    }
-
-                    if (regStep == 1) {
-                        // Step 1: Fill Doctor Details
-                        OutlinedTextField(
-                            value = docName,
-                            onValueChange = { docName = it },
-                            label = { Text(if (language == AppLanguage.BAN) "ডাক্তারের নাম (Doctor Name) *" else "Doctor Name *") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-
-                        OutlinedTextField(
-                            value = docDegree,
-                            onValueChange = { docDegree = it },
-                            label = { Text(if (language == AppLanguage.BAN) "ডিগ্রি ও যোগ্যতা (Degrees e.g. MBBS, FCPS) *" else "Degrees e.g. MBBS, FCPS *") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-
-                        OutlinedTextField(
-                            value = docSpecialty,
-                            onValueChange = { docSpecialty = it },
-                            label = { Text(if (language == AppLanguage.BAN) "বিশেষজ্ঞতা / Specialty *" else "Specialty *") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-
-                        OutlinedTextField(
-                            value = docBmdcReg,
-                            onValueChange = { docBmdcReg = it },
-                            label = { Text(if (language == AppLanguage.BAN) "বিএমডিসি নম্বর (BMDC Reg No.)" else "BMDC Reg No.") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-
-                        OutlinedTextField(
-                            value = docHospital,
-                            onValueChange = { docHospital = it },
-                            label = { Text(if (language == AppLanguage.BAN) "হাসপাতাল / চেম্বারের নাম *" else "Hospital / Chamber Name *") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-
-                        OutlinedTextField(
-                            value = docDistrict,
-                            onValueChange = { docDistrict = it },
-                            label = { Text(if (language == AppLanguage.BAN) "জেলা (District) *" else "District *") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-
-                        OutlinedTextField(
-                            value = docVisitingHours,
-                            onValueChange = { docVisitingHours = it },
-                            label = { Text(if (language == AppLanguage.BAN) "রোগী দেখার সময় (Visiting Hours)" else "Visiting Hours") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-
-                        OutlinedTextField(
-                            value = docFee,
-                            onValueChange = { docFee = it },
-                            label = { Text(if (language == AppLanguage.BAN) "ভিজিট ফি (Consultation Fee)" else "Consultation Fee") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-
-                        OutlinedTextField(
-                            value = docPhone,
-                            onValueChange = { docPhone = it },
-                            label = { Text(if (language == AppLanguage.BAN) "সিরিয়াল বুকিং মোবাইল নম্বর *" else "Booking Phone Number *") },
-                            modifier = Modifier.fillMaxWidth(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                            singleLine = true
-                        )
-                    } else {
-                        // Step 2: Payment Options for Advance Plan
-                        Text(
-                            text = if (language == AppLanguage.BAN) "আপনার পছন্দনীয় পেমেন্ট মাধ্যম বেছে নিয়ে ফি পরিশোধ করুন:" else "Select your preferred payment method to pay:",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = DarkText
-                        )
-
-                        // Option 1: Google Play Payment
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F0FE))
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Filled.Payment, contentDescription = "Google Play", tint = Color(0xFF4285F4))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = if (language == AppLanguage.BAN) "গুগল প্লে পেমেন্ট (Google Play Billing)" else "Google Play Billing",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp,
-                                        color = Color(0xFF1A73E8)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = if (language == AppLanguage.BAN) "Google Play Account / Card দিয়ে সরাসরি ইন-অ্যাপ সাবস্ক্রিপশন ফি ৳৪৯৯ পরিশোধ করুন।" else "Pay $4.99 in-app subscription fee directly via Google Play account.",
-                                    fontSize = 11.sp,
-                                    color = SecondaryText
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Button(
-                                    onClick = {
-                                        val nameWithTitle = if (!docName.trim().startsWith("Dr.", ignoreCase = true)) "Dr. ${docName.trim()}" else docName.trim()
-                                        val newDoc = RegisteredDoctor(
-                                            id = "DOC_${System.currentTimeMillis()}",
-                                            name = nameWithTitle,
-                                            titleDegree = docDegree,
-                                            specialty = docSpecialty,
-                                            hospitalName = docHospital,
-                                            chamberAddress = if (docBmdcReg.isNotBlank()) "$docDistrict (BMDC: $docBmdcReg)" else docDistrict,
-                                            district = docDistrict,
-                                            upazila = docDistrict,
-                                            phone = docPhone,
-                                            visitingHours = docVisitingHours.ifBlank { "5:00 PM - 8:00 PM" },
-                                            consultationFee = docFee.ifBlank { "500 BDT" },
-                                            isApproved = true,
-                                            planType = "Advance (Monthly)",
-                                            isFeatured = true,
-                                            country = viewModel.detectedCountry.value
-                                        )
-                                        viewModel.registerDoctor(newDoc)
-                                        Toast.makeText(context, if (language == AppLanguage.BAN) "Google Play পেমেন্ট সফল! সাবস্ক্রিপশন সক্রিয় হয়েছে।" else "Google Play Payment Successful! Subscription activated.", Toast.LENGTH_LONG).show()
-                                        docName = ""
-                                        docDegree = ""
-                                        docHospital = ""
-                                        docPhone = ""
-                                        showRegisterModal = false
-                                        regStep = 1
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A73E8)),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.fillMaxWidth().height(36.dp)
-                                ) {
-                                    Text(if (language == AppLanguage.BAN) "Google Play দিয়ে পে করুন (৳৪৯৯)" else "Pay with Google Play ($4.99)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        // Option 2: bKash / Nagad / Wise Mobile Banking & Global
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFCE4EC))
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Filled.AccountBalanceWallet, contentDescription = "Wise bKash", tint = Color(0xFFE91E63))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = if (language == AppLanguage.BAN) "বিকাশ / নগদ / ওয়াইজ পেমেন্ট (bKash, Nagad & Wise)" else "bKash, Nagad & Wise Payment",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp,
-                                        color = Color(0xFFC2185B)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Merchant / Wallet: 01700000000 | Wise: daimondtopup32@gmail.com",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = BloodRed
-                                )
-                                Text(
-                                    text = if (language == AppLanguage.BAN) "উপরের নম্বরে ৳৪৯৯ অথবা Wise Email-এ $4.99 পাঠিয়া ট্রানজেকশন আইডি দিন:" else "Send ৳499 to phone or $4.99 to Wise email, then enter Transaction ID:",
-                                    fontSize = 11.sp,
-                                    color = DarkText
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                OutlinedTextField(
-                                    value = subSenderPhone,
-                                    onValueChange = { subSenderPhone = it },
-                                    label = { Text(if (language == AppLanguage.BAN) "আপনার বিকাশ/নগদ/Wise নম্বর বা ইমেইল *" else "Your Phone / Wise Email *") },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    singleLine = true
-                                )
-
-                                OutlinedTextField(
-                                    value = subTxnId,
-                                    onValueChange = { subTxnId = it },
-                                    label = { Text(if (language == AppLanguage.BAN) "ট্রানজেকশন আইডি (Transaction ID) *" else "Transaction ID *") },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    singleLine = true
-                                )
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                Button(
-                                    onClick = {
-                                        if (subSenderPhone.isBlank() || subTxnId.isBlank()) {
-                                            Toast.makeText(context, "নম্বর ও ট্রানজেকশন আইডি প্রদান করুন", Toast.LENGTH_SHORT).show()
-                                            return@Button
-                                        }
-                                        val nameWithTitle = if (!docName.trim().startsWith("Dr.", ignoreCase = true)) "Dr. ${docName.trim()}" else docName.trim()
-                                        val newDoc = RegisteredDoctor(
-                                            id = "DOC_${System.currentTimeMillis()}",
-                                            name = nameWithTitle,
-                                            titleDegree = docDegree,
-                                            specialty = docSpecialty,
-                                            hospitalName = docHospital,
-                                            chamberAddress = if (docBmdcReg.isNotBlank()) "$docDistrict (BMDC: $docBmdcReg)" else docDistrict,
-                                            district = docDistrict,
-                                            upazila = docDistrict,
-                                            phone = docPhone,
-                                            visitingHours = docVisitingHours.ifBlank { "5:00 PM - 8:00 PM" },
-                                            consultationFee = docFee.ifBlank { "500 BDT" },
-                                            isApproved = true,
-                                            planType = "Advance (Monthly)",
-                                            isFeatured = true,
-                                            paymentMethod = "MobileBanking/Wise",
-                                            paymentTxnId = subTxnId,
-                                            country = viewModel.detectedCountry.value
-                                        )
-                                        viewModel.registerDoctor(newDoc)
-                                        Toast.makeText(context, if (language == AppLanguage.BAN) "পেমেন্ট তথ্য জমাদান সফল! সাবস্ক্রিপশন পর্যালোচনা শেষে সক্রিয় হবে।" else "Payment submitted successfully! Activated upon review.", Toast.LENGTH_LONG).show()
-                                        docName = ""
-                                        docDegree = ""
-                                        docHospital = ""
-                                        docPhone = ""
-                                        subSenderPhone = ""
-                                        subTxnId = ""
-                                        showRegisterModal = false
-                                        regStep = 1
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC2185B)),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.fillMaxWidth().height(36.dp)
-                                ) {
-                                    Text(if (language == AppLanguage.BAN) "পেমেন্ট সাবমিট করুন" else "Submit Payment", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                if (regStep == 1) {
-                    Button(
-                        onClick = {
-                            if (docName.isBlank() || docPhone.isBlank() || docDegree.isBlank() || docHospital.isBlank()) {
-                                Toast.makeText(context, "প্রয়োজনীয় ফিল্ডগুলো পূরণ করুন", Toast.LENGTH_SHORT).show()
-                                return@Button
-                            }
-                            if (selectedPlanForReg == "ADVANCE") {
-                                regStep = 2
-                            } else {
-                                // Free Plan Registration
-                                val nameWithTitle = if (!docName.trim().startsWith("Dr.", ignoreCase = true)) "Dr. ${docName.trim()}" else docName.trim()
-                                val newDoc = RegisteredDoctor(
-                                    id = "DOC_${System.currentTimeMillis()}",
-                                    name = nameWithTitle,
-                                    titleDegree = docDegree,
-                                    specialty = docSpecialty,
-                                    hospitalName = docHospital,
-                                    chamberAddress = if (docBmdcReg.isNotBlank()) "$docDistrict (BMDC: $docBmdcReg)" else docDistrict,
-                                    district = docDistrict,
-                                    upazila = docDistrict,
-                                    phone = docPhone,
-                                    visitingHours = docVisitingHours.ifBlank { "5:00 PM - 8:00 PM" },
-                                    consultationFee = docFee.ifBlank { "500 BDT" },
-                                    isApproved = true,
-                                    planType = "Free",
-                                    isFeatured = false,
-                                    country = viewModel.detectedCountry.value
-                                )
-                                viewModel.registerDoctor(newDoc)
-                                Toast.makeText(context, if (language == AppLanguage.BAN) "ফ্রি ডাক্তার রেজিস্ট্রেশন সফল হয়েছে!" else "Free Doctor Registration Successful!", Toast.LENGTH_LONG).show()
-                                docName = ""
-                                docDegree = ""
-                                docHospital = ""
-                                docPhone = ""
-                                showRegisterModal = false
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8E24AA))
-                    ) {
-                        Text(
-                            text = if (selectedPlanForReg == "ADVANCE")
-                                (if (language == AppLanguage.BAN) "পরবর্তী ধাপ (পেমেন্ট)" else "Next Step (Payment)")
-                            else
-                                (if (language == AppLanguage.BAN) "রেজিস্ট্রেশন সম্পন্ন করুন" else "Complete Registration")
-                        )
-                    }
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        if (regStep == 2) {
-                            regStep = 1
-                        } else {
-                            showRegisterModal = false
-                        }
-                    }
-                ) {
-                    Text(
-                        text = if (regStep == 2)
-                            (if (language == AppLanguage.BAN) "পিছনে যান" else "Back")
-                        else
-                            (if (language == AppLanguage.BAN) "বাতিল" else "Cancel")
-                    )
-                }
+    if (showDoctorPaymentSheet) {
+        PlanPaymentModalDialog(
+            planTitle = if (language == AppLanguage.BAN) "ডাক্তার অ্যাডভান্স প্ল্যান" else "Doctor Advance Plan",
+            planPrice = 499.0,
+            language = language,
+            viewModel = viewModel,
+            onDismiss = { showDoctorPaymentSheet = false },
+            onPaymentSuccess = { method, txnId ->
+                viewModel.updateDoctorPlan("", "Advance (Monthly)", paymentMethod = method, txnId = txnId)
+                Toast.makeText(context, if (language == AppLanguage.BAN) "পেমেন্ট সফল! ডাক্তার অ্যাডভান্স ফিচার সক্রিয় হয়েছে।" else "Payment Successful! Doctor Advance Plan activated.", Toast.LENGTH_LONG).show()
+                showDoctorPaymentSheet = false
+                showPlanSelectionModal = false
             }
         )
     }
@@ -22575,13 +22796,6 @@ fun DoctorDirectoryScreen(viewModel: MainViewModel) {
 
     // Modal 4: Doctor Serial Booking Modal
     selectedDoctorForBooking?.let { doc ->
-        val isAdvanceDoc = doc.isFeatured || doc.planType.lowercase().contains("advance") || doc.planType.lowercase().contains("premium")
-        val commissionRate = if (isAdvanceDoc) 5 else 10
-        val rawDigits = doc.consultationFee.filter { it.isDigit() }
-        val feeAmount = rawDigits.toDoubleOrNull() ?: 500.0
-        val commissionAmount = (feeAmount * commissionRate) / 100.0
-        val doctorNetAmount = feeAmount - commissionAmount
-
         AlertDialog(
             onDismissRequest = { selectedDoctorForBooking = null },
             title = {
@@ -22608,55 +22822,6 @@ fun DoctorDirectoryScreen(viewModel: MainViewModel) {
                         Column(modifier = Modifier.padding(8.dp)) {
                             Text("${if (language == AppLanguage.BAN) "চেম্বার: " else "Chamber: "}${doc.hospitalName}, ${doc.district}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = DarkText)
                             Text("${if (language == AppLanguage.BAN) "সময়: " else "Hours: "}${doc.visitingHours} | ${if (language == AppLanguage.BAN) "ফি: " else "Fee: "}${doc.consultationFee}", fontSize = 11.sp, color = SecondaryText)
-                        }
-                    }
-
-                    // COMMISSION BREAKDOWN BOX
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = if (isAdvanceDoc) Color(0xFFFFF8E1) else Color(0xFFF3E5F5)),
-                        shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, if (isAdvanceDoc) Color(0xFFFFB300) else Color(0xFF8E24AA))
-                    ) {
-                        Column(modifier = Modifier.padding(10.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = if (language == AppLanguage.BAN) "💰 কমিশন হিসাব (ভিজিট ফি হতে কর্তন)" else "💰 Booking Commission Policy",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isAdvanceDoc) Color(0xFFE65100) else Color(0xFF6A1B9A)
-                                )
-                                Surface(
-                                    color = if (isAdvanceDoc) Color(0xFFFF8F00) else Color(0xFF8E24AA),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Text(
-                                        text = if (isAdvanceDoc) (if (language == AppLanguage.BAN) "৫% কমিশন" else "5% Commission") else (if (language == AppLanguage.BAN) "১০% কমিশন" else "10% Commission"),
-                                        color = Color.White,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(if (language == AppLanguage.BAN) "ডাক্তার ভিজিট ফি:" else "Consultation Fee:", fontSize = 11.sp, color = DarkText)
-                                Text("৳${feeAmount.toInt()} BDT", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = DarkText)
-                            }
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(if (language == AppLanguage.BAN) "অ্যাপ কমিশন কর্তন (${commissionRate}%):" else "Commission Deducted (${commissionRate}%):", fontSize = 11.sp, color = BloodRed)
-                                Text("- ৳${commissionAmount.toInt()} BDT", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = BloodRed)
-                            }
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = Color.Gray.copy(alpha = 0.3f))
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(if (language == AppLanguage.BAN) "ডাক্তারের প্রাপ্য নিট ফি:" else "Doctor Net Fee:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
-                                Text("৳${doctorNetAmount.toInt()} BDT", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
-                            }
                         }
                     }
 
@@ -22711,14 +22876,7 @@ fun DoctorDirectoryScreen(viewModel: MainViewModel) {
                             Toast.makeText(context, "Please enter patient name and phone", Toast.LENGTH_SHORT).show()
                             return@Button
                         }
-                        Toast.makeText(
-                            context,
-                            if (language == AppLanguage.BAN)
-                                "বুকিং সফল! ডাক্তারের ৳${feeAmount.toInt()} ফি হতে ${commissionRate}% কমিশন (৳${commissionAmount.toInt()}) কাটা হয়েছে।"
-                            else
-                                "Appointment booked! ${commissionRate}% commission (৳${commissionAmount.toInt()}) deducted from doctor fee.",
-                            Toast.LENGTH_LONG
-                        ).show()
+                        Toast.makeText(context, if (language == AppLanguage.BAN) "ডাক্তারের অ্যাপয়েন্টমেন্ট বুকিং সফলভাবে সম্পন্ন হয়েছে!" else "Doctor appointment booking confirmed successfully!", Toast.LENGTH_LONG).show()
                         docBookPatientName = ""
                         docBookPhone = ""
                         docBookAge = ""

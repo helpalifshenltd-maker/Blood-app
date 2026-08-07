@@ -129,9 +129,49 @@ class BloodConnectRepository private constructor() {
         }
     }
 
-    fun updateHospitalPlan(hospitalId: String, planType: String, expiryDate: String) {
-        _registeredHospitals.value = _registeredHospitals.value.map {
-            if (it.id == hospitalId) it.copy(planType = planType, subscriptionExpiryDate = expiryDate, isFeatured = planType.startsWith("Premium")) else it
+    fun updateHospitalPlan(hospitalId: String, planType: String, expiryDate: String, paymentMethod: String = "", txnId: String = "") {
+        val isAdv = planType.lowercase().contains("advance") || planType.lowercase().contains("premium")
+        val userPhone = _currentUser.value?.phone ?: ""
+        val userEmail = _currentUser.value?.email ?: ""
+        _registeredHospitals.value = _registeredHospitals.value.map { hosp ->
+            if (hosp.id == hospitalId || (hospitalId.isBlank() && (hosp.phone == userPhone || (userEmail.isNotBlank() && hosp.email == userEmail)))) {
+                hosp.copy(
+                    planType = planType,
+                    subscriptionExpiryDate = expiryDate,
+                    isFeatured = isAdv,
+                    paymentMethod = paymentMethod,
+                    paymentTxnId = txnId
+                )
+            } else hosp
+        }
+    }
+
+    fun updateDoctorPlan(doctorId: String, planType: String, expiryDate: String = "2026-12-31", paymentMethod: String = "", txnId: String = "") {
+        val isAdv = planType.lowercase().contains("advance") || planType.lowercase().contains("premium")
+        val userPhone = _currentUser.value?.phone ?: ""
+        val userEmail = _currentUser.value?.email ?: ""
+        _registeredDoctors.value = _registeredDoctors.value.map { doc ->
+            if (doc.id == doctorId || (doctorId.isBlank() && (doc.phone == userPhone || (userEmail.isNotBlank() && doc.email == userEmail)))) {
+                doc.copy(
+                    planType = planType,
+                    isFeatured = isAdv,
+                    paymentMethod = paymentMethod,
+                    paymentTxnId = txnId
+                )
+            } else doc
+        }
+    }
+
+    fun updateAmbulancePlan(phoneOrId: String, planType: String, expiryDate: String = "2026-12-31", paymentMethod: String = "", txnId: String = "") {
+        val isAdv = planType.lowercase().contains("advance") || planType.lowercase().contains("premium")
+        val userPhone = _currentUser.value?.phone ?: ""
+        _ambulances.value = _ambulances.value.map { amb ->
+            if (amb.id == phoneOrId || amb.phone == phoneOrId || (phoneOrId.isBlank() && amb.phone == userPhone)) {
+                amb.copy(
+                    planType = planType,
+                    isFeatured = isAdv
+                )
+            } else amb
         }
     }
 
@@ -544,18 +584,6 @@ class BloodConnectRepository private constructor() {
 
     private val _customAdConfigs = MutableStateFlow<List<CustomAdConfig>>(emptyList())
     val customAdConfigs: StateFlow<List<CustomAdConfig>> = _customAdConfigs.asStateFlow()
-
-    // --- SUPPORT & HELPLINE CONTACT CONFIG ---
-    private val _supportHelplineNumber = MutableStateFlow("+8801700000000")
-    val supportHelplineNumber: StateFlow<String> = _supportHelplineNumber.asStateFlow()
-
-    private val _supportEmailAddress = MutableStateFlow("help.alifshen.ltd@gmail.com")
-    val supportEmailAddress: StateFlow<String> = _supportEmailAddress.asStateFlow()
-
-    fun updateSupportContacts(phone: String, email: String) {
-        if (phone.isNotBlank()) _supportHelplineNumber.value = phone
-        if (email.isNotBlank()) _supportEmailAddress.value = email
-    }
 
     private fun serializeAds(ads: List<CustomAdConfig>): String {
         return ads.joinToString("||AD_SEP||") { ad ->
@@ -1696,9 +1724,11 @@ class BloodConnectRepository private constructor() {
         var loadedPlans = deserializeSubscriptionPlans(subscriptionPlansStr)
         if (loadedPlans.isEmpty()) {
             loadedPlans = listOf(
-                V9SubscriptionPlan("plan_basic", "V9 Starter Pack", "ভি৯ স্টার্টার প্যাক", 150.0, 30, "Get basic access & priority support", "বেসিক অ্যাক্সেস এবং অগ্রাধিকার সাপোর্ট"),
-                V9SubscriptionPlan("plan_standard", "V9 Pro Pack", "ভি৯ প্রো প্যাক", 350.0, 90, "Get full system premium access", "সম্পূর্ণ সিস্টেম প্রিমিয়াম অ্যাক্সেস"),
-                V9SubscriptionPlan("plan_premium", "V9 Ultimate VIP Pack", "ভি৯ আল্টিমেট ভিআইপি প্যাক", 999.0, 365, "Lifetime special badge and VIP status", "আজীবন বিশেষ ব্যাজ এবং ভিআইপি স্ট্যাটাস")
+                V9SubscriptionPlan("plan_doc_advance", "Doctor Advance Plan", "ডাক্তার অ্যাডভান্স প্ল্যান", 499.0, 30, "Direct phone call button, Golden badge & top search position", "সরাসরি কল বাটন, গোল্ডেন ব্যাজ এবং সার্চে টপ পজিশন", "Doctor"),
+                V9SubscriptionPlan("plan_hosp_advance", "Hospital Advance Plan", "হাসপাতাল অ্যাডভান্স প্ল্যান", 999.0, 30, "60-min booking window, direct emergency call & priority badge", "৬০ মিনিট বুকিং উইন্ডো, সরাসরি কল এবং প্রিমিয়াম ব্যাজ", "Hospital"),
+                V9SubscriptionPlan("plan_amb_advance", "Ambulance Advance Plan", "অ্যাম্বুলেন্স অ্যাডভান্স প্ল্যান", 799.0, 30, "Direct driver phone call, emergency VIP badge & top search ranking", "সরাসরি ড্রাইভার কল, ভিআইপি ব্যাজ এবং সার্চের শীর্ষে প্রদর্শন", "Ambulance"),
+                V9SubscriptionPlan("plan_donor_pro", "VIP Donor & Seeker Pack", "ভিআইপি ডোনার ও মেম্বার প্যাক", 350.0, 90, "VIP verified member status & urgent blood alert priority", "ভিআইপি ভেরিফাইড মেম্বার স্ট্যাটাস এবং জরুরি ব্লাড অ্যালার্ট", "Donor"),
+                V9SubscriptionPlan("plan_ultimate_vip", "V9 Ultimate Lifetime VIP", "ভি৯ আল্টিমেট আজীবন ভিআইপি", 1999.0, 365, "Lifetime special badge and VIP system access", "আজীবন বিশেষ ব্যাজ এবং ভিআইপি সিস্টেম অ্যাক্সেস", "All")
             )
             prefs.edit().putString("v9_subscription_plans_list", serializeSubscriptionPlans(loadedPlans)).apply()
         }
@@ -2820,6 +2850,72 @@ class BloodConnectRepository private constructor() {
             (email.isNotBlank() && (it.email.equals(email, ignoreCase = true) || phonesMatch(it.phone, email)))
         }
 
+        // Fallback: check hospitals list if user registered a hospital
+        if (existing == null && (username.isNotBlank() || email.isNotBlank() || cleanInput.isNotBlank())) {
+            val hosp = _registeredHospitals.value.find { 
+                (cleanInput.isNotBlank() && (it.email.equals(cleanInput, ignoreCase = true) || it.phone == cleanInput || phonesMatch(it.phone, cleanInput))) ||
+                (username.isNotBlank() && (it.phone == username || phonesMatch(it.phone, username) || it.email.equals(username, ignoreCase = true))) ||
+                (email.isNotBlank() && (it.email.equals(email, ignoreCase = true) || phonesMatch(it.phone, email)))
+            }
+            if (hosp != null) {
+                val randId = "HOSP-${(10000..99999).random()}"
+                val hospDonor = BloodDonor(
+                    id = "u_hosp_${hosp.id}",
+                    name = hosp.name,
+                    bloodGroup = "N/A",
+                    phone = hosp.phone,
+                    email = if (hosp.email.isNotBlank()) hosp.email else email,
+                    district = hosp.district,
+                    upazila = hosp.upazila,
+                    lastDonationDate = "Available",
+                    isAvailable = true,
+                    isApproved = hosp.isApproved,
+                    donationCount = 0,
+                    country = hosp.country,
+                    userId = randId,
+                    role = "Hospital",
+                    password = if (hosp.password.isNotBlank()) hosp.password else password
+                )
+                _donors.value = _donors.value + hospDonor
+                saveDonorsLocal()
+                pushDonorToFirebase(hospDonor)
+                existing = hospDonor
+            }
+        }
+
+        // Fallback: check doctors list if user registered a doctor
+        if (existing == null && (username.isNotBlank() || email.isNotBlank() || cleanInput.isNotBlank())) {
+            val doc = _registeredDoctors.value.find { 
+                (cleanInput.isNotBlank() && (it.email.equals(cleanInput, ignoreCase = true) || it.phone == cleanInput || phonesMatch(it.phone, cleanInput))) ||
+                (username.isNotBlank() && (it.phone == username || phonesMatch(it.phone, username) || it.email.equals(username, ignoreCase = true))) ||
+                (email.isNotBlank() && (it.email.equals(email, ignoreCase = true) || phonesMatch(it.phone, email)))
+            }
+            if (doc != null) {
+                val randId = "DOC-${(10000..99999).random()}"
+                val docDonor = BloodDonor(
+                    id = "u_doc_${doc.id}",
+                    name = doc.name,
+                    bloodGroup = "N/A",
+                    phone = doc.phone,
+                    email = if (doc.email.isNotBlank()) doc.email else email,
+                    district = doc.district,
+                    upazila = doc.upazila,
+                    lastDonationDate = "Available",
+                    isAvailable = true,
+                    isApproved = doc.isApproved,
+                    donationCount = 0,
+                    country = doc.country,
+                    userId = randId,
+                    role = "Doctor",
+                    password = if (doc.password.isNotBlank()) doc.password else password
+                )
+                _donors.value = _donors.value + docDonor
+                saveDonorsLocal()
+                pushDonorToFirebase(docDonor)
+                existing = docDonor
+            }
+        }
+
         // Fallback: check ambulances list if user registered an ambulance
         if (existing == null && (username.isNotBlank() || email.isNotBlank() || cleanInput.isNotBlank())) {
             val amb = _ambulances.value.find { 
@@ -3725,7 +3821,8 @@ class BloodConnectRepository private constructor() {
                 plan.price.toString(),
                 plan.durationDays.toString(),
                 plan.descriptionEn,
-                plan.descriptionBn
+                plan.descriptionBn,
+                plan.targetRole
             ).joinToString("||FIELD_SEP||")
         }
     }
@@ -3745,7 +3842,8 @@ class BloodConnectRepository private constructor() {
                         price = parts[3].toDoubleOrNull() ?: 0.0,
                         durationDays = parts[4].toIntOrNull() ?: 30,
                         descriptionEn = parts[5],
-                        descriptionBn = parts[6]
+                        descriptionBn = parts[6],
+                        targetRole = if (parts.size >= 8) parts[7] else "All"
                     )
                 )
             }
