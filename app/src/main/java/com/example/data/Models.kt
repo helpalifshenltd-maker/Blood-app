@@ -85,7 +85,50 @@ data class CustomAdConfig(
     val videoUrl: String = "",   // Video URL or local Uri path
     val targetUrl: String = "",
     val targetCountries: String = "All",
-    val weight: Int = 1         // Display rotation weight / weight priority
+    val weight: Int = 1,         // Display rotation weight / weight priority
+    val companyId: String = "",
+    val companyName: String = "",
+    val planType: String = "Weekly", // "Weekly", "Monthly"
+    val expiryDate: String = "",
+    val viewsCount: Int = 0,     // Total video/banner impressions
+    val clicksCount: Int = 0,    // Total ad clicks
+    val status: String = "LIVE"  // LIVE, IN_REVIEW, EXPIRED
+)
+
+@com.squareup.moshi.JsonClass(generateAdapter = true)
+data class AdvertiserCompany(
+    val id: String = "",
+    val companyName: String = "",
+    val email: String = "",
+    val phone: String = "",
+    val password: String = "",
+    val businessType: String = "Corporate", // "Healthcare", "IT", "Retail", "Services", "Other"
+    val logoUrl: String = "",
+    val websiteUrl: String = "",
+    val registrationDate: String = "",
+    val activePlan: String = "None", // "None", "Weekly (৳500)", "Monthly (৳1800)"
+    val planExpiryDate: String = ""
+)
+
+@com.squareup.moshi.JsonClass(generateAdapter = true)
+data class CompanyAdSubscription(
+    val id: String = "",
+    val companyId: String = "",
+    val companyName: String = "",
+    val planType: String = "Weekly", // "Weekly (৳500)", "Monthly (৳1800)"
+    val durationDays: Int = 7,
+    val pricePaid: Double = 500.0,
+    val paymentMethod: String = "bKash",
+    val transactionId: String = "",
+    val adTitle: String = "",
+    val bannerMediaUrl: String = "",
+    val isVideo: Boolean = false,
+    val videoUrl: String = "",
+    val targetUrl: String = "",
+    val startDate: String = "",
+    val expiryDate: String = "",
+    val status: String = "Active", // "Active", "Pending", "Expired"
+    val targetCountries: String = "All"
 )
 
 data class ScamReport(

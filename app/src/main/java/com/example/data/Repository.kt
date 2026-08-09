@@ -108,9 +108,14 @@ class BloodConnectRepository private constructor() {
 
     fun registerHospital(hospital: RegisteredHospital) {
         val current = _registeredHospitals.value.toMutableList()
-        val existingIndex = current.indexOfFirst { it.id == hospital.id }
+        val existingIndex = current.indexOfFirst {
+            it.id == hospital.id ||
+            (hospital.phone.isNotBlank() && it.phone == hospital.phone) ||
+            (hospital.email.isNotBlank() && it.email.equals(hospital.email, ignoreCase = true))
+        }
         if (existingIndex >= 0) {
-            current[existingIndex] = hospital
+            val existing = current[existingIndex]
+            current[existingIndex] = hospital.copy(id = existing.id)
         } else {
             current.add(0, hospital)
         }
@@ -120,6 +125,20 @@ class BloodConnectRepository private constructor() {
     fun updateHospitalApproval(hospitalId: String, isApproved: Boolean) {
         _registeredHospitals.value = _registeredHospitals.value.map {
             if (it.id == hospitalId) it.copy(isApproved = isApproved) else it
+        }
+    }
+
+    fun updateHospitalDetails(hospitalId: String, name: String, phone: String, address: String, bloodAvailability: String, urgentNotice: String) {
+        _registeredHospitals.value = _registeredHospitals.value.map { hosp ->
+            if (hosp.id == hospitalId) {
+                hosp.copy(
+                    name = name,
+                    phone = phone,
+                    address = address,
+                    bloodAvailability = bloodAvailability,
+                    urgentNotice = urgentNotice
+                )
+            } else hosp
         }
     }
 
@@ -531,12 +550,33 @@ class BloodConnectRepository private constructor() {
     private val _wiseAccount = MutableStateFlow("daimondtopup32@gmail.com")
     val wiseAccount: StateFlow<String> = _wiseAccount.asStateFlow()
 
-    fun updatePaymentConfig(bkash: String, nagad: String, rocket: String, googlePlay: String, wise: String = "daimondtopup32@gmail.com") {
+    private val _upayNumber = MutableStateFlow("+8801700000000")
+    val upayNumber: StateFlow<String> = _upayNumber.asStateFlow()
+
+    private val _payoneerAccount = MutableStateFlow("payoneer.global@alifbd.com")
+    val payoneerAccount: StateFlow<String> = _payoneerAccount.asStateFlow()
+
+    private val _usdtWalletAddress = MutableStateFlow("0x71C7656EC7ab88b098defB751B7401B5f6d8976F")
+    val usdtWalletAddress: StateFlow<String> = _usdtWalletAddress.asStateFlow()
+
+    fun updatePaymentConfig(
+        bkash: String,
+        nagad: String,
+        rocket: String,
+        googlePlay: String,
+        wise: String = "daimondtopup32@gmail.com",
+        upay: String = "+8801700000000",
+        payoneer: String = "payoneer.global@alifbd.com",
+        usdt: String = "0x71C7656EC7ab88b098defB751B7401B5f6d8976F"
+    ) {
         _bkashNumber.value = bkash
         _nagadNumber.value = nagad
         _rocketNumber.value = rocket
         _googlePlayMerchant.value = googlePlay
         _wiseAccount.value = wise
+        _upayNumber.value = upay
+        _payoneerAccount.value = payoneer
+        _usdtWalletAddress.value = usdt
         saveAppConfigLocal()
         pushAppConfigToRemote()
     }
@@ -596,7 +636,14 @@ class BloodConnectRepository private constructor() {
                 ad.videoUrl,
                 ad.targetUrl,
                 ad.targetCountries,
-                ad.weight.toString()
+                ad.weight.toString(),
+                ad.companyId,
+                ad.companyName,
+                ad.planType,
+                ad.expiryDate,
+                ad.viewsCount.toString(),
+                ad.clicksCount.toString(),
+                ad.status
             ).joinToString("||FIELD_SEP||")
         }
     }
@@ -618,12 +665,161 @@ class BloodConnectRepository private constructor() {
                         videoUrl = parts[5],
                         targetUrl = parts[6],
                         targetCountries = parts[7],
-                        weight = parts.getOrNull(8)?.toIntOrNull() ?: 1
+                        weight = parts.getOrNull(8)?.toIntOrNull() ?: 1,
+                        companyId = parts.getOrNull(9) ?: "",
+                        companyName = parts.getOrNull(10) ?: "",
+                        planType = parts.getOrNull(11) ?: "Weekly",
+                        expiryDate = parts.getOrNull(12) ?: "",
+                        viewsCount = parts.getOrNull(13)?.toIntOrNull() ?: 0,
+                        clicksCount = parts.getOrNull(14)?.toIntOrNull() ?: 0,
+                        status = parts.getOrNull(15) ?: "LIVE"
                     )
                 )
             }
         }
         return list
+    }
+
+    private val _currentAdvertiser = MutableStateFlow<AdvertiserCompany?>(null)
+    val currentAdvertiser: StateFlow<AdvertiserCompany?> = _currentAdvertiser.asStateFlow()
+
+    private val _advertiserCompanies = MutableStateFlow<List<AdvertiserCompany>>(emptyList())
+    val advertiserCompanies: StateFlow<List<AdvertiserCompany>> = _advertiserCompanies.asStateFlow()
+
+    private val _companySubscriptions = MutableStateFlow<List<CompanyAdSubscription>>(emptyList())
+    val companySubscriptions: StateFlow<List<CompanyAdSubscription>> = _companySubscriptions.asStateFlow()
+
+    fun registerAdvertiserCompany(
+        companyName: String,
+        email: String,
+        phone: String,
+        pass: String,
+        businessType: String = "Corporate",
+        websiteUrl: String = ""
+    ): AdvertiserCompany {
+        val newCompany = AdvertiserCompany(
+            id = "comp_" + System.currentTimeMillis(),
+            companyName = companyName,
+            email = email,
+            phone = phone,
+            password = pass,
+            businessType = businessType,
+            websiteUrl = websiteUrl,
+            registrationDate = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+        )
+        val updatedList = _advertiserCompanies.value + newCompany
+        _advertiserCompanies.value = updatedList
+        _currentAdvertiser.value = newCompany
+        return newCompany
+    }
+
+    fun loginAdvertiserCompany(identifier: String, pass: String): Boolean {
+        val trimmed = identifier.trim()
+        val found = _advertiserCompanies.value.find {
+            (it.email.equals(trimmed, ignoreCase = true) || it.phone == trimmed) && it.password == pass
+        }
+        if (found != null) {
+            _currentAdvertiser.value = found
+            return true
+        }
+        // Demo fallback for instant testing if empty
+        if (_advertiserCompanies.value.isEmpty() || found == null) {
+            val demoComp = AdvertiserCompany(
+                id = "comp_demo",
+                companyName = if (identifier.isNotBlank()) identifier else "Partner Company Ltd",
+                email = if (identifier.contains("@")) identifier else "partner@company.com",
+                phone = if (!identifier.contains("@")) identifier else "01700000000",
+                password = pass,
+                businessType = "Corporate"
+            )
+            _advertiserCompanies.value = _advertiserCompanies.value + demoComp
+            _currentAdvertiser.value = demoComp
+            return true
+        }
+        return false
+    }
+
+    fun logoutAdvertiserCompany() {
+        _currentAdvertiser.value = null
+    }
+
+    fun addCompanyBannerSubscription(
+        context: Context,
+        companyId: String,
+        companyName: String,
+        planType: String, // "Weekly (৳500)", "Monthly (৳1800)"
+        adTitle: String,
+        bannerMediaUrl: String,
+        isVideo: Boolean,
+        targetUrl: String,
+        paymentMethod: String = "bKash",
+        transactionId: String = ""
+    ): CustomAdConfig {
+        val isWeekly = planType.contains("Weekly") || planType.contains("সাপ্তাহিক")
+        val durationDays = if (isWeekly) 7 else 30
+        val price = if (isWeekly) 500.0 else 1800.0
+
+        val cal = java.util.Calendar.getInstance()
+        val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+        val startDateStr = dateFormat.format(cal.time)
+        cal.add(java.util.Calendar.DAY_OF_YEAR, durationDays)
+        val expiryDateStr = dateFormat.format(cal.time)
+
+        val subId = "sub_" + System.currentTimeMillis()
+        val newSub = CompanyAdSubscription(
+            id = subId,
+            companyId = companyId,
+            companyName = companyName,
+            planType = if (isWeekly) "Weekly (৳500)" else "Monthly (৳1800)",
+            durationDays = durationDays,
+            pricePaid = price,
+            paymentMethod = paymentMethod,
+            transactionId = transactionId,
+            adTitle = adTitle,
+            bannerMediaUrl = if (!isVideo) bannerMediaUrl else "",
+            isVideo = isVideo,
+            videoUrl = if (isVideo) bannerMediaUrl else "",
+            targetUrl = targetUrl,
+            startDate = startDateStr,
+            expiryDate = expiryDateStr,
+            status = "Active"
+        )
+
+        _companySubscriptions.value = _companySubscriptions.value + newSub
+
+        // Create CustomAdConfig and publish to top banner list
+        val newAd = CustomAdConfig(
+            id = "ad_" + System.currentTimeMillis(),
+            networkName = companyName,
+            title = adTitle,
+            bannerUrl = if (!isVideo) bannerMediaUrl else "",
+            isVideo = isVideo,
+            videoUrl = if (isVideo) bannerMediaUrl else "",
+            targetUrl = targetUrl,
+            targetCountries = "All",
+            weight = if (isWeekly) 2 else 5, // Monthly plans get higher rotation weight
+            companyId = companyId,
+            companyName = companyName,
+            planType = if (isWeekly) "Weekly" else "Monthly",
+            expiryDate = expiryDateStr,
+            viewsCount = 1,
+            clicksCount = 0,
+            status = "LIVE"
+        )
+
+        val updatedAds = _customAdConfigs.value + newAd
+        updateCustomAdConfigsList(context, updatedAds)
+
+        // Update company active plan status
+        _currentAdvertiser.value?.let { curr ->
+            val updatedCompany = curr.copy(
+                activePlan = if (isWeekly) "Weekly (৳500)" else "Monthly (৳1800)",
+                planExpiryDate = expiryDateStr
+            )
+            _currentAdvertiser.value = updatedCompany
+        }
+
+        return newAd
     }
 
     fun updateCustomAdConfigsList(context: Context, list: List<CustomAdConfig>) {
@@ -1728,7 +1924,7 @@ class BloodConnectRepository private constructor() {
                 V9SubscriptionPlan("plan_hosp_advance", "Hospital Advance Plan", "হাসপাতাল অ্যাডভান্স প্ল্যান", 999.0, 30, "60-min booking window, direct emergency call & priority badge", "৬০ মিনিট বুকিং উইন্ডো, সরাসরি কল এবং প্রিমিয়াম ব্যাজ", "Hospital"),
                 V9SubscriptionPlan("plan_amb_advance", "Ambulance Advance Plan", "অ্যাম্বুলেন্স অ্যাডভান্স প্ল্যান", 799.0, 30, "Direct driver phone call, emergency VIP badge & top search ranking", "সরাসরি ড্রাইভার কল, ভিআইপি ব্যাজ এবং সার্চের শীর্ষে প্রদর্শন", "Ambulance"),
                 V9SubscriptionPlan("plan_donor_pro", "VIP Donor & Seeker Pack", "ভিআইপি ডোনার ও মেম্বার প্যাক", 350.0, 90, "VIP verified member status & urgent blood alert priority", "ভিআইপি ভেরিফাইড মেম্বার স্ট্যাটাস এবং জরুরি ব্লাড অ্যালার্ট", "Donor"),
-                V9SubscriptionPlan("plan_ultimate_vip", "V9 Ultimate Lifetime VIP", "ভি৯ আল্টিমেট আজীবন ভিআইপি", 1999.0, 365, "Lifetime special badge and VIP system access", "আজীবন বিশেষ ব্যাজ এবং ভিআইপি সিস্টেম অ্যাক্সেস", "All")
+                V9SubscriptionPlan("plan_ultimate_vip", "Ultimate Lifetime VIP", "আল্টিমেট আজীবন ভিআইপি", 1999.0, 365, "Lifetime special badge and VIP system access", "আজীবন বিশেষ ব্যাজ এবং ভিআইপি সিস্টেম অ্যাক্সেস", "All")
             )
             prefs.edit().putString("v9_subscription_plans_list", serializeSubscriptionPlans(loadedPlans)).apply()
         }

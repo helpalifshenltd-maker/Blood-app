@@ -11,14 +11,14 @@ plugins {
 
 android {
   namespace = "com.example"
-  compileSdk = 35
+  compileSdk = 36
 
   defaultConfig {
     applicationId = "my.alifbooldbank.com"
     minSdk = 24
-    targetSdk = 35
-    versionCode = 3
-    versionName = "3.0"
+    targetSdk = 36
+    versionCode = 4
+    versionName = "4.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

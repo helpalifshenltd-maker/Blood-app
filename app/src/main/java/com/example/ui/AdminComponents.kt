@@ -4315,7 +4315,8 @@ fun AdminAmbulancesTab(
     ambulances: List<com.example.data.Ambulance>,
     language: AppLanguage,
     onToggleAvailability: (String) -> Unit,
-    onDelete: (String) -> Unit
+    onDelete: (String) -> Unit,
+    onUpdatePlan: (String, String) -> Unit = { _, _ -> }
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     
@@ -4350,7 +4351,23 @@ fun AdminAmbulancesTab(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(amb.serviceName, color = AdminTextWhite, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(amb.serviceName, color = AdminTextWhite, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                val isAdv = amb.planType.lowercase().contains("advance") || amb.planType.lowercase().contains("premium")
+                                Surface(
+                                    color = if (isAdv) Color(0xFFFF8F00) else Color(0xFF616161),
+                                    shape = RoundedCornerShape(4.dp)
+                                ) {
+                                    Text(
+                                        text = if (isAdv) "ADVANCE PLAN" else "FREE PLAN",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
                             Text("${amb.ownerName} (${amb.phone})", color = AdminTextMuted, fontSize = 12.sp)
                         }
                         
@@ -4414,6 +4431,31 @@ fun AdminAmbulancesTab(
                             modifier = Modifier.weight(1f)
                         ) {
                             Text(if (language == AppLanguage.ENG) "Toggle Status" else "অবস্থা পরিবর্তন", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                        
+                        // Switch Plan (Free vs Advance)
+                        val isAdv = amb.planType.lowercase().contains("advance") || amb.planType.lowercase().contains("premium")
+                        Button(
+                            onClick = {
+                                if (!isAdv) {
+                                    onUpdatePlan(amb.id, "Advance (Monthly)")
+                                    Toast.makeText(context, if (language == AppLanguage.ENG) "Upgraded to Advance Plan" else "অ্যাডভান্স প্ল্যানে আপগ্রেড করা হয়েছে", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    onUpdatePlan(amb.id, "Free")
+                                    Toast.makeText(context, if (language == AppLanguage.ENG) "Set to Free Plan" else "ফ্রি প্ল্যানে সেট করা হয়েছে", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = if (isAdv) Color(0xFF616161) else Color(0xFFE65100)),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = if (!isAdv) (if (language == AppLanguage.ENG) "Set Advance" else "অ্যাডভান্স করুন") else (if (language == AppLanguage.ENG) "Set Free" else "ফ্রি করুন"),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
                         }
                         
                         // Direct call Action Button
@@ -5582,4 +5624,780 @@ fun CountryFeeItemCard(
         }
     }
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AdminAdsBannerTab(
+    viewModel: MainViewModel,
+    language: AppLanguage
+) {
+    val context = LocalContext.current
+    val customAdConfigs by viewModel.customAdConfigs.collectAsState()
+    val companySubscriptions by viewModel.companySubscriptions.collectAsState()
+    val advertiserCompanies by viewModel.advertiserCompanies.collectAsState()
+
+    var activeSubTab by remember { mutableStateOf(0) } // 0: Order, 1: Payment History, 2: User Details
+
+    var searchQuery by remember { mutableStateOf("") }
+    var showCreateAdDialog by remember { mutableStateOf(false) }
+
+    val isBn = language == AppLanguage.BAN
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(AdminDarkBg)
+            .padding(16.dp)
+    ) {
+        // Title Header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = if (isBn) "📢 অ্যাডস ব্যানার ও অর্ডার ড্যাশবোর্ড" else "📢 Ads Banner & Orders Dashboard",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Text(
+                    text = if (isBn) "ভিডিও/ফটো বিজ্ঞাপন অর্ডার, পেমেন্ট হিস্ট্রি ও ইউজার কোম্পানি অ্যাকাউন্টসমূহ" else "Manage video/photo ad orders, payment history & advertiser user accounts",
+                    fontSize = 11.sp,
+                    color = AdminTextMuted
+                )
+            }
+
+            Button(
+                onClick = { showCreateAdDialog = true },
+                colors = ButtonDefaults.buttonColors(containerColor = AdminPrimaryBlue),
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = if (isBn) "নতুন অ্যাড অর্ডার" else "New Ad Order",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
+                )
+            }
+        }
+
+        // Sub-Tab Switcher Navigation Row
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(AdminCardBg, RoundedCornerShape(10.dp))
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            val tabs = listOf(
+                Pair(if (isBn) "📦 অর্ডারস (${customAdConfigs.size})" else "📦 Order (${customAdConfigs.size})", 0),
+                Pair(if (isBn) "💳 পেমেন্ট হিস্ট্রি (${companySubscriptions.size})" else "💳 Payment History (${companySubscriptions.size})", 1),
+                Pair(if (isBn) "👥 ইউজার ডিটেইলস (${advertiserCompanies.size})" else "👥 User Details (${advertiserCompanies.size})", 2)
+            )
+
+            tabs.forEach { (label, idx) ->
+                val isSelected = activeSubTab == idx
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isSelected) AdminPrimaryBlue else Color.Transparent)
+                        .clickable { activeSubTab = idx }
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = label,
+                        color = if (isSelected) Color.White else AdminTextMuted,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        fontSize = 12.sp,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Search Bar
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            placeholder = {
+                Text(
+                    text = when (activeSubTab) {
+                        0 -> if (isBn) "অর্ডার শিরোনাম, কোম্পানি বা লিংক খুঁজুন..." else "Search ad order, company or URL..."
+                        1 -> if (isBn) "ট্রানজেকশন আইডি (TxnID) বা কোম্পানি নাম..." else "Search Txn ID or Company..."
+                        else -> if (isBn) "কোম্পানির নাম, ইমেইল বা ফোন নম্বর খুঁজুন..." else "Search company name, email or phone..."
+                    },
+                    color = AdminTextMuted,
+                    fontSize = 12.sp
+                )
+            },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = AdminTextMuted) },
+            trailingIcon = if (searchQuery.isNotEmpty()) {
+                {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Icon(Icons.Default.Close, contentDescription = null, tint = AdminTextMuted)
+                    }
+                }
+            } else null,
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = AdminPrimaryBlue,
+                unfocusedBorderColor = AdminBorder,
+                focusedContainerColor = AdminCardBg,
+                unfocusedContainerColor = AdminCardBg,
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White
+            ),
+            shape = RoundedCornerShape(10.dp)
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // TAB CONTENT
+        when (activeSubTab) {
+            0 -> {
+                // ORDER TAB CONTENT
+                val filteredAds = customAdConfigs.filter {
+                    searchQuery.isEmpty() ||
+                            it.title.contains(searchQuery, ignoreCase = true) ||
+                            it.networkName.contains(searchQuery, ignoreCase = true) ||
+                            it.companyName.contains(searchQuery, ignoreCase = true)
+                }
+
+                if (filteredAds.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.Campaign, contentDescription = null, tint = AdminTextMuted, modifier = Modifier.size(48.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = if (isBn) "কোনো বিজ্ঞাপন অর্ডার পাওয়া যায়নি" else "No Ad Orders Found",
+                                color = AdminTextMuted,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(filteredAds, key = { it.id }) { ad ->
+                            AdminAdOrderCard(
+                                ad = ad,
+                                isBn = isBn,
+                                onDelete = {
+                                    val updated = customAdConfigs.filter { it.id != ad.id }
+                                    viewModel.updateCustomAdConfigsList(context, updated)
+                                    Toast.makeText(context, if (isBn) "অর্ডার মুছে ফেলা হয়েছে" else "Ad order deleted", Toast.LENGTH_SHORT).show()
+                                },
+                                onToggleStatus = {
+                                    val newStatus = if (ad.status == "LIVE") "PAUSED" else "LIVE"
+                                    val updated = customAdConfigs.map {
+                                        if (it.id == ad.id) it.copy(status = newStatus) else it
+                                    }
+                                    viewModel.updateCustomAdConfigsList(context, updated)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            1 -> {
+                // PAYMENT HISTORY TAB CONTENT
+                val filteredPayments = companySubscriptions.filter {
+                    searchQuery.isEmpty() ||
+                            it.transactionId.contains(searchQuery, ignoreCase = true) ||
+                            it.companyName.contains(searchQuery, ignoreCase = true) ||
+                            it.paymentMethod.contains(searchQuery, ignoreCase = true)
+                }
+
+                if (filteredPayments.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = AdminTextMuted, modifier = Modifier.size(48.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = if (isBn) "কোনো পেমেন্ট হিস্ট্রি পাওয়া যায়নি" else "No Payment History Found",
+                                color = AdminTextMuted,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(filteredPayments, key = { it.id }) { sub ->
+                            AdminPaymentHistoryCard(sub = sub, isBn = isBn)
+                        }
+                    }
+                }
+            }
+
+            2 -> {
+                // USER DETAILS TAB CONTENT
+                val filteredCompanies = advertiserCompanies.filter {
+                    searchQuery.isEmpty() ||
+                            it.companyName.contains(searchQuery, ignoreCase = true) ||
+                            it.email.contains(searchQuery, ignoreCase = true) ||
+                            it.phone.contains(searchQuery, ignoreCase = true)
+                }
+
+                if (filteredCompanies.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.Group, contentDescription = null, tint = AdminTextMuted, modifier = Modifier.size(48.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = if (isBn) "কোনো ইউজার / কোম্পানি অ্যাকাউন্ট নিবন্ধিত নেই" else "No Registered Advertiser Users Found",
+                                color = AdminTextMuted,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(filteredCompanies, key = { it.id }) { company ->
+                            val userAdsCount = customAdConfigs.count { it.companyId == company.id || it.networkName.equals(company.companyName, ignoreCase = true) }
+                            AdminAdvertiserUserCard(
+                                company = company,
+                                adsCount = userAdsCount,
+                                isBn = isBn
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Create New Ad Order Dialog
+    if (showCreateAdDialog) {
+        AdminCreateAdOrderDialog(
+            isBn = isBn,
+            onDismiss = { showCreateAdDialog = false },
+            onSubmit = { companyName, title, mediaUrl, isVideo, targetUrl, planType ->
+                viewModel.addCompanyBannerSubscription(
+                    context = context,
+                    companyId = "comp_admin",
+                    companyName = companyName,
+                    planType = planType,
+                    adTitle = title,
+                    bannerMediaUrl = mediaUrl,
+                    isVideo = isVideo,
+                    targetUrl = targetUrl,
+                    paymentMethod = "Admin Manual",
+                    transactionId = "ADMIN_" + System.currentTimeMillis()
+                )
+                showCreateAdDialog = false
+                Toast.makeText(context, if (isBn) "নতুন অ্যাড সফলভাবে যোগ করা হয়েছে!" else "New Ad order added successfully!", Toast.LENGTH_LONG).show()
+            }
+        )
+    }
+}
+
+@Composable
+fun AdminAdOrderCard(
+    ad: CustomAdConfig,
+    isBn: Boolean,
+    onDelete: () -> Unit,
+    onToggleStatus: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+        border = BorderStroke(1.dp, AdminBorder),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        color = if (ad.isVideo) Color(0xFFFFF3E0) else Color(0xFFE3F2FD),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            text = if (ad.isVideo) "🎬 VIDEO AD" else "📷 PHOTO BANNER",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (ad.isVideo) Color(0xFFE65100) else Color(0xFF1565C0),
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (ad.companyName.isNotBlank()) ad.companyName else ad.networkName,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        color = AdminPrimaryBlue
+                    )
+                }
+
+                Surface(
+                    color = if (ad.status == "LIVE") Color(0xFF1B5E20) else Color(0xFF424242),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        text = if (ad.status == "LIVE") "🟢 LIVE" else "⏸️ PAUSED",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(50.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(AdminDarkBg),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (ad.bannerUrl.isNotBlank() || ad.videoUrl.isNotBlank()) {
+                        AsyncImage(
+                            model = if (ad.bannerUrl.isNotBlank()) ad.bannerUrl else ad.videoUrl,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                        )
+                    } else {
+                        Icon(
+                            imageVector = if (ad.isVideo) Icons.Default.OndemandVideo else Icons.Default.Image,
+                            contentDescription = null,
+                            tint = AdminTextMuted
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = ad.title,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "Plan: ${ad.planType} • Expiry: ${ad.expiryDate}",
+                        fontSize = 11.sp,
+                        color = AdminTextMuted
+                    )
+                    Text(
+                        text = "Target: ${ad.targetUrl}",
+                        fontSize = 10.sp,
+                        color = AdminPrimaryBlue,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Stats row (Views & Clicks)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(AdminDarkBg, RoundedCornerShape(8.dp))
+                    .padding(8.dp),
+                horizontalArrangement = Arrangement.SpaceAround
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(if (isBn) "👁️ ভিউ সংখ্যা" else "👁️ Views", fontSize = 9.sp, color = AdminTextMuted)
+                    Text("${ad.viewsCount}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(if (isBn) "🖱️ ক্লিক সংখ্যা" else "🖱️ Clicks", fontSize = 9.sp, color = AdminTextMuted)
+                    Text("${ad.clicksCount}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AdminAccGreen)
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    val ctrStr = if (ad.viewsCount > 0) String.format("%.1f", (ad.clicksCount.toDouble() / ad.viewsCount) * 100) else "0.0"
+                    Text("🎯 CTR %", fontSize = 9.sp, color = AdminTextMuted)
+                    Text("$ctrStr%", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AdminAccOrange)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedButton(
+                    onClick = onToggleStatus,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                    border = BorderStroke(1.dp, AdminBorder),
+                    shape = RoundedCornerShape(6.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = if (ad.status == "LIVE") (if (isBn) "⏸️ পজ করুন" else "⏸️ Pause") else (if (isBn) "🟢 লাইভ করুন" else "🟢 Make Live"),
+                        fontSize = 11.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                OutlinedButton(
+                    onClick = onDelete,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = AdminAccRed),
+                    border = BorderStroke(1.dp, AdminAccRed.copy(alpha = 0.5f)),
+                    shape = RoundedCornerShape(6.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(text = if (isBn) "ডিলিট" else "Delete", fontSize = 11.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AdminPaymentHistoryCard(
+    sub: com.example.data.CompanyAdSubscription,
+    isBn: Boolean
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+        border = BorderStroke(1.dp, AdminBorder),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = sub.companyName,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = Color.White
+                    )
+                    Text(
+                        text = "Txn ID: ${sub.transactionId.ifBlank { "N/A" }}",
+                        fontSize = 11.sp,
+                        color = AdminPrimaryBlue,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                Surface(
+                    color = Color(0xFF1B5E20),
+                    shape = RoundedCornerShape(6.dp)
+                ) {
+                    Text(
+                        text = "✓ VERIFIED",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(AdminDarkBg, RoundedCornerShape(8.dp))
+                    .padding(10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(if (isBn) "পেমেন্ট মেথড:" else "Gateway:", fontSize = 10.sp, color = AdminTextMuted)
+                    Text(sub.paymentMethod, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AdminAccOrange)
+                }
+
+                Column {
+                    Text(if (isBn) "প্ল্যান প্যাকেজ:" else "Plan:", fontSize = 10.sp, color = AdminTextMuted)
+                    Text(sub.planType, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(if (isBn) "পরিশোধিত টাকা:" else "Amount Paid:", fontSize = 10.sp, color = AdminTextMuted)
+                    Text("৳${sub.pricePaid.toInt()}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AdminAccGreen)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Ad Title: ${sub.adTitle}",
+                    fontSize = 11.sp,
+                    color = AdminTextMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = "Date: ${sub.startDate}",
+                    fontSize = 11.sp,
+                    color = AdminTextMuted
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun AdminAdvertiserUserCard(
+    company: com.example.data.AdvertiserCompany,
+    adsCount: Int,
+    isBn: Boolean
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+        border = BorderStroke(1.dp, AdminBorder),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(AdminPrimaryBlue.copy(alpha = 0.2f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = company.companyName.take(1).uppercase(),
+                            color = AdminPrimaryBlue,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(10.dp))
+
+                    Column {
+                        Text(
+                            text = company.companyName,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Category: ${company.businessType}",
+                            fontSize = 10.sp,
+                            color = AdminTextMuted
+                        )
+                    }
+                }
+
+                Surface(
+                    color = AdminPrimaryBlue.copy(alpha = 0.15f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        text = if (isBn) "$adsCount টি বিজ্ঞাপন" else "$adsCount Active Ads",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AdminPrimaryBlue,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(AdminDarkBg, RoundedCornerShape(8.dp))
+                    .padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(if (isBn) "ইমেইল:" else "Email:", fontSize = 11.sp, color = AdminTextMuted)
+                    Text(company.email.ifBlank { "N/A" }, fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.SemiBold)
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(if (isBn) "ফোন নম্বর:" else "Phone:", fontSize = 11.sp, color = AdminTextMuted)
+                    Text(company.phone.ifBlank { "N/A" }, fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.SemiBold)
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(if (isBn) "অ্যাকাউন্ট পাসওয়ার্ড:" else "Password:", fontSize = 11.sp, color = AdminTextMuted)
+                    Text(company.password.ifBlank { "••••••" }, fontSize = 11.sp, color = AdminAccOrange, fontWeight = FontWeight.Bold)
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(if (isBn) "ওয়েবসাইট লিংক:" else "Website:", fontSize = 11.sp, color = AdminTextMuted)
+                    Text(company.websiteUrl.ifBlank { "N/A" }, fontSize = 11.sp, color = AdminPrimaryBlue, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(if (isBn) "রেজিস্ট্রেশন তারিখ:" else "Joined Date:", fontSize = 11.sp, color = AdminTextMuted)
+                    Text(company.registrationDate.ifBlank { "Recent" }, fontSize = 11.sp, color = AdminTextMuted)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AdminCreateAdOrderDialog(
+    isBn: Boolean,
+    onDismiss: () -> Unit,
+    onSubmit: (companyName: String, title: String, mediaUrl: String, isVideo: Boolean, targetUrl: String, planType: String) -> Unit
+) {
+    var companyNameInput by remember { mutableStateOf("") }
+    var titleInput by remember { mutableStateOf("") }
+    var mediaUrlInput by remember { mutableStateOf("") }
+    var isVideoInput by remember { mutableStateOf(false) }
+    var targetUrlInput by remember { mutableStateOf("") }
+    var selectedPlan by remember { mutableStateOf("Weekly (৳500)") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = if (isBn) "নতুন বিজ্ঞাপন অর্ডার তৈরি করুন" else "Create New Ad Order",
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp
+            )
+        },
+        containerColor = AdminCardBg,
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = companyNameInput,
+                    onValueChange = { companyNameInput = it },
+                    label = { Text(if (isBn) "কোম্পানির নাম *" else "Company Name *") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AdminPrimaryBlue,
+                        unfocusedBorderColor = AdminBorder,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    )
+                )
+
+                OutlinedTextField(
+                    value = titleInput,
+                    onValueChange = { titleInput = it },
+                    label = { Text(if (isBn) "বিজ্ঞাপনের শিরোনাম *" else "Ad Title *") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AdminPrimaryBlue,
+                        unfocusedBorderColor = AdminBorder,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    )
+                )
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(
+                        selected = !isVideoInput,
+                        onClick = { isVideoInput = false },
+                        colors = RadioButtonDefaults.colors(selectedColor = AdminPrimaryBlue)
+                    )
+                    Text(if (isBn) "📷 ছবি ব্যানার" else "📷 Photo Banner", color = Color.White, fontSize = 12.sp)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    RadioButton(
+                        selected = isVideoInput,
+                        onClick = { isVideoInput = true },
+                        colors = RadioButtonDefaults.colors(selectedColor = AdminAccOrange)
+                    )
+                    Text(if (isBn) "🎬 ভিডিও অ্যাড" else "🎬 Video Ad", color = Color.White, fontSize = 12.sp)
+                }
+
+                OutlinedTextField(
+                    value = mediaUrlInput,
+                    onValueChange = { mediaUrlInput = it },
+                    label = { Text(if (isVideoInput) "ভিডিও লিংক / MP4 URL" else "ছবি ব্যানার লিংক (Image URL)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AdminPrimaryBlue,
+                        unfocusedBorderColor = AdminBorder,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    )
+                )
+
+                OutlinedTextField(
+                    value = targetUrlInput,
+                    onValueChange = { targetUrlInput = it },
+                    label = { Text(if (isBn) "ওয়েবসাইট / ক্লিক ডেস্টিনেশন লিংক *" else "Target Website URL *") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AdminPrimaryBlue,
+                        unfocusedBorderColor = AdminBorder,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    )
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (companyNameInput.isNotBlank() && titleInput.isNotBlank()) {
+                        onSubmit(companyNameInput, titleInput, mediaUrlInput, isVideoInput, targetUrlInput, selectedPlan)
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = AdminPrimaryBlue)
+            ) {
+                Text(if (isBn) "সংরক্ষণ করুন" else "Save Order", color = Color.White)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(if (isBn) "বাতিল" else "Cancel", color = AdminTextMuted)
+            }
+        }
+    )
+}
+
 

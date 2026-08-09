@@ -167,6 +167,10 @@ class MainViewModel(
         repository.updateHospitalApproval(hospitalId, isApproved)
     }
 
+    fun updateHospitalDetails(hospitalId: String, name: String, phone: String, address: String, bloodAvailability: String, urgentNotice: String) {
+        repository.updateHospitalDetails(hospitalId, name, phone, address, bloodAvailability, urgentNotice)
+    }
+
     fun toggleHospitalFeatured(hospitalId: String, isFeatured: Boolean) {
         repository.toggleHospitalFeatured(hospitalId, isFeatured)
     }
@@ -240,7 +244,7 @@ class MainViewModel(
         } else {
             val phone = user.phone
             val email = user.email
-            val hasActiveSub = subs.any { it.userPhone == phone && !it.isExpired }
+            val hasActiveSub = subs.any { it.userPhone == phone }
             val userHosp = hospitals.find {
                 (it.phone.isNotBlank() && it.phone == phone) ||
                 (it.email.isNotBlank() && it.email.equals(email, ignoreCase = true))
@@ -292,6 +296,9 @@ class MainViewModel(
     val rocketNumber: StateFlow<String> = repository.rocketNumber
     val googlePlayMerchant: StateFlow<String> = repository.googlePlayMerchant
     val wiseAccount: StateFlow<String> = repository.wiseAccount
+    val upayNumber: StateFlow<String> = repository.upayNumber
+    val payoneerAccount: StateFlow<String> = repository.payoneerAccount
+    val usdtWalletAddress: StateFlow<String> = repository.usdtWalletAddress
 
     val donationClaims: StateFlow<List<com.example.data.DonationClaim>> = repository.donationClaims
     val homeNotice: StateFlow<String> = repository.homeNotice
@@ -333,7 +340,7 @@ class MainViewModel(
     val adMobInterstitialId: StateFlow<String> = repository.adMobInterstitialId
     val adMobNativeId: StateFlow<String> = repository.adMobNativeId
 
-    // --- CUSTOM CPA/AFFILIATE AD NETWORK CONFIG ---
+    // --- CUSTOM CPA/AFFILIATE AD NETWORK & ADVERTISER CONFIG ---
     val customAdsEnabled: StateFlow<Boolean> = repository.customAdsEnabled
     val customAdNetworkName: StateFlow<String> = repository.customAdNetworkName
     val customAdTitle: StateFlow<String> = repository.customAdTitle
@@ -342,8 +349,64 @@ class MainViewModel(
     val customAdTargetCountries: StateFlow<String> = repository.customAdTargetCountries
     val customAdConfigs: StateFlow<List<CustomAdConfig>> = repository.customAdConfigs
 
+    val currentAdvertiser: StateFlow<com.example.data.AdvertiserCompany?> = repository.currentAdvertiser
+    val advertiserCompanies: StateFlow<List<com.example.data.AdvertiserCompany>> = repository.advertiserCompanies
+    val companySubscriptions: StateFlow<List<com.example.data.CompanyAdSubscription>> = repository.companySubscriptions
+
+    fun registerAdvertiserCompany(
+        companyName: String,
+        email: String,
+        phone: String,
+        pass: String,
+        businessType: String = "Corporate",
+        websiteUrl: String = ""
+    ): com.example.data.AdvertiserCompany {
+        return repository.registerAdvertiserCompany(companyName, email, phone, pass, businessType, websiteUrl)
+    }
+
+    fun loginAdvertiserCompany(identifier: String, pass: String): Boolean {
+        return repository.loginAdvertiserCompany(identifier, pass)
+    }
+
+    fun logoutAdvertiserCompany() {
+        repository.logoutAdvertiserCompany()
+    }
+
+    fun addCompanyBannerSubscription(
+        context: android.content.Context,
+        companyId: String,
+        companyName: String,
+        planType: String,
+        adTitle: String,
+        bannerMediaUrl: String,
+        isVideo: Boolean,
+        targetUrl: String,
+        paymentMethod: String = "bKash",
+        transactionId: String = ""
+    ): CustomAdConfig {
+        return repository.addCompanyBannerSubscription(
+            context, companyId, companyName, planType, adTitle, bannerMediaUrl, isVideo, targetUrl, paymentMethod, transactionId
+        )
+    }
+
     fun updateCustomAdConfigsList(context: android.content.Context, list: List<CustomAdConfig>) {
         repository.updateCustomAdConfigsList(context, list)
+    }
+
+    fun recordAdView(context: android.content.Context, adId: String) {
+        val currentList = customAdConfigs.value
+        val updated = currentList.map { ad ->
+            if (ad.id == adId) ad.copy(viewsCount = ad.viewsCount + 1) else ad
+        }
+        repository.updateCustomAdConfigsList(context, updated)
+    }
+
+    fun recordAdClick(context: android.content.Context, adId: String) {
+        val currentList = customAdConfigs.value
+        val updated = currentList.map { ad ->
+            if (ad.id == adId) ad.copy(clicksCount = ad.clicksCount + 1, viewsCount = ad.viewsCount + 1) else ad
+        }
+        repository.updateCustomAdConfigsList(context, updated)
     }
 
     fun updateCustomAdsConfig(
@@ -1309,6 +1372,16 @@ class MainViewModel(
         clearBackStackAndNavigateTo(AppScreen.LOGIN_REGISTER)
     }
 
+    fun deleteAccountAndData() {
+        val user = currentUser.value
+        if (user != null) {
+            repository.deleteDonor(user.id)
+            repository.logout()
+            setAdminMode(false)
+            clearBackStackAndNavigateTo(AppScreen.LOGIN_REGISTER)
+        }
+    }
+
     // Admin commands
     fun adminApproveDonor(id: String) {
         repository.approveDonor(id)
@@ -1689,5 +1762,6 @@ enum class AppScreen {
     DONOR_POLICY,
     REGISTRATION_POLICY,
     HOSPITAL_DIRECTORY,
-    DOCTOR_DIRECTORY
+    DOCTOR_DIRECTORY,
+    ADVERTISER_PORTAL
 }
