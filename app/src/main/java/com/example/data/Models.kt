@@ -120,6 +120,8 @@ data class CompanyAdSubscription(
     val pricePaid: Double = 500.0,
     val paymentMethod: String = "bKash",
     val transactionId: String = "",
+    val senderPhone: String = "",
+    val screenshotUrl: String = "",
     val adTitle: String = "",
     val bannerMediaUrl: String = "",
     val isVideo: Boolean = false,
@@ -716,12 +718,36 @@ data class CountryBookingFee(
     val countryNameBn: String = "বাংলাদেশ",
     val countryNameEn: String = "Bangladesh",
     val currencySymbol: String = "৳",
+    val ambulanceFeeFree: Double = 100.0, // Free ambulance booking fee = 100
+    val ambulanceFeeAdv: Double = 50.0,    // Advance ambulance booking fee = 50
+    val hospitalFeeFree: Double = 100.0,  // Free hospital booking fee = 100
+    val hospitalFeeAdv: Double = 50.0,    // Advance hospital booking fee = 50
+    val doctorCommPctFree: Double = 15.0, // Doctor free commission % = 15%
+    val doctorCommPctAdv: Double = 10.0,  // Doctor advance commission % = 10%
     val ambulanceFee: Double = 50.0,
     val doctorFee: Double = 30.0,
     val hospitalFee: Double = 50.0,
     val hospitalAcceptFeeFree: Double = 50.0,
     val hospitalAcceptFeeAdvance: Double = 30.0,
     val bloodRequestFee: Double = 0.0
+)
+
+@com.squareup.moshi.JsonClass(generateAdapter = true)
+data class UnifiedPaymentRecord(
+    val id: String = "",
+    val userNameOrCompany: String = "",
+    val userPhoneOrEmail: String = "",
+    val paymentType: String = "", // "Ad Banner", "Doctor Upgrade", "Hospital Registration", "Ambulance Booking", "VIP Donor"
+    val planOrItemTitle: String = "",
+    val amount: Double = 0.0,
+    val currency: String = "BDT",
+    val paymentGateway: String = "bKash", // "bKash", "Nagad", "Rocket", "Upay", "Wise", "Payoneer", "USDT", "Google Pay"
+    val transactionId: String = "",
+    val senderInfo: String = "",
+    val screenshotUrl: String = "",
+    val date: String = "",
+    val status: String = "Pending", // "Pending", "Approved", "Rejected"
+    val note: String = ""
 )
 
 

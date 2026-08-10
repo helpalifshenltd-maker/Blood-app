@@ -5569,86 +5569,187 @@ fun HomeScreen(viewModel: MainViewModel) {
             }
         }
 
-        // Custom CPA/Affiliate banner ad (Affmine, etc.)
+        // Custom CPA/Affiliate banner ad (Affmine, YouTube, Google Drive, mp4 video, etc.)
         @Composable
         fun CpaAdVideoPlayer(videoPath: String, modifier: Modifier = Modifier) {
             val context = androidx.compose.ui.platform.LocalContext.current
             val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
-            val videoUri = remember(videoPath) {
-                if (videoPath.startsWith("/")) {
-                    android.net.Uri.fromFile(java.io.File(videoPath))
-                } else {
-                    android.net.Uri.parse(videoPath)
-                }
+            val ytId = remember(videoPath) {
+                try {
+                    when {
+                        videoPath.contains("youtu.be/") -> videoPath.substringAfter("youtu.be/").substringBefore("?").substringBefore("&").substringBefore("/")
+                        videoPath.contains("youtube.com/watch") -> android.net.Uri.parse(videoPath).getQueryParameter("v")
+                        videoPath.contains("youtube.com/embed/") -> videoPath.substringAfter("youtube.com/embed/").substringBefore("?").substringBefore("&").substringBefore("/")
+                        videoPath.contains("youtube.com/shorts/") -> videoPath.substringAfter("youtube.com/shorts/").substringBefore("?").substringBefore("&").substringBefore("/")
+                        else -> null
+                    }
+                } catch (e: Exception) { null }
             }
 
-            var videoViewRef by remember { mutableStateOf<android.widget.VideoView?>(null) }
+            val driveId = remember(videoPath) {
+                try {
+                    when {
+                        videoPath.contains("drive.google.com/file/d/") -> videoPath.substringAfter("drive.google.com/file/d/").substringBefore("/")
+                        videoPath.contains("drive.google.com/open?id=") -> videoPath.substringAfter("drive.google.com/open?id=").substringBefore("&")
+                        videoPath.contains("drive.google.com/uc?") -> android.net.Uri.parse(videoPath).getQueryParameter("id")
+                        else -> null
+                    }
+                } catch (e: Exception) { null }
+            }
 
-            androidx.compose.runtime.DisposableEffect(lifecycleOwner, videoUri) {
-                val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-                    if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                        videoViewRef?.let { vv ->
-                            try {
-                                if (!vv.isPlaying) {
-                                    vv.setVideoURI(videoUri)
-                                    vv.start()
+            val isWebEmbed = ytId != null || driveId != null || videoPath.contains("vimeo.com") || videoPath.endsWith(".html")
+
+            if (isWebEmbed) {
+                val embedHtml = remember(videoPath, ytId, driveId) {
+                    when {
+                        ytId != null -> """
+                            <!DOCTYPE html>
+                            <html>
+                            <head>
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+                            <style>
+                              body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; overflow: hidden; }
+                              iframe { width: 100%; height: 100%; border: none; }
+                            </style>
+                            </head>
+                            <body>
+                              <iframe src="https://www.youtube.com/embed/$ytId?autoplay=1&mute=1&playsinline=1&controls=1&loop=1&playlist=$ytId" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>
+                            </body>
+                            </html>
+                        """.trimIndent()
+                        driveId != null -> """
+                            <!DOCTYPE html>
+                            <html>
+                            <head>
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+                            <style>
+                              body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; overflow: hidden; }
+                              iframe { width: 100%; height: 100%; border: none; }
+                            </style>
+                            </head>
+                            <body>
+                              <iframe src="https://drive.google.com/file/d/$driveId/preview" allow="autoplay; fullscreen" allowfullscreen></iframe>
+                            </body>
+                            </html>
+                        """.trimIndent()
+                        else -> """
+                            <!DOCTYPE html>
+                            <html>
+                            <head>
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+                            <style>
+                              body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; overflow: hidden; }
+                              iframe { width: 100%; height: 100%; border: none; }
+                            </style>
+                            </head>
+                            <body>
+                              <iframe src="$videoPath" allow="autoplay; fullscreen" allowfullscreen></iframe>
+                            </body>
+                            </html>
+                        """.trimIndent()
+                    }
+                }
+
+                androidx.compose.ui.viewinterop.AndroidView(
+                    factory = { ctx ->
+                        android.webkit.WebView(ctx).apply {
+                            layoutParams = android.view.ViewGroup.LayoutParams(
+                                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+                            settings.javaScriptEnabled = true
+                            settings.domStorageEnabled = true
+                            settings.mediaPlaybackRequiresUserGesture = false
+                            settings.loadWithOverviewMode = true
+                            settings.useWideViewPort = true
+                            webChromeClient = android.webkit.WebChromeClient()
+                            webViewClient = object : android.webkit.WebViewClient() {
+                                override fun shouldOverrideUrlLoading(view: android.webkit.WebView?, request: android.webkit.WebResourceRequest?): Boolean {
+                                    return false
                                 }
-                            } catch (e: Exception) {
-                                e.printStackTrace()
                             }
+                            loadDataWithBaseURL("https://www.youtube.com", embedHtml, "text/html", "UTF-8", null)
                         }
-                    } else if (event == androidx.lifecycle.Lifecycle.Event.ON_PAUSE) {
-                        videoViewRef?.let { vv ->
-                            try {
-                                if (vv.isPlaying) {
-                                    vv.pause()
+                    },
+                    modifier = modifier
+                )
+            } else {
+                val videoUri = remember(videoPath) {
+                    if (videoPath.startsWith("/")) {
+                        android.net.Uri.fromFile(java.io.File(videoPath))
+                    } else {
+                        android.net.Uri.parse(videoPath)
+                    }
+                }
+
+                var videoViewRef by remember { mutableStateOf<android.widget.VideoView?>(null) }
+
+                androidx.compose.runtime.DisposableEffect(lifecycleOwner, videoUri) {
+                    val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                        if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                            videoViewRef?.let { vv ->
+                                try {
+                                    if (!vv.isPlaying) {
+                                        vv.setVideoURI(videoUri)
+                                        vv.start()
+                                    }
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
                                 }
-                            } catch (e: Exception) {
-                                e.printStackTrace()
+                            }
+                        } else if (event == androidx.lifecycle.Lifecycle.Event.ON_PAUSE) {
+                            videoViewRef?.let { vv ->
+                                try {
+                                    if (vv.isPlaying) {
+                                        vv.pause()
+                                    }
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
                             }
                         }
                     }
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                    onDispose {
+                        lifecycleOwner.lifecycle.removeObserver(observer)
+                    }
                 }
-                lifecycleOwner.lifecycle.addObserver(observer)
-                onDispose {
-                    lifecycleOwner.lifecycle.removeObserver(observer)
-                }
-            }
 
-            androidx.compose.ui.viewinterop.AndroidView(
-                factory = { ctx ->
-                    android.widget.VideoView(ctx).apply {
-                        videoViewRef = this
-                        setOnPreparedListener { mp ->
-                            mp.isLooping = true
-                            mp.setVolume(0f, 0f) // Mute by default for banner ads
-                            mp.start()
+                androidx.compose.ui.viewinterop.AndroidView(
+                    factory = { ctx ->
+                        android.widget.VideoView(ctx).apply {
+                            videoViewRef = this
+                            setOnPreparedListener { mp ->
+                                mp.isLooping = true
+                                mp.setVolume(0f, 0f) // Mute by default for banner ads
+                                mp.start()
+                            }
+                            setOnErrorListener { _, _, _ ->
+                                true // Prevent crash error dialogs
+                            }
+                            try {
+                                setVideoURI(videoUri)
+                                start()
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
                         }
-                        setOnErrorListener { _, _, _ ->
-                            true // Prevent crash error dialogs
-                        }
+                    },
+                    update = { vv ->
+                        videoViewRef = vv
                         try {
-                            setVideoURI(videoUri)
-                            start()
+                            if (!vv.isPlaying) {
+                                vv.setVideoURI(videoUri)
+                                vv.start()
+                            }
                         } catch (e: Exception) {
                             e.printStackTrace()
                         }
-                    }
-                },
-                update = { vv ->
-                    videoViewRef = vv
-                    try {
-                        if (!vv.isPlaying) {
-                            vv.setVideoURI(videoUri)
-                            vv.start()
-                        }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-                },
-                modifier = modifier
-            )
+                    },
+                    modifier = modifier
+                )
+            }
         }
 
         val customAdsEnabled by viewModel.customAdsEnabled.collectAsState()
@@ -10196,17 +10297,26 @@ fun UserProfileScreen(viewModel: MainViewModel) {
             }
         }
 
-        // HOSPITAL ACCOUNT & SUBSCRIPTION STATUS CARD
+        // ROLE ISOLATION HELPERS FOR USER PROFILE
         val registeredHospitals by viewModel.registeredHospitals.collectAsState()
+        val ambulancesList by viewModel.ambulances.collectAsState()
         val userSubscriptions by viewModel.userSubscriptions.collectAsState()
         val isAdvancePlanUser by viewModel.isAdvancePlanUser.collectAsState()
         val activeSub = userSubscriptions.find { it.userPhone == finalUser.phone }
+
         val myHospital = registeredHospitals.find { 
             (it.phone.isNotBlank() && it.phone == finalUser.phone) || 
             (it.email.isNotBlank() && it.email.equals(finalUser.email, ignoreCase = true)) 
         }
+        val myAmbulance = ambulancesList.find { it.phone == finalUser.phone || it.ownerName.equals(finalUser.name, ignoreCase = true) }
 
-        if (myHospital != null || finalUser.role.equals("Hospital", ignoreCase = true) || isAdvancePlanUser || activeSub != null) {
+        val isHospitalRole = finalUser.role.equals("Hospital", ignoreCase = true) || myHospital != null
+        val isDoctorRole = finalUser.role.equals("Doctor", ignoreCase = true)
+        val isAmbulanceRole = finalUser.role.equals("Ambulance", ignoreCase = true) || myAmbulance != null
+        val isAmbulanceUser = isAmbulanceRole
+
+        // HOSPITAL ACCOUNT & SUBSCRIPTION STATUS CARD (ONLY shown for Hospital users or general sub users, NOT for Doctor or Ambulance roles)
+        if (!isDoctorRole && !isAmbulanceRole && (isHospitalRole || isAdvancePlanUser || activeSub != null)) {
             Spacer(modifier = Modifier.height(10.dp))
             Card(
                 modifier = Modifier
@@ -10373,14 +10483,10 @@ fun UserProfileScreen(viewModel: MainViewModel) {
 
         val ambulanceBookingsList by viewModel.ambulanceBookings.collectAsState()
         val requestsList by viewModel.requests.collectAsState()
-        val ambulancesList by viewModel.ambulances.collectAsState()
         val donationClaimsList by viewModel.donationClaims.collectAsState()
 
-        val isAmbulanceUser = finalUser.role.equals("Ambulance", ignoreCase = true) || 
-                               ambulancesList.any { it.phone == finalUser.phone || it.ownerName.equals(finalUser.name, ignoreCase = true) }
-        val myAmbulance = ambulancesList.find { it.phone == finalUser.phone || it.ownerName.equals(finalUser.name, ignoreCase = true) }
-
-        if (myAmbulance != null || isAmbulanceUser) {
+        // AMBULANCE STATUS CARD (ONLY shown for Ambulance role, NOT for Hospital or Doctor roles)
+        if (!isHospitalRole && !isDoctorRole && (myAmbulance != null || isAmbulanceRole)) {
             Spacer(modifier = Modifier.height(10.dp))
             Card(
                 modifier = Modifier
@@ -10661,160 +10767,169 @@ fun UserProfileScreen(viewModel: MainViewModel) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // SEPARATE OPTIONS FOR HOSPITAL & DOCTOR IN MY ACCOUNT
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            // 1. HOSPITAL DETAILS MANAGEMENT OPTION
-            Card(
+        // ROLE-SPECIFIC OPTIONS FOR HOSPITAL & DOCTOR IN MY ACCOUNT
+        val showHospitalPanel = isHospitalRole || (!isDoctorRole && !isAmbulanceRole)
+        val showDoctorPanel = isDoctorRole || (!isHospitalRole && !isAmbulanceRole)
+
+        if (showHospitalPanel || showDoctorPanel) {
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { showHospitalKeeperDialog = true },
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFE8EAF6)),
-                border = BorderStroke(1.5.dp, Color(0xFF3F51B5)),
-                shape = RoundedCornerShape(16.dp)
+                    .padding(vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Row(
-                    modifier = Modifier.padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
+                // 1. HOSPITAL DETAILS MANAGEMENT OPTION (Only for Hospital role or general accounts)
+                if (showHospitalPanel) {
+                    Card(
                         modifier = Modifier
-                            .size(44.dp)
-                            .background(Color(0xFF1565C0), RoundedCornerShape(12.dp)),
-                        contentAlignment = Alignment.Center
+                            .fillMaxWidth()
+                            .clickable { showHospitalKeeperDialog = true },
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8EAF6)),
+                        border = BorderStroke(1.5.dp, Color(0xFF3F51B5)),
+                        shape = RoundedCornerShape(16.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.LocalHospital,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = if (language == AppLanguage.BAN) "🏥 হাসপাতাল ডিটেইলস প্যানেল" else "🏥 Hospital Details & Info",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1A237E)
-                            )
-                            if (finalUser.role.equals("Hospital", ignoreCase = true)) {
-                                Spacer(modifier = Modifier.width(6.dp))
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .background(Color(0xFF1565C0), RoundedCornerShape(12.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.LocalHospital,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = if (language == AppLanguage.BAN) "🏥 হাসপাতাল ডিটেইলস প্যানেল" else "🏥 Hospital Details & Info",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF1A237E)
+                                    )
+                                    if (finalUser.role.equals("Hospital", ignoreCase = true)) {
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Surface(
+                                            color = Color(0xFFC8E6C9),
+                                            shape = RoundedCornerShape(4.dp)
+                                        ) {
+                                            Text(
+                                                text = if (language == AppLanguage.BAN) "আপনার একাউন্ট" else "Your Role",
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF2E7D32),
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = if (language == AppLanguage.BAN) "হাসপাতালের নাম, হটলাইন, ঠিকানা, আইসিইউ/ব্লাড ব্যাংক ও জরুরি নোটিশ তথ্য যোগ/আপডেট করুন।"
+                                    else "Add/update hospital name, hotline, address, ICU, blood bank, & emergency notice details.",
+                                    fontSize = 11.sp,
+                                    color = DarkText.copy(alpha = 0.8f),
+                                    lineHeight = 15.sp
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
                                 Surface(
-                                    color = Color(0xFFC8E6C9),
-                                    shape = RoundedCornerShape(4.dp)
+                                    color = Color(0xFF1565C0),
+                                    shape = RoundedCornerShape(8.dp)
                                 ) {
                                     Text(
-                                        text = if (language == AppLanguage.BAN) "আপনার একাউন্ট" else "Your Role",
-                                        fontSize = 9.sp,
+                                        text = if (language == AppLanguage.BAN) "হাসপাতাল ইনফরমেশন এড / আপডেট করুন ➔" else "Add / Edit Hospital Info ➔",
+                                        fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF2E7D32),
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                        color = Color.White,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                                     )
                                 }
                             }
-                        }
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = if (language == AppLanguage.BAN) "হাসপাতালের নাম, হটলাইন, ঠিকানা, আইসিইউ/ব্লাড ব্যাংক ও জরুরি নোটিশ তথ্য যোগ/আপডেট করুন।"
-                            else "Add/update hospital name, hotline, address, ICU, blood bank, & emergency notice details.",
-                            fontSize = 11.sp,
-                            color = DarkText.copy(alpha = 0.8f),
-                            lineHeight = 15.sp
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Surface(
-                            color = Color(0xFF1565C0),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Text(
-                                text = if (language == AppLanguage.BAN) "হাসপাতাল ইনফরমেশন এড / আপডেট করুন ➔" else "Add / Edit Hospital Info ➔",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                            )
                         }
                     }
                 }
-            }
 
-            // 2. DOCTOR DETAILS MANAGEMENT OPTION
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showAddDoctorDialog = true },
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
-                border = BorderStroke(1.5.dp, Color(0xFF2E7D32)),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
+                // 2. DOCTOR DETAILS MANAGEMENT OPTION (Only for Doctor role or general accounts)
+                if (showDoctorPanel) {
+                    Card(
                         modifier = Modifier
-                            .size(44.dp)
-                            .background(Color(0xFF2E7D32), RoundedCornerShape(12.dp)),
-                        contentAlignment = Alignment.Center
+                            .fillMaxWidth()
+                            .clickable { showAddDoctorDialog = true },
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+                        border = BorderStroke(1.5.dp, Color(0xFF2E7D32)),
+                        shape = RoundedCornerShape(16.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.MedicalServices,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = if (language == AppLanguage.BAN) "👨‍⚕️ ডাক্তার ডিটেইলস & চেম্বার প্যানেল" else "👨‍⚕️ Doctor Details & Chamber",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1B5E20)
-                            )
-                            if (finalUser.role.equals("Doctor", ignoreCase = true)) {
-                                Spacer(modifier = Modifier.width(6.dp))
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .background(Color(0xFF2E7D32), RoundedCornerShape(12.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.MedicalServices,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = if (language == AppLanguage.BAN) "👨‍⚕️ ডাক্তার ডিটেইলস & চেম্বার প্যানেল" else "👨‍⚕️ Doctor Details & Chamber",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF1B5E20)
+                                    )
+                                    if (finalUser.role.equals("Doctor", ignoreCase = true)) {
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Surface(
+                                            color = Color(0xFFC8E6C9),
+                                            shape = RoundedCornerShape(4.dp)
+                                        ) {
+                                            Text(
+                                                text = if (language == AppLanguage.BAN) "আপনার একাউন্ট" else "Your Role",
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF2E7D32),
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = if (language == AppLanguage.BAN) "ডাক্তারের নাম, ডিগ্রী, বিশেষজ্ঞতা, চেম্বার, দেখার সময়সূচী ও ফি বিস্তারিত যোগ/আপডেট করুন।"
+                                    else "Add/update doctor name, degrees, specialty, chamber address, visiting hours, & fee.",
+                                    fontSize = 11.sp,
+                                    color = DarkText.copy(alpha = 0.8f),
+                                    lineHeight = 15.sp
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
                                 Surface(
-                                    color = Color(0xFFC8E6C9),
-                                    shape = RoundedCornerShape(4.dp)
+                                    color = Color(0xFF2E7D32),
+                                    shape = RoundedCornerShape(8.dp)
                                 ) {
                                     Text(
-                                        text = if (language == AppLanguage.BAN) "আপনার একাউন্ট" else "Your Role",
-                                        fontSize = 9.sp,
+                                        text = if (language == AppLanguage.BAN) "ডাক্তার ইনফরমেশন এড / আপডেট করুন ➔" else "Add / Edit Doctor Info ➔",
+                                        fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF2E7D32),
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                        color = Color.White,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                                     )
                                 }
                             }
-                        }
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = if (language == AppLanguage.BAN) "ডাক্তারের নাম, ডিগ্রী, বিশেষজ্ঞতা, চেম্বার, দেখার সময়সূচী ও ফি বিস্তারিত যোগ/আপডেট করুন।"
-                            else "Add/update doctor name, degrees, specialty, chamber address, visiting hours, & fee.",
-                            fontSize = 11.sp,
-                            color = DarkText.copy(alpha = 0.8f),
-                            lineHeight = 15.sp
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Surface(
-                            color = Color(0xFF2E7D32),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Text(
-                                text = if (language == AppLanguage.BAN) "ডাক্তার ইনফরমেশন এড / আপডেট করুন ➔" else "Add / Edit Doctor Info ➔",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                            )
                         }
                     }
                 }
@@ -13885,6 +14000,9 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                                         },
                                         viewModel = viewModel
                                     )
+                                }
+                                "PLANS" -> {
+                                    AdminPlansAndPricingTab(viewModel = viewModel, language = language)
                                 }
                                 "BOOKING_FEES" -> {
                                     AdminBookingFeesTab(viewModel = viewModel, language = language)

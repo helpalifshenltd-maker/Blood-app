@@ -31,6 +31,7 @@ import com.example.data.BloodDonor
 import com.example.data.BloodRequest
 import com.example.data.ScamReport
 import com.example.data.CustomAdConfig
+import com.example.data.V9SubscriptionPlan
 import com.example.data.RegisteredHospital
 import com.example.data.HospitalOffer
 import com.example.data.HospitalSubscriptionPayment
@@ -4244,8 +4245,26 @@ fun AdminSettingsTab(
 
 @Composable
 fun AdminSupportTab(viewModel: MainViewModel, language: AppLanguage) {
+    val context = LocalContext.current
+    val isBn = language == AppLanguage.BAN
     val messagesList by viewModel.messages.collectAsState()
-    
+
+    val currentPhone by viewModel.supportPhone.collectAsState()
+    val currentEmail by viewModel.supportEmail.collectAsState()
+    val currentTelegram by viewModel.supportTelegram.collectAsState()
+    val currentWhatsapp by viewModel.supportWhatsapp.collectAsState()
+    val currentHours by viewModel.supportHours.collectAsState()
+    val currentAddress by viewModel.supportAddress.collectAsState()
+
+    var phoneInput by remember(currentPhone) { mutableStateOf(currentPhone) }
+    var emailInput by remember(currentEmail) { mutableStateOf(currentEmail) }
+    var telegramInput by remember(currentTelegram) { mutableStateOf(currentTelegram) }
+    var whatsappInput by remember(currentWhatsapp) { mutableStateOf(currentWhatsapp) }
+    var hoursInput by remember(currentHours) { mutableStateOf(currentHours) }
+    var addressInput by remember(currentAddress) { mutableStateOf(currentAddress) }
+
+    var activeSubTab by remember { mutableStateOf(0) } // 0: Config Channels, 1: Live Chats
+
     val supportChats = remember(messagesList) {
         messagesList
             .filter { it.receiverPhone == "LIVE_SUPPORT" || it.senderPhone == "LIVE_SUPPORT" }
@@ -4260,50 +4279,249 @@ fun AdminSupportTab(viewModel: MainViewModel, language: AppLanguage) {
             .sortedByDescending { it.second.second.timestamp }
     }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-        contentPadding = PaddingValues(bottom = 20.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(bottom = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        if (supportChats.isEmpty()) {
-            item {
-                Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
+        // Sub-Tab Switcher Navigation
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(AdminCardBg, RoundedCornerShape(10.dp))
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            val tabs = listOf(
+                Pair(if (isBn) "📞 কন্টাক্ট ইনফো & চানেল সেটিংস" else "📞 Contact & Support Config", 0),
+                Pair(if (isBn) "💬 লাইভ চ্যাট মেসেজেস (${supportChats.size})" else "💬 Live Chat Room (${supportChats.size})", 1)
+            )
+
+            tabs.forEach { (label, idx) ->
+                val isSelected = activeSubTab == idx
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isSelected) AdminPrimaryBlue else Color.Transparent)
+                        .clickable { activeSubTab = idx }
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
                     Text(
-                        if (language == AppLanguage.ENG) "No live support messages yet." else "এখনও কোনো লাইভ সাপোর্ট মেসেজ নেই।",
-                        color = AdminTextMuted,
-                        fontSize = 14.sp
+                        text = label,
+                        color = if (isSelected) Color.White else AdminTextMuted,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        fontSize = 12.sp,
+                        maxLines = 1
                     )
                 }
             }
         }
-        
-        items(supportChats) { chat ->
-            val phone = chat.first
-            val (name, lastMsg) = chat.second
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { viewModel.openChatRoom(phone, name, isSupport = true) },
-                colors = CardDefaults.cardColors(containerColor = AdminCardBg),
-                border = BorderStroke(1.dp, AdminBorder),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
+
+        when (activeSubTab) {
+            0 -> {
+                // CONFIG FORM
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+                    border = BorderStroke(1.dp, AdminBorder),
+                    shape = RoundedCornerShape(14.dp)
                 ) {
-                    Box(
-                        modifier = Modifier.size(40.dp).background(AdminPrimaryBlue, CircleShape),
-                        contentAlignment = Alignment.Center
+                    Column(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Text(name.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.HeadsetMic, contentDescription = null, tint = AdminPrimaryBlue, modifier = Modifier.size(22.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (isBn) "কাস্টমার সাপোর্ট কন্টাক্ট ইনফরমেশন কনফিগারেশন" else "Customer Support Contact Information Config",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                color = AdminTextWhite
+                            )
+                        }
+
+                        Text(
+                            text = if (isBn) "এখানে দেওয়া তথ্যগুলো ব্যবহারকারীদের সাপোর্ট ডায়ালগ ও হেল্পডেস্কে হুবহু দেখানো হবে:" else "The information updated here will be displayed dynamically in the Support Modal for all users:",
+                            fontSize = 11.sp,
+                            color = AdminTextMuted
+                        )
+
+                        OutlinedTextField(
+                            value = phoneInput,
+                            onValueChange = { phoneInput = it },
+                            label = { Text(if (isBn) "অফিশিয়াল সাপোর্ট ফোন নম্বর(সমূহ)" else "Official Support Phone Number(s)", color = AdminTextMuted) },
+                            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AdminPrimaryBlue,
+                                unfocusedBorderColor = AdminBorder,
+                                focusedContainerColor = AdminDarkBg,
+                                unfocusedContainerColor = AdminDarkBg
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+
+                        OutlinedTextField(
+                            value = emailInput,
+                            onValueChange = { emailInput = it },
+                            label = { Text(if (isBn) "অফিশিয়াল সাপোর্ট ইমেইল এড্রেস" else "Official Support Email Address", color = AdminTextMuted) },
+                            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AdminPrimaryBlue,
+                                unfocusedBorderColor = AdminBorder,
+                                focusedContainerColor = AdminDarkBg,
+                                unfocusedContainerColor = AdminDarkBg
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+
+                        OutlinedTextField(
+                            value = telegramInput,
+                            onValueChange = { telegramInput = it },
+                            label = { Text(if (isBn) "টেলিগ্রাম গ্রুপ / চ্যানেল লিংক" else "Telegram Group / Channel Link", color = AdminTextMuted) },
+                            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AdminPrimaryBlue,
+                                unfocusedBorderColor = AdminBorder,
+                                focusedContainerColor = AdminDarkBg,
+                                unfocusedContainerColor = AdminDarkBg
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+
+                        OutlinedTextField(
+                            value = whatsappInput,
+                            onValueChange = { whatsappInput = it },
+                            label = { Text(if (isBn) "হোয়াটসঅ্যাপ সাপোর্ট নম্বর" else "WhatsApp Support Number", color = AdminTextMuted) },
+                            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AdminPrimaryBlue,
+                                unfocusedBorderColor = AdminBorder,
+                                focusedContainerColor = AdminDarkBg,
+                                unfocusedContainerColor = AdminDarkBg
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+
+                        OutlinedTextField(
+                            value = hoursInput,
+                            onValueChange = { hoursInput = it },
+                            label = { Text(if (isBn) "সাপোর্ট সার্ভিস টাইম / কাজের সময়" else "Support Working Hours", color = AdminTextMuted) },
+                            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AdminPrimaryBlue,
+                                unfocusedBorderColor = AdminBorder,
+                                focusedContainerColor = AdminDarkBg,
+                                unfocusedContainerColor = AdminDarkBg
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+
+                        OutlinedTextField(
+                            value = addressInput,
+                            onValueChange = { addressInput = it },
+                            label = { Text(if (isBn) "অফিসিয়াল ঠিকানা / হেডাঅফিস" else "Official Head Office Address", color = AdminTextMuted) },
+                            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AdminPrimaryBlue,
+                                unfocusedBorderColor = AdminBorder,
+                                focusedContainerColor = AdminDarkBg,
+                                unfocusedContainerColor = AdminDarkBg
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Button(
+                            onClick = {
+                                viewModel.updateSupportConfig(
+                                    context = context,
+                                    phone = phoneInput,
+                                    email = emailInput,
+                                    telegram = telegramInput,
+                                    whatsapp = whatsappInput,
+                                    hours = hoursInput,
+                                    address = addressInput
+                                )
+                                Toast.makeText(context, if (isBn) "সাপোর্ট তথ্য সফলভাবে সংরক্ষিত হয়েছে!" else "Support information saved successfully!", Toast.LENGTH_SHORT).show()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = AdminAccGreen),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Save, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (isBn) "সাপোর্ট তথ্য সংরক্ষণ করুন" else "Save Support Details",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                        }
                     }
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(name, color = AdminTextWhite, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        Text(lastMsg.message, color = AdminTextMuted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+
+            1 -> {
+                // LIVE CHAT ROOMS LIST
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(bottom = 20.dp)
+                ) {
+                    if (supportChats.isEmpty()) {
+                        item {
+                            Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
+                                Text(
+                                    if (isBn) "এখনও কোনো লাইভ সাপোর্ট মেসেজ নেই।" else "No live support messages yet.",
+                                    color = AdminTextMuted,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        }
                     }
-                    Text(lastMsg.timestamp.split(" ").last(), color = AdminTextMuted, fontSize = 10.sp)
+                    
+                    items(supportChats) { chat ->
+                        val phone = chat.first
+                        val (name, lastMsg) = chat.second
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { viewModel.openChatRoom(phone, name, isSupport = true) },
+                            colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+                            border = BorderStroke(1.dp, AdminBorder),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier.size(40.dp).background(AdminPrimaryBlue, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(name.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold)
+                                }
+                                Spacer(Modifier.width(12.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(name, color = AdminTextWhite, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    Text(lastMsg.message, color = AdminTextMuted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                                Text(lastMsg.timestamp.split(" ").last(), color = AdminTextMuted, fontSize = 10.sp)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -5408,6 +5626,12 @@ fun CountryFeeItemCard(
     isBn: Boolean,
     onSave: (com.example.data.CountryBookingFee) -> Unit
 ) {
+    var ambFreeFeeStr by remember(fee) { mutableStateOf(fee.ambulanceFeeFree.toString()) }
+    var ambAdvFeeStr by remember(fee) { mutableStateOf(fee.ambulanceFeeAdv.toString()) }
+    var hospFreeFeeStr by remember(fee) { mutableStateOf(fee.hospitalFeeFree.toString()) }
+    var hospAdvFeeStr by remember(fee) { mutableStateOf(fee.hospitalFeeAdv.toString()) }
+    var docCommFreeStr by remember(fee) { mutableStateOf(fee.doctorCommPctFree.toString()) }
+    var docCommAdvStr by remember(fee) { mutableStateOf(fee.doctorCommPctAdv.toString()) }
     var ambFeeStr by remember(fee) { mutableStateOf(fee.ambulanceFee.toString()) }
     var docFeeStr by remember(fee) { mutableStateOf(fee.doctorFee.toString()) }
     var hospFeeStr by remember(fee) { mutableStateOf(fee.hospitalFee.toString()) }
@@ -5490,11 +5714,12 @@ fun CountryFeeItemCard(
 
             // Fee Inputs Grid
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                // Ambulance Booking Fee (Free vs Adv)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
-                        value = ambFeeStr,
-                        onValueChange = { ambFeeStr = it },
-                        label = { Text(if (isBn) "অ্যাম্বুলেন্স বুকিং ফি" else "Ambulance Fee", color = AdminTextMuted, fontSize = 11.sp) },
+                        value = ambFreeFeeStr,
+                        onValueChange = { ambFreeFeeStr = it },
+                        label = { Text(if (isBn) "অ্যাম্বুলেন্স ফি (ফ্রি) ৳" else "Ambulance Fee (Free)", color = AdminTextMuted, fontSize = 11.sp) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
                         colors = OutlinedTextFieldDefaults.colors(
@@ -5508,9 +5733,9 @@ fun CountryFeeItemCard(
                     )
 
                     OutlinedTextField(
-                        value = docFeeStr,
-                        onValueChange = { docFeeStr = it },
-                        label = { Text(if (isBn) "ডাক্তার বুকিং ফি" else "Doctor Fee", color = AdminTextMuted, fontSize = 11.sp) },
+                        value = ambAdvFeeStr,
+                        onValueChange = { ambAdvFeeStr = it },
+                        label = { Text(if (isBn) "অ্যাম্বুলেন্স ফি (এডভান্স) ৳" else "Ambulance Fee (Adv)", color = AdminTextMuted, fontSize = 11.sp) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
                         colors = OutlinedTextFieldDefaults.colors(
@@ -5524,11 +5749,12 @@ fun CountryFeeItemCard(
                     )
                 }
 
+                // Hospital Booking Fee (Free vs Adv)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
-                        value = hospFeeStr,
-                        onValueChange = { hospFeeStr = it },
-                        label = { Text(if (isBn) "হসপিটাল সার্ভিস ফি" else "Hospital Fee", color = AdminTextMuted, fontSize = 11.sp) },
+                        value = hospFreeFeeStr,
+                        onValueChange = { hospFreeFeeStr = it },
+                        label = { Text(if (isBn) "হসপিটাল বুকিং ফি (ফ্রি) ৳" else "Hosp Booking Fee (Free)", color = AdminTextMuted, fontSize = 11.sp) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
                         colors = OutlinedTextFieldDefaults.colors(
@@ -5542,9 +5768,9 @@ fun CountryFeeItemCard(
                     )
 
                     OutlinedTextField(
-                        value = bloodReqFeeStr,
-                        onValueChange = { bloodReqFeeStr = it },
-                        label = { Text(if (isBn) "জরুরী ব্লাড রিকোয়েস্ট ফি" else "Blood Request Fee", color = AdminTextMuted, fontSize = 11.sp) },
+                        value = hospAdvFeeStr,
+                        onValueChange = { hospAdvFeeStr = it },
+                        label = { Text(if (isBn) "হসপিটাল বুকিং ফি (এডভান্স) ৳" else "Hosp Booking Fee (Adv)", color = AdminTextMuted, fontSize = 11.sp) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
                         colors = OutlinedTextFieldDefaults.colors(
@@ -5558,6 +5784,42 @@ fun CountryFeeItemCard(
                     )
                 }
 
+                // Doctor Commission % (Free vs Adv)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = docCommFreeStr,
+                        onValueChange = { docCommFreeStr = it },
+                        label = { Text(if (isBn) "ডাক্তার ভিজিট চার্জ (ফ্রি %)" else "Doctor Comm % (Free)", color = AdminTextMuted, fontSize = 11.sp) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        ),
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+
+                    OutlinedTextField(
+                        value = docCommAdvStr,
+                        onValueChange = { docCommAdvStr = it },
+                        label = { Text(if (isBn) "ডাক্তার ভিজিট চার্জ (এডভান্স %)" else "Doctor Comm % (Adv)", color = AdminTextMuted, fontSize = 11.sp) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminDarkBg,
+                            unfocusedContainerColor = AdminDarkBg
+                        ),
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                }
+
+                // Hospital Accept Fee & Blood Request Fee
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = freeAccFeeStr,
@@ -5598,9 +5860,15 @@ fun CountryFeeItemCard(
             Button(
                 onClick = {
                     val updated = fee.copy(
-                        ambulanceFee = ambFeeStr.toDoubleOrNull() ?: fee.ambulanceFee,
-                        doctorFee = docFeeStr.toDoubleOrNull() ?: fee.doctorFee,
-                        hospitalFee = hospFeeStr.toDoubleOrNull() ?: fee.hospitalFee,
+                        ambulanceFeeFree = ambFreeFeeStr.toDoubleOrNull() ?: fee.ambulanceFeeFree,
+                        ambulanceFeeAdv = ambAdvFeeStr.toDoubleOrNull() ?: fee.ambulanceFeeAdv,
+                        hospitalFeeFree = hospFreeFeeStr.toDoubleOrNull() ?: fee.hospitalFeeFree,
+                        hospitalFeeAdv = hospAdvFeeStr.toDoubleOrNull() ?: fee.hospitalFeeAdv,
+                        doctorCommPctFree = docCommFreeStr.toDoubleOrNull() ?: fee.doctorCommPctFree,
+                        doctorCommPctAdv = docCommAdvStr.toDoubleOrNull() ?: fee.doctorCommPctAdv,
+                        ambulanceFee = ambAdvFeeStr.toDoubleOrNull() ?: fee.ambulanceFee,
+                        doctorFee = docCommAdvStr.toDoubleOrNull() ?: fee.doctorFee,
+                        hospitalFee = hospAdvFeeStr.toDoubleOrNull() ?: fee.hospitalFee,
                         hospitalAcceptFeeFree = freeAccFeeStr.toDoubleOrNull() ?: fee.hospitalAcceptFeeFree,
                         hospitalAcceptFeeAdvance = advAccFeeStr.toDoubleOrNull() ?: fee.hospitalAcceptFeeAdvance,
                         bloodRequestFee = bloodReqFeeStr.toDoubleOrNull() ?: fee.bloodRequestFee,
@@ -5919,6 +6187,158 @@ fun AdminAdsBannerTab(
             }
         )
     }
+}
+
+@Composable
+fun AdminCreateAdOrderDialog(
+    isBn: Boolean,
+    onDismiss: () -> Unit,
+    onSubmit: (companyName: String, title: String, mediaUrl: String, isVideo: Boolean, targetUrl: String, planType: String) -> Unit
+) {
+    var companyName by remember { mutableStateOf("") }
+    var title by remember { mutableStateOf("") }
+    var mediaUrl by remember { mutableStateOf("") }
+    var isVideo by remember { mutableStateOf(false) }
+    var targetUrl by remember { mutableStateOf("https://") }
+    var planType by remember { mutableStateOf("Monthly (৳1800)") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = if (isBn) "নতুন অ্যাড ব্যানার যোগ করুন" else "Create New Ad Banner",
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                color = Color.White
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedTextField(
+                    value = companyName,
+                    onValueChange = { companyName = it },
+                    label = { Text(if (isBn) "কোম্পানি / স্পন্সর নাম" else "Company / Sponsor Name") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = AdminPrimaryBlue,
+                        unfocusedBorderColor = AdminBorder
+                    )
+                )
+
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text(if (isBn) "বিজ্ঞাপনের শিরোনাম (Ad Title)" else "Ad Title") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = AdminPrimaryBlue,
+                        unfocusedBorderColor = AdminBorder
+                    )
+                )
+
+                OutlinedTextField(
+                    value = mediaUrl,
+                    onValueChange = { mediaUrl = it },
+                    label = { Text(if (isBn) "ব্যানার ইমেজ / ভিডিও URL" else "Banner Image / Video URL") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = AdminPrimaryBlue,
+                        unfocusedBorderColor = AdminBorder
+                    )
+                )
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Checkbox(
+                        checked = isVideo,
+                        onCheckedChange = { isVideo = it },
+                        colors = CheckboxDefaults.colors(checkedColor = AdminPrimaryBlue)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (isBn) "ভিডিও বিজ্ঞাপন (Video Ad)" else "Is Video Ad",
+                        fontSize = 13.sp,
+                        color = Color.White
+                    )
+                }
+
+                OutlinedTextField(
+                    value = targetUrl,
+                    onValueChange = { targetUrl = it },
+                    label = { Text(if (isBn) "টার্গেট লিংক (Click Destination URL)" else "Target URL") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = AdminPrimaryBlue,
+                        unfocusedBorderColor = AdminBorder
+                    )
+                )
+
+                Text(
+                    text = if (isBn) "প্ল্যান নির্বাচন করুন:" else "Select Ad Plan:",
+                    fontSize = 13.sp,
+                    color = AdminTextMuted,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf("Weekly (৳500)", "Monthly (৳1800)").forEach { plan ->
+                        val isSel = planType == plan
+                        FilterChip(
+                            selected = isSel,
+                            onClick = { planType = plan },
+                            label = { Text(plan, fontSize = 11.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = AdminPrimaryBlue,
+                                selectedLabelColor = Color.White,
+                                containerColor = AdminCardBg,
+                                labelColor = AdminTextMuted
+                            )
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (companyName.isNotBlank() && title.isNotBlank()) {
+                        onSubmit(companyName, title, mediaUrl, isVideo, targetUrl, planType)
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = AdminPrimaryBlue)
+            ) {
+                Text(if (isBn) "পাবলিশ করুন" else "Publish Ad")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(if (isBn) "বাতিল" else "Cancel", color = AdminTextMuted)
+            }
+        },
+        containerColor = AdminDarkBg
+    )
 }
 
 @Composable
@@ -6285,119 +6705,848 @@ fun AdminAdvertiserUserCard(
     }
 }
 
+
+
+
 @Composable
-fun AdminCreateAdOrderDialog(
-    isBn: Boolean,
-    onDismiss: () -> Unit,
-    onSubmit: (companyName: String, title: String, mediaUrl: String, isVideo: Boolean, targetUrl: String, planType: String) -> Unit
+fun AdminPlansAndPricingTab(
+    viewModel: MainViewModel,
+    language: AppLanguage
 ) {
-    var companyNameInput by remember { mutableStateOf("") }
-    var titleInput by remember { mutableStateOf("") }
-    var mediaUrlInput by remember { mutableStateOf("") }
-    var isVideoInput by remember { mutableStateOf(false) }
-    var targetUrlInput by remember { mutableStateOf("") }
-    var selectedPlan by remember { mutableStateOf("Weekly (৳500)") }
+    val context = LocalContext.current
+    val isBn = language == AppLanguage.BAN
+    val plans by viewModel.subscriptionPlans.collectAsState()
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = if (isBn) "নতুন বিজ্ঞাপন অর্ডার তৈরি করুন" else "Create New Ad Order",
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp
-            )
-        },
-        containerColor = AdminCardBg,
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = companyNameInput,
-                    onValueChange = { companyNameInput = it },
-                    label = { Text(if (isBn) "কোম্পানির নাম *" else "Company Name *") },
+    var showAddPlanDialog by remember { mutableStateOf(false) }
+    var editingPlan by remember { mutableStateOf<V9SubscriptionPlan?>(null) }
+
+    var planId by remember { mutableStateOf("") }
+    var nameEn by remember { mutableStateOf("") }
+    var nameBn by remember { mutableStateOf("") }
+    var priceStr by remember { mutableStateOf("") }
+    var durationDaysStr by remember { mutableStateOf("") }
+    var descEn by remember { mutableStateOf("") }
+    var descBn by remember { mutableStateOf("") }
+    var targetRole by remember { mutableStateOf("All") }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(bottom = 30.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // Header Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+            border = BorderStroke(1.dp, AdminBorder),
+            shape = RoundedCornerShape(14.dp)
+        ) {
+            Column(modifier = Modifier.padding(18.dp)) {
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AdminPrimaryBlue,
-                        unfocusedBorderColor = AdminBorder,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    )
-                )
-
-                OutlinedTextField(
-                    value = titleInput,
-                    onValueChange = { titleInput = it },
-                    label = { Text(if (isBn) "বিজ্ঞাপনের শিরোনাম *" else "Ad Title *") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AdminPrimaryBlue,
-                        unfocusedBorderColor = AdminBorder,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    )
-                )
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(
-                        selected = !isVideoInput,
-                        onClick = { isVideoInput = false },
-                        colors = RadioButtonDefaults.colors(selectedColor = AdminPrimaryBlue)
-                    )
-                    Text(if (isBn) "📷 ছবি ব্যানার" else "📷 Photo Banner", color = Color.White, fontSize = 12.sp)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    RadioButton(
-                        selected = isVideoInput,
-                        onClick = { isVideoInput = true },
-                        colors = RadioButtonDefaults.colors(selectedColor = AdminAccOrange)
-                    )
-                    Text(if (isBn) "🎬 ভিডিও অ্যাড" else "🎬 Video Ad", color = Color.White, fontSize = 12.sp)
-                }
-
-                OutlinedTextField(
-                    value = mediaUrlInput,
-                    onValueChange = { mediaUrlInput = it },
-                    label = { Text(if (isVideoInput) "ভিডিও লিংক / MP4 URL" else "ছবি ব্যানার লিংক (Image URL)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AdminPrimaryBlue,
-                        unfocusedBorderColor = AdminBorder,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    )
-                )
-
-                OutlinedTextField(
-                    value = targetUrlInput,
-                    onValueChange = { targetUrlInput = it },
-                    label = { Text(if (isBn) "ওয়েবসাইট / ক্লিক ডেস্টিনেশন লিংক *" else "Target Website URL *") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AdminPrimaryBlue,
-                        unfocusedBorderColor = AdminBorder,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    )
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (companyNameInput.isNotBlank() && titleInput.isNotBlank()) {
-                        onSubmit(companyNameInput, titleInput, mediaUrlInput, isVideoInput, targetUrlInput, selectedPlan)
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(AdminPrimaryBlue.copy(alpha = 0.2f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Sell, contentDescription = null, tint = AdminPrimaryBlue, modifier = Modifier.size(24.dp))
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = if (isBn) "🏷️ অল প্ল্যান ও মূল্য তালিকা ব্যবস্থাপনা" else "🏷️ All Plans & Pricing Management",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Text(
+                                text = if (isBn) "ডাক্তার, হাসপাতাল, অ্যাম্বুলেন্স, ডোনার ও বিজ্ঞাপন প্যাকসমূহের রেট পরিবর্তন করুন" else "Manage prices, durations & descriptions for Doctor, Hospital, Ambulance & Ad plans",
+                                fontSize = 11.sp,
+                                color = AdminTextMuted
+                            )
+                        }
                     }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = AdminPrimaryBlue)
-            ) {
-                Text(if (isBn) "সংরক্ষণ করুন" else "Save Order", color = Color.White)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(if (isBn) "বাতিল" else "Cancel", color = AdminTextMuted)
+
+                    Button(
+                        onClick = {
+                            editingPlan = null
+                            planId = "plan_" + System.currentTimeMillis()
+                            nameEn = ""
+                            nameBn = ""
+                            priceStr = "499"
+                            durationDaysStr = "-1"
+                            descEn = ""
+                            descBn = ""
+                            targetRole = "All"
+                            showAddPlanDialog = true
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = AdminAccGreen),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (isBn) "নতুন প্ল্যান যোগ করুন" else "Add New Plan",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
             }
         }
-    )
+
+        // Plans Grid / List
+        plans.forEach { plan ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+                border = BorderStroke(1.dp, AdminBorder),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (isBn) plan.nameBn else plan.nameEn,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                color = Color.White
+                            )
+                            Text(
+                                text = "Category: ${plan.targetRole} | ID: ${plan.id}",
+                                fontSize = 11.sp,
+                                color = AdminTextMuted
+                            )
+                        }
+
+                        Surface(
+                            color = AdminAccOrange.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, AdminAccOrange.copy(alpha = 0.4f))
+                        ) {
+                            Text(
+                                text = "৳${plan.price.toInt()} / ${if (plan.durationDays <= 0 || plan.durationDays == -1) (if (isBn) "আজীবন (Lifetime)" else "Lifetime") else "${plan.durationDays} days"}",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = AdminAccOrange,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    HorizontalDivider(color = AdminBorder)
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = if (isBn) plan.descriptionBn else plan.descriptionEn,
+                        fontSize = 12.sp,
+                        color = AdminTextMuted,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                editingPlan = plan
+                                planId = plan.id
+                                nameEn = plan.nameEn
+                                nameBn = plan.nameBn
+                                priceStr = plan.price.toInt().toString()
+                                durationDaysStr = plan.durationDays.toString()
+                                descEn = plan.descriptionEn
+                                descBn = plan.descriptionBn
+                                targetRole = plan.targetRole
+                                showAddPlanDialog = true
+                            },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = AdminPrimaryBlue),
+                            border = BorderStroke(1.dp, AdminPrimaryBlue.copy(alpha = 0.5f)),
+                            shape = RoundedCornerShape(6.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                        ) {
+                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(if (isBn) "এডিট করুন" else "Edit Plan", fontSize = 11.sp)
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        OutlinedButton(
+                            onClick = {
+                                val updated = plans.filter { it.id != plan.id }
+                                viewModel.updateSubscriptionPlansList(context, updated)
+                                Toast.makeText(context, if (isBn) "প্ল্যান মুছে ফেলা হয়েছে" else "Plan deleted", Toast.LENGTH_SHORT).show()
+                            },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = AdminAccRed),
+                            border = BorderStroke(1.dp, AdminAccRed.copy(alpha = 0.5f)),
+                            shape = RoundedCornerShape(6.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(if (isBn) "ডিলিট" else "Delete", fontSize = 11.sp)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Add / Edit Plan Dialog
+    if (showAddPlanDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddPlanDialog = false },
+            title = {
+                Text(
+                    text = if (editingPlan == null) (if (isBn) "নতুন প্ল্যান প্যাক যোগ করুন" else "Add New Subscription Plan") else (if (isBn) "প্ল্যান পরিবর্তন করুন" else "Edit Subscription Plan"),
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+            },
+            containerColor = AdminCardBg,
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = nameBn,
+                        onValueChange = { nameBn = it },
+                        label = { Text(if (isBn) "প্ল্যানের নাম (বাংলা) *" else "Plan Name (Bangla) *") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        )
+                    )
+
+                    OutlinedTextField(
+                        value = nameEn,
+                        onValueChange = { nameEn = it },
+                        label = { Text(if (isBn) "প্ল্যানের নাম (English) *" else "Plan Name (English) *") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        )
+                    )
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = priceStr,
+                            onValueChange = { priceStr = it },
+                            label = { Text(if (isBn) "মূল্য (৳)" else "Price (BDT)") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AdminPrimaryBlue,
+                                unfocusedBorderColor = AdminBorder,
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White
+                            )
+                        )
+
+                        OutlinedTextField(
+                            value = durationDaysStr,
+                            onValueChange = { durationDaysStr = it },
+                            label = { Text(if (isBn) "মেয়াদ (দিন, -১ = আজীবন)" else "Days (-1 = Lifetime)") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AdminPrimaryBlue,
+                                unfocusedBorderColor = AdminBorder,
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White
+                            )
+                        )
+                    }
+
+                    OutlinedTextField(
+                        value = targetRole,
+                        onValueChange = { targetRole = it },
+                        label = { Text(if (isBn) "ক্যাটাগরি / টার্গেট রুল (Doctor, Hospital, Ambulance, Donor, Advertiser)" else "Target Category") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        )
+                    )
+
+                    OutlinedTextField(
+                        value = descBn,
+                        onValueChange = { descBn = it },
+                        label = { Text(if (isBn) "সুবিধাসমূহ (বাংলা)" else "Features (Bangla)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        )
+                    )
+
+                    OutlinedTextField(
+                        value = descEn,
+                        onValueChange = { descEn = it },
+                        label = { Text(if (isBn) "সুবিধাসমূহ (English)" else "Features (English)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (nameBn.isNotBlank()) {
+                            val newPlan = V9SubscriptionPlan(
+                                id = planId,
+                                nameEn = nameEn.ifBlank { nameBn },
+                                nameBn = nameBn,
+                                price = priceStr.toDoubleOrNull() ?: 499.0,
+                                durationDays = durationDaysStr.toIntOrNull() ?: -1,
+                                descriptionEn = descEn.ifBlank { descBn },
+                                descriptionBn = descBn,
+                                targetRole = targetRole.ifBlank { "All" }
+                            )
+
+                            val existingList = viewModel.subscriptionPlans.value
+                            val updatedList = if (existingList.any { it.id == newPlan.id }) {
+                                existingList.map { if (it.id == newPlan.id) newPlan else it }
+                            } else {
+                                existingList + newPlan
+                            }
+
+                            viewModel.updateSubscriptionPlansList(context, updatedList)
+                            showAddPlanDialog = false
+                            Toast.makeText(context, if (isBn) "প্ল্যান তথ্য সফলভাবে সংরক্ষিত হয়েছে!" else "Plan updated successfully!", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AdminAccGreen)
+                ) {
+                    Text(if (isBn) "সংরক্ষণ করুন" else "Save Plan", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddPlanDialog = false }) {
+                    Text(if (isBn) "বাতিল" else "Cancel", color = AdminTextMuted)
+                }
+            }
+        )
+    }
 }
+
+@Composable
+fun AdminPaymentPortalTab(
+    viewModel: MainViewModel,
+    language: AppLanguage
+) {
+    val context = LocalContext.current
+    val isBn = language == AppLanguage.BAN
+
+    val currentBkash by viewModel.bkashNumber.collectAsState()
+    val currentNagad by viewModel.nagadNumber.collectAsState()
+    val currentRocket by viewModel.rocketNumber.collectAsState()
+    val currentUpay by viewModel.upayNumber.collectAsState()
+    val currentWise by viewModel.wiseAccount.collectAsState()
+    val currentPayoneer by viewModel.payoneerAccount.collectAsState()
+    val currentUsdt by viewModel.usdtWalletAddress.collectAsState()
+    val currentGooglePlay by viewModel.googlePlayMerchant.collectAsState()
+    val currentInstructions by viewModel.paymentInstructionsText.collectAsState()
+
+    val allPayments by viewModel.allPayments.collectAsState()
+
+    var editBkash by remember(currentBkash) { mutableStateOf(currentBkash) }
+    var editNagad by remember(currentNagad) { mutableStateOf(currentNagad) }
+    var editRocket by remember(currentRocket) { mutableStateOf(currentRocket) }
+    var editUpay by remember(currentUpay) { mutableStateOf(currentUpay) }
+    var editWise by remember(currentWise) { mutableStateOf(currentWise) }
+    var editPayoneer by remember(currentPayoneer) { mutableStateOf(currentPayoneer) }
+    var editUsdt by remember(currentUsdt) { mutableStateOf(currentUsdt) }
+    var editGooglePlay by remember(currentGooglePlay) { mutableStateOf(currentGooglePlay) }
+    var editInstructions by remember(currentInstructions) { mutableStateOf(currentInstructions) }
+
+    var activeSubTab by remember { mutableStateOf(0) } // 0: Gateways & Instructions Config, 1: All Payment History
+    var searchQuery by remember { mutableStateOf("") }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(bottom = 30.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Top Tab Switcher Navigation
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(AdminCardBg, RoundedCornerShape(10.dp))
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            val tabs = listOf(
+                Pair(if (isBn) "💳 পেমেন্ট গেটওয়ে & নিয়মাবলী" else "💳 Gateways & Instructions", 0),
+                Pair(if (isBn) "📜 অল পেমেন্ট হিস্টোরি (${allPayments.size})" else "📜 All Payment History (${allPayments.size})", 1)
+            )
+
+            tabs.forEach { (label, idx) ->
+                val isSelected = activeSubTab == idx
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isSelected) AdminPrimaryBlue else Color.Transparent)
+                        .clickable { activeSubTab = idx }
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = label,
+                        color = if (isSelected) Color.White else AdminTextMuted,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        fontSize = 12.sp,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+
+        when (activeSubTab) {
+            0 -> {
+                // GATEWAYS & INSTRUCTIONS CONFIG
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+                    border = BorderStroke(1.dp, AdminBorder),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = AdminPrimaryBlue, modifier = Modifier.size(22.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (isBn) "পেমেন্ট পদ্ধতি ও কাস্টম নির্দেশাবলী সেটিংস" else "Payment Methods & Custom Instructions Config",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                color = AdminTextWhite
+                            )
+                        }
+
+                        Text(
+                            text = if (isBn) "এখানে দেওয়া পেমেন্ট নম্বরসমূহ এবং অফিশিয়াল ম্যানুয়াল পেমেন্ট করার বিস্তারিত নিয়ম নিচে লিখে দিন:" else "Configure payment numbers & step-by-step payment instructions for users below:",
+                            fontSize = 11.sp,
+                            color = AdminTextMuted
+                        )
+
+                        OutlinedTextField(
+                            value = editBkash,
+                            onValueChange = { editBkash = it },
+                            label = { Text(if (isBn) "বিকাশ মার্চেন্ট/পার্সোনাল নম্বর (bKash)" else "bKash Merchant/Personal Number", color = AdminTextMuted) },
+                            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AdminPrimaryBlue,
+                                unfocusedBorderColor = AdminBorder,
+                                focusedContainerColor = AdminDarkBg,
+                                unfocusedContainerColor = AdminDarkBg
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+
+                        OutlinedTextField(
+                            value = editNagad,
+                            onValueChange = { editNagad = it },
+                            label = { Text(if (isBn) "নগদ মার্চেন্ট/পার্সোনাল নম্বর (Nagad)" else "Nagad Merchant/Personal Number", color = AdminTextMuted) },
+                            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AdminPrimaryBlue,
+                                unfocusedBorderColor = AdminBorder,
+                                focusedContainerColor = AdminDarkBg,
+                                unfocusedContainerColor = AdminDarkBg
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+
+                        OutlinedTextField(
+                            value = editRocket,
+                            onValueChange = { editRocket = it },
+                            label = { Text(if (isBn) "রকেট নম্বর (Rocket)" else "Rocket Number", color = AdminTextMuted) },
+                            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AdminPrimaryBlue,
+                                unfocusedBorderColor = AdminBorder,
+                                focusedContainerColor = AdminDarkBg,
+                                unfocusedContainerColor = AdminDarkBg
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+
+                        OutlinedTextField(
+                            value = editUpay,
+                            onValueChange = { editUpay = it },
+                            label = { Text(if (isBn) "উপায় অ্যাকাউন্ট নম্বর (Upay)" else "Upay Account Number", color = AdminTextMuted) },
+                            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AdminPrimaryBlue,
+                                unfocusedBorderColor = AdminBorder,
+                                focusedContainerColor = AdminDarkBg,
+                                unfocusedContainerColor = AdminDarkBg
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+
+                        OutlinedTextField(
+                            value = editWise,
+                            onValueChange = { editWise = it },
+                            label = { Text(if (isBn) "ওয়াইজ ইমেইল/ট্যাগ (Wise)" else "Wise Email/Tag", color = AdminTextMuted) },
+                            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AdminPrimaryBlue,
+                                unfocusedBorderColor = AdminBorder,
+                                focusedContainerColor = AdminDarkBg,
+                                unfocusedContainerColor = AdminDarkBg
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+
+                        OutlinedTextField(
+                            value = editPayoneer,
+                            onValueChange = { editPayoneer = it },
+                            label = { Text(if (isBn) "পায়োনিয়ার আইডি/ইমেইল (Payoneer)" else "Payoneer ID/Email", color = AdminTextMuted) },
+                            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AdminPrimaryBlue,
+                                unfocusedBorderColor = AdminBorder,
+                                focusedContainerColor = AdminDarkBg,
+                                unfocusedContainerColor = AdminDarkBg
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+
+                        OutlinedTextField(
+                            value = editUsdt,
+                            onValueChange = { editUsdt = it },
+                            label = { Text(if (isBn) "ইউএসডিটি ওয়ালেট এড্রেস (USDT TRC20/BEP20)" else "USDT Wallet Address", color = AdminTextMuted) },
+                            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AdminPrimaryBlue,
+                                unfocusedBorderColor = AdminBorder,
+                                focusedContainerColor = AdminDarkBg,
+                                unfocusedContainerColor = AdminDarkBg
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+
+                        OutlinedTextField(
+                            value = editGooglePlay,
+                            onValueChange = { editGooglePlay = it },
+                            label = { Text(if (isBn) "গুগল প্লে মার্চেন্ট / ব্যাংক আইডি" else "Google Play / Bank Merchant ID", color = AdminTextMuted) },
+                            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AdminPrimaryBlue,
+                                unfocusedBorderColor = AdminBorder,
+                                focusedContainerColor = AdminDarkBg,
+                                unfocusedContainerColor = AdminDarkBg
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+
+                        HorizontalDivider(color = AdminBorder, modifier = Modifier.padding(vertical = 4.dp))
+
+                        Text(
+                            text = if (isBn) "📝 কিভাবে কিভাবে পেমেন্ট করবে সেটির বিস্তারিত গাইডলাইন লিখুন:" else "📝 Write step-by-step payment instructions for users:",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AdminAccOrange
+                        )
+
+                        OutlinedTextField(
+                            value = editInstructions,
+                            onValueChange = { editInstructions = it },
+                            label = { Text(if (isBn) "পেমেন্ট করার নিয়মাবলী ও ইন্সট্রাকশন..." else "Detailed Payment Instructions...", color = AdminTextMuted) },
+                            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AdminPrimaryBlue,
+                                unfocusedBorderColor = AdminBorder,
+                                focusedContainerColor = AdminDarkBg,
+                                unfocusedContainerColor = AdminDarkBg
+                            ),
+                            minLines = 4,
+                            maxLines = 8,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Button(
+                            onClick = {
+                                viewModel.updatePaymentGatewayAccounts(
+                                    context = context,
+                                    bkash = editBkash,
+                                    nagad = editNagad,
+                                    rocket = editRocket,
+                                    upay = editUpay,
+                                    wise = editWise,
+                                    payoneer = editPayoneer,
+                                    usdt = editUsdt,
+                                    googlePlay = editGooglePlay,
+                                    instructions = editInstructions
+                                )
+                                Toast.makeText(context, if (isBn) "পেমেন্ট সেটিংস ও গাইডলাইন সংরক্ষিত হয়েছে!" else "Payment settings & guidelines saved!", Toast.LENGTH_SHORT).show()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = AdminAccGreen),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Save, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (isBn) "পেমেন্ট সেটিংস সংরক্ষণ করুন" else "Save Payment Gateways & Guidelines",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            1 -> {
+                // ALL PAYMENT HISTORY LIST
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    // Search Field
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text(if (isBn) "ট্রানজেকশন আইডি, ফোন নম্বর, ইউজার নাম বা পেমেন্ট মেথড খুঁজুন..." else "Search Txn ID, Phone, User or Gateway...", color = AdminTextMuted, fontSize = 12.sp) },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = AdminTextMuted) },
+                        trailingIcon = if (searchQuery.isNotEmpty()) {
+                            { IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Default.Close, contentDescription = null, tint = AdminTextMuted) } }
+                        } else null,
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AdminPrimaryBlue,
+                            unfocusedBorderColor = AdminBorder,
+                            focusedContainerColor = AdminCardBg,
+                            unfocusedContainerColor = AdminCardBg,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+
+                    val filteredPayments = remember(allPayments, searchQuery) {
+                        allPayments.filter {
+                            searchQuery.isEmpty() ||
+                                    it.transactionId.contains(searchQuery, ignoreCase = true) ||
+                                    it.userNameOrCompany.contains(searchQuery, ignoreCase = true) ||
+                                    it.userPhoneOrEmail.contains(searchQuery, ignoreCase = true) ||
+                                    it.paymentGateway.contains(searchQuery, ignoreCase = true) ||
+                                    it.paymentType.contains(searchQuery, ignoreCase = true)
+                        }
+                    }
+
+                    if (filteredPayments.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(40.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (isBn) "কোনো পেমেন্ট হিস্টোরি পাওয়া যায়নি" else "No payment history found",
+                                color = AdminTextMuted,
+                                fontSize = 14.sp
+                            )
+                        }
+                    } else {
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            items(filteredPayments, key = { it.id }) { item ->
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+                                    border = BorderStroke(1.dp, AdminBorder),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Column(modifier = Modifier.padding(14.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column {
+                                                Text(
+                                                    text = item.userNameOrCompany,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 14.sp,
+                                                    color = Color.White
+                                                )
+                                                Text(
+                                                    text = "${item.paymentType} • ${item.planOrItemTitle}",
+                                                    fontSize = 11.sp,
+                                                    color = AdminTextMuted
+                                                )
+                                            }
+
+                                            Surface(
+                                                color = when (item.status) {
+                                                    "Approved" -> Color(0xFF1B5E20)
+                                                    "Rejected" -> Color(0xFFB71C1C)
+                                                    else -> Color(0xFFE65100)
+                                                },
+                                                shape = RoundedCornerShape(6.dp)
+                                            ) {
+                                                Text(
+                                                    text = item.status.uppercase(),
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color.White,
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(8.dp))
+
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .background(AdminDarkBg, RoundedCornerShape(8.dp))
+                                                .padding(10.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column {
+                                                Text(if (isBn) "মেথড:" else "Gateway:", fontSize = 10.sp, color = AdminTextMuted)
+                                                Text(item.paymentGateway, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AdminAccOrange)
+                                            }
+
+                                            Column {
+                                                Text(if (isBn) "ট্রানজেকশন আইডি:" else "Txn ID:", fontSize = 10.sp, color = AdminTextMuted)
+                                                Text(item.transactionId.ifBlank { "N/A" }, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AdminPrimaryBlue)
+                                            }
+
+                                            Column(horizontalAlignment = Alignment.End) {
+                                                Text(if (isBn) "পরিমাণ:" else "Amount:", fontSize = 10.sp, color = AdminTextMuted)
+                                                Text("৳${item.amount.toInt()}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AdminAccGreen)
+                                            }
+                                        }
+
+                                        if (item.senderInfo.isNotBlank()) {
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            Text(
+                                                text = "Sender Mobile/Info: ${item.senderInfo}",
+                                                fontSize = 11.sp,
+                                                color = Color.White
+                                            )
+                                        }
+
+                                        if (item.screenshotUrl.isNotBlank()) {
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = "Screenshot Link: ${item.screenshotUrl}",
+                                                fontSize = 10.sp,
+                                                color = AdminPrimaryBlue,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.height(8.dp))
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text("Date: ${item.date}", fontSize = 10.sp, color = AdminTextMuted)
+
+                                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                if (item.status != "Approved") {
+                                                    OutlinedButton(
+                                                        onClick = {
+                                                            viewModel.updatePaymentStatus(context, item.id, "Approved")
+                                                            Toast.makeText(context, if (isBn) "পেমেন্ট অনুমোদন করা হয়েছে" else "Payment approved", Toast.LENGTH_SHORT).show()
+                                                        },
+                                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = AdminAccGreen),
+                                                        border = BorderStroke(1.dp, AdminAccGreen.copy(alpha = 0.5f)),
+                                                        shape = RoundedCornerShape(6.dp),
+                                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                                    ) {
+                                                        Text(if (isBn) "🟢 অনুমোদন" else "Approve", fontSize = 10.sp)
+                                                    }
+                                                }
+
+                                                if (item.status != "Rejected") {
+                                                    OutlinedButton(
+                                                        onClick = {
+                                                            viewModel.updatePaymentStatus(context, item.id, "Rejected")
+                                                            Toast.makeText(context, if (isBn) "পেমেন্ট বাতিল করা হয়েছে" else "Payment rejected", Toast.LENGTH_SHORT).show()
+                                                        },
+                                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = AdminAccRed),
+                                                        border = BorderStroke(1.dp, AdminAccRed.copy(alpha = 0.5f)),
+                                                        shape = RoundedCornerShape(6.dp),
+                                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                                    ) {
+                                                        Text(if (isBn) "🔴 বাতিল" else "Reject", fontSize = 10.sp)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 

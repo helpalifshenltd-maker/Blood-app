@@ -299,6 +299,53 @@ class MainViewModel(
     val upayNumber: StateFlow<String> = repository.upayNumber
     val payoneerAccount: StateFlow<String> = repository.payoneerAccount
     val usdtWalletAddress: StateFlow<String> = repository.usdtWalletAddress
+    val paymentInstructionsText: StateFlow<String> = repository.paymentInstructionsText
+
+    val supportPhone: StateFlow<String> = repository.supportPhone
+    val supportEmail: StateFlow<String> = repository.supportEmail
+    val supportTelegram: StateFlow<String> = repository.supportTelegram
+    val supportWhatsapp: StateFlow<String> = repository.supportWhatsapp
+    val supportHours: StateFlow<String> = repository.supportHours
+    val supportAddress: StateFlow<String> = repository.supportAddress
+
+    val allPayments: StateFlow<List<com.example.data.UnifiedPaymentRecord>> = repository.allPayments
+
+    fun updatePaymentGatewayAccounts(
+        context: android.content.Context,
+        bkash: String,
+        nagad: String,
+        rocket: String,
+        upay: String,
+        wise: String,
+        payoneer: String,
+        usdt: String,
+        googlePlay: String,
+        instructions: String
+    ) {
+        repository.updatePaymentGatewayAccounts(
+            context, bkash, nagad, rocket, upay, wise, payoneer, usdt, googlePlay, instructions
+        )
+    }
+
+    fun updateSupportConfig(
+        context: android.content.Context,
+        phone: String,
+        email: String,
+        telegram: String,
+        whatsapp: String,
+        hours: String,
+        address: String
+    ) {
+        repository.updateSupportConfig(context, phone, email, telegram, whatsapp, hours, address)
+    }
+
+    fun addPaymentRecord(context: android.content.Context, record: com.example.data.UnifiedPaymentRecord) {
+        repository.addPaymentRecord(context, record)
+    }
+
+    fun updatePaymentStatus(context: android.content.Context, paymentId: String, newStatus: String) {
+        repository.updatePaymentStatus(context, paymentId, newStatus)
+    }
 
     val donationClaims: StateFlow<List<com.example.data.DonationClaim>> = repository.donationClaims
     val homeNotice: StateFlow<String> = repository.homeNotice
@@ -1623,6 +1670,10 @@ class MainViewModel(
     // --- V9 SUBSCRIPTION OPERATIONS ---
     fun triggerAddOrUpdateSubscriptionPlan(plan: V9SubscriptionPlan) {
         repository.addOrUpdateSubscriptionPlan(plan)
+    }
+
+    fun updateSubscriptionPlansList(context: android.content.Context, updatedList: List<V9SubscriptionPlan>) {
+        repository.updateSubscriptionPlansList(context, updatedList)
     }
 
     val donorTeams: StateFlow<List<com.example.data.DonorTeam>> = repository.donorTeams

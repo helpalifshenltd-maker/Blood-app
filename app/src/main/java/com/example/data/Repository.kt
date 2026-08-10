@@ -409,15 +409,15 @@ class BloodConnectRepository private constructor() {
 
     private val _countryBookingFees = MutableStateFlow<List<CountryBookingFee>>(
         listOf(
-            CountryBookingFee("BD", "বাংলাদেশ", "Bangladesh", "৳", 50.0, 30.0, 50.0, 50.0, 30.0, 0.0),
-            CountryBookingFee("IN", "ভারত (India)", "India", "₹", 50.0, 30.0, 50.0, 50.0, 30.0, 0.0),
-            CountryBookingFee("SA", "সৌদি আরব (Saudi Arabia)", "Saudi Arabia", "SAR", 5.0, 3.0, 5.0, 5.0, 3.0, 0.0),
-            CountryBookingFee("AE", "ইউএই / দুবাই (UAE/Dubai)", "UAE / Dubai", "AED", 5.0, 3.0, 5.0, 5.0, 3.0, 0.0),
-            CountryBookingFee("QA", "কাতার (Qatar)", "Qatar", "QAR", 5.0, 3.0, 5.0, 5.0, 3.0, 0.0),
-            CountryBookingFee("KW", "কুয়েত (Kuwait)", "Kuwait", "KWD", 1.0, 0.5, 1.0, 1.0, 0.5, 0.0),
-            CountryBookingFee("MY", "মালয়েশিয়া (Malaysia)", "Malaysia", "MYR", 5.0, 3.0, 5.0, 5.0, 3.0, 0.0),
-            CountryBookingFee("US", "যুক্তরাষ্ট্র (USA)", "USA", "$", 1.0, 0.5, 1.0, 1.0, 0.5, 0.0),
-            CountryBookingFee("OTHER", "অন্যান্য সকল বাহিরের দেশ (International / Other)", "Other Countries", "$", 1.0, 0.5, 1.0, 1.0, 0.5, 0.0)
+            CountryBookingFee("BD", "বাংলাদেশ", "Bangladesh", "৳", ambulanceFeeFree = 100.0, ambulanceFeeAdv = 50.0, hospitalFeeFree = 100.0, hospitalFeeAdv = 50.0, doctorCommPctFree = 15.0, doctorCommPctAdv = 10.0),
+            CountryBookingFee("IN", "ভারত (India)", "India", "₹", ambulanceFeeFree = 100.0, ambulanceFeeAdv = 50.0, hospitalFeeFree = 100.0, hospitalFeeAdv = 50.0, doctorCommPctFree = 15.0, doctorCommPctAdv = 10.0),
+            CountryBookingFee("SA", "সৌদি আরব (Saudi Arabia)", "Saudi Arabia", "SAR", ambulanceFeeFree = 10.0, ambulanceFeeAdv = 5.0, hospitalFeeFree = 10.0, hospitalFeeAdv = 5.0, doctorCommPctFree = 15.0, doctorCommPctAdv = 10.0),
+            CountryBookingFee("AE", "ইউএই / দুবাই (UAE/Dubai)", "UAE / Dubai", "AED", ambulanceFeeFree = 10.0, ambulanceFeeAdv = 5.0, hospitalFeeFree = 10.0, hospitalFeeAdv = 5.0, doctorCommPctFree = 15.0, doctorCommPctAdv = 10.0),
+            CountryBookingFee("QA", "কাতার (Qatar)", "Qatar", "QAR", ambulanceFeeFree = 10.0, ambulanceFeeAdv = 5.0, hospitalFeeFree = 10.0, hospitalFeeAdv = 5.0, doctorCommPctFree = 15.0, doctorCommPctAdv = 10.0),
+            CountryBookingFee("KW", "কুয়েত (Kuwait)", "Kuwait", "KWD", ambulanceFeeFree = 2.0, ambulanceFeeAdv = 1.0, hospitalFeeFree = 2.0, hospitalFeeAdv = 1.0, doctorCommPctFree = 15.0, doctorCommPctAdv = 10.0),
+            CountryBookingFee("MY", "মালয়েশিয়া (Malaysia)", "Malaysia", "MYR", ambulanceFeeFree = 10.0, ambulanceFeeAdv = 5.0, hospitalFeeFree = 10.0, hospitalFeeAdv = 5.0, doctorCommPctFree = 15.0, doctorCommPctAdv = 10.0),
+            CountryBookingFee("US", "যুক্তরাষ্ট্র (USA)", "USA", "$", ambulanceFeeFree = 2.0, ambulanceFeeAdv = 1.0, hospitalFeeFree = 2.0, hospitalFeeAdv = 1.0, doctorCommPctFree = 15.0, doctorCommPctAdv = 10.0),
+            CountryBookingFee("OTHER", "অন্যান্য সকল বাহিরের দেশ (International / Other)", "Other Countries", "$", ambulanceFeeFree = 2.0, ambulanceFeeAdv = 1.0, hospitalFeeFree = 2.0, hospitalFeeAdv = 1.0, doctorCommPctFree = 15.0, doctorCommPctAdv = 10.0)
         )
     )
     val countryBookingFees: StateFlow<List<CountryBookingFee>> = _countryBookingFees.asStateFlow()
@@ -559,6 +559,30 @@ class BloodConnectRepository private constructor() {
     private val _usdtWalletAddress = MutableStateFlow("0x71C7656EC7ab88b098defB751B7401B5f6d8976F")
     val usdtWalletAddress: StateFlow<String> = _usdtWalletAddress.asStateFlow()
 
+    private val _paymentInstructionsText = MutableStateFlow("বিকাশ, নগদ, রকেট, উপায় বা যেকোনো ওয়ালেটে টাকা পাঠাতে নিচের নম্বর ব্যবহার করুন। সেন্ড মানি বা পে করার পর ট্রানজেকশন আইডি ও পেমেন্ট স্ক্রিনশট সংযুক্ত করে কনফার্ম করুন।")
+    val paymentInstructionsText: StateFlow<String> = _paymentInstructionsText.asStateFlow()
+
+    private val _supportPhone = MutableStateFlow("01700000000 / 01800000000")
+    val supportPhone: StateFlow<String> = _supportPhone.asStateFlow()
+
+    private val _supportEmail = MutableStateFlow("help.alifshen.ltd@gmail.com")
+    val supportEmail: StateFlow<String> = _supportEmail.asStateFlow()
+
+    private val _supportTelegram = MutableStateFlow("https://t.me/alifbloodbank")
+    val supportTelegram: StateFlow<String> = _supportTelegram.asStateFlow()
+
+    private val _supportWhatsapp = MutableStateFlow("01700000000")
+    val supportWhatsapp: StateFlow<String> = _supportWhatsapp.asStateFlow()
+
+    private val _supportHours = MutableStateFlow("২৪/৭ কাস্টমার সাপোর্ট হেল্পডেস্ক")
+    val supportHours: StateFlow<String> = _supportHours.asStateFlow()
+
+    private val _supportAddress = MutableStateFlow("ঢাকা, বাংলাদেশ")
+    val supportAddress: StateFlow<String> = _supportAddress.asStateFlow()
+
+    private val _allPayments = MutableStateFlow<List<UnifiedPaymentRecord>>(emptyList())
+    val allPayments: StateFlow<List<UnifiedPaymentRecord>> = _allPayments.asStateFlow()
+
     fun updatePaymentConfig(
         bkash: String,
         nagad: String,
@@ -579,6 +603,197 @@ class BloodConnectRepository private constructor() {
         _usdtWalletAddress.value = usdt
         saveAppConfigLocal()
         pushAppConfigToRemote()
+    }
+
+    fun updatePaymentGatewayAccounts(
+        context: Context,
+        bkash: String,
+        nagad: String,
+        rocket: String,
+        upay: String,
+        wise: String,
+        payoneer: String,
+        usdt: String,
+        googlePlay: String,
+        instructions: String
+    ) {
+        _bkashNumber.value = bkash
+        _nagadNumber.value = nagad
+        _rocketNumber.value = rocket
+        _upayNumber.value = upay
+        _wiseAccount.value = wise
+        _payoneerAccount.value = payoneer
+        _usdtWalletAddress.value = usdt
+        _googlePlayMerchant.value = googlePlay
+        _paymentInstructionsText.value = instructions
+
+        val prefs = context.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+        prefs.edit()
+            .putString("payment_bkash", bkash)
+            .putString("payment_nagad", nagad)
+            .putString("payment_rocket", rocket)
+            .putString("payment_upay", upay)
+            .putString("payment_wise", wise)
+            .putString("payment_payoneer", payoneer)
+            .putString("payment_usdt", usdt)
+            .putString("payment_googleplay", googlePlay)
+            .putString("payment_instructions_text", instructions)
+            .apply()
+    }
+
+    fun updateSupportConfig(
+        context: Context,
+        phone: String,
+        email: String,
+        telegram: String,
+        whatsapp: String,
+        hours: String,
+        address: String
+    ) {
+        _supportPhone.value = phone
+        _supportEmail.value = email
+        _supportTelegram.value = telegram
+        _supportWhatsapp.value = whatsapp
+        _supportHours.value = hours
+        _supportAddress.value = address
+
+        val prefs = context.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+        prefs.edit()
+            .putString("support_phone", phone)
+            .putString("support_email", email)
+            .putString("support_telegram", telegram)
+            .putString("support_whatsapp", whatsapp)
+            .putString("support_hours", hours)
+            .putString("support_address", address)
+            .apply()
+    }
+
+    fun addPaymentRecord(context: Context, record: UnifiedPaymentRecord) {
+        val updated = listOf(record) + _allPayments.value
+        _allPayments.value = updated
+        val prefs = context.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putString("all_payments_history_list", serializePayments(updated)).apply()
+    }
+
+    fun updatePaymentStatus(context: Context, paymentId: String, newStatus: String) {
+        val updated = _allPayments.value.map {
+            if (it.id == paymentId) it.copy(status = newStatus) else it
+        }
+        _allPayments.value = updated
+        val prefs = context.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putString("all_payments_history_list", serializePayments(updated)).apply()
+    }
+
+    private fun serializeCompanySubscriptions(list: List<CompanyAdSubscription>): String {
+        return list.joinToString("||SUB_SEP||") { sub ->
+            listOf(
+                sub.id,
+                sub.companyId,
+                sub.companyName,
+                sub.planType,
+                sub.durationDays.toString(),
+                sub.pricePaid.toString(),
+                sub.paymentMethod,
+                sub.transactionId,
+                sub.senderPhone,
+                sub.screenshotUrl,
+                sub.adTitle,
+                sub.bannerMediaUrl,
+                sub.isVideo.toString(),
+                sub.videoUrl,
+                sub.targetUrl,
+                sub.startDate,
+                sub.expiryDate,
+                sub.status,
+                sub.targetCountries
+            ).joinToString("||FIELD_SEP||")
+        }
+    }
+
+    fun deserializeCompanySubscriptions(serialized: String): List<CompanyAdSubscription> {
+        if (serialized.isBlank()) return emptyList()
+        val result = mutableListOf<CompanyAdSubscription>()
+        val items = serialized.split("||SUB_SEP||")
+        for (item in items) {
+            val parts = item.split("||FIELD_SEP||")
+            if (parts.size >= 8) {
+                result.add(
+                    CompanyAdSubscription(
+                        id = parts.getOrNull(0) ?: "",
+                        companyId = parts.getOrNull(1) ?: "",
+                        companyName = parts.getOrNull(2) ?: "",
+                        planType = parts.getOrNull(3) ?: "Weekly",
+                        durationDays = parts.getOrNull(4)?.toIntOrNull() ?: 7,
+                        pricePaid = parts.getOrNull(5)?.toDoubleOrNull() ?: 500.0,
+                        paymentMethod = parts.getOrNull(6) ?: "bKash",
+                        transactionId = parts.getOrNull(7) ?: "",
+                        senderPhone = parts.getOrNull(8) ?: "",
+                        screenshotUrl = parts.getOrNull(9) ?: "",
+                        adTitle = parts.getOrNull(10) ?: "",
+                        bannerMediaUrl = parts.getOrNull(11) ?: "",
+                        isVideo = parts.getOrNull(12)?.toBooleanStrictOrNull() ?: false,
+                        videoUrl = parts.getOrNull(13) ?: "",
+                        targetUrl = parts.getOrNull(14) ?: "",
+                        startDate = parts.getOrNull(15) ?: "",
+                        expiryDate = parts.getOrNull(16) ?: "",
+                        status = parts.getOrNull(17) ?: "Active",
+                        targetCountries = parts.getOrNull(18) ?: "All"
+                    )
+                )
+            }
+        }
+        return result
+    }
+
+    private fun serializePayments(list: List<UnifiedPaymentRecord>): String {
+        return list.joinToString("||PAY_SEP||") { pay ->
+            listOf(
+                pay.id,
+                pay.userNameOrCompany,
+                pay.userPhoneOrEmail,
+                pay.paymentType,
+                pay.planOrItemTitle,
+                pay.amount.toString(),
+                pay.currency,
+                pay.paymentGateway,
+                pay.transactionId,
+                pay.senderInfo,
+                pay.screenshotUrl,
+                pay.date,
+                pay.status,
+                pay.note
+            ).joinToString("||FIELD_SEP||")
+        }
+    }
+
+    fun deserializePayments(serialized: String): List<UnifiedPaymentRecord> {
+        if (serialized.isBlank()) return emptyList()
+        val result = mutableListOf<UnifiedPaymentRecord>()
+        val items = serialized.split("||PAY_SEP||")
+        for (item in items) {
+            val parts = item.split("||FIELD_SEP||")
+            if (parts.size >= 8) {
+                result.add(
+                    UnifiedPaymentRecord(
+                        id = parts.getOrNull(0) ?: "",
+                        userNameOrCompany = parts.getOrNull(1) ?: "",
+                        userPhoneOrEmail = parts.getOrNull(2) ?: "",
+                        paymentType = parts.getOrNull(3) ?: "",
+                        planOrItemTitle = parts.getOrNull(4) ?: "",
+                        amount = parts.getOrNull(5)?.toDoubleOrNull() ?: 0.0,
+                        currency = parts.getOrNull(6) ?: "BDT",
+                        paymentGateway = parts.getOrNull(7) ?: "bKash",
+                        transactionId = parts.getOrNull(8) ?: "",
+                        senderInfo = parts.getOrNull(9) ?: "",
+                        screenshotUrl = parts.getOrNull(10) ?: "",
+                        date = parts.getOrNull(11) ?: "",
+                        status = parts.getOrNull(12) ?: "Pending",
+                        note = parts.getOrNull(13) ?: ""
+                    )
+                )
+            }
+        }
+        return result
     }
 
     private val _emailSubjectTemplate = MutableStateFlow("New Blood Inquiry: \$senderName")
@@ -753,7 +968,9 @@ class BloodConnectRepository private constructor() {
         isVideo: Boolean,
         targetUrl: String,
         paymentMethod: String = "bKash",
-        transactionId: String = ""
+        transactionId: String = "",
+        senderPhone: String = "",
+        screenshotUrl: String = ""
     ): CustomAdConfig {
         val isWeekly = planType.contains("Weekly") || planType.contains("সাপ্তাহিক")
         val durationDays = if (isWeekly) 7 else 30
@@ -775,6 +992,8 @@ class BloodConnectRepository private constructor() {
             pricePaid = price,
             paymentMethod = paymentMethod,
             transactionId = transactionId,
+            senderPhone = senderPhone,
+            screenshotUrl = screenshotUrl,
             adTitle = adTitle,
             bannerMediaUrl = if (!isVideo) bannerMediaUrl else "",
             isVideo = isVideo,
@@ -785,7 +1004,30 @@ class BloodConnectRepository private constructor() {
             status = "Active"
         )
 
-        _companySubscriptions.value = _companySubscriptions.value + newSub
+        val updatedSubs = _companySubscriptions.value + newSub
+        _companySubscriptions.value = updatedSubs
+
+        val prefs = context.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putString("company_subscriptions_list", serializeCompanySubscriptions(updatedSubs)).apply()
+
+        // Automatically record payment history
+        val payRecord = UnifiedPaymentRecord(
+            id = "pay_" + System.currentTimeMillis(),
+            userNameOrCompany = companyName,
+            userPhoneOrEmail = senderPhone.ifBlank { companyId },
+            paymentType = "Ad Banner",
+            planOrItemTitle = adTitle.ifBlank { if (isWeekly) "Weekly Ad (৳500)" else "Monthly Ad (৳1800)" },
+            amount = price,
+            currency = "BDT",
+            paymentGateway = paymentMethod,
+            transactionId = transactionId,
+            senderInfo = senderPhone,
+            screenshotUrl = screenshotUrl,
+            date = startDateStr,
+            status = "Approved",
+            note = "Ad Banner order placed & live"
+        )
+        addPaymentRecord(context, payRecord)
 
         // Create CustomAdConfig and publish to top banner list
         val newAd = CustomAdConfig(
@@ -1890,8 +2132,25 @@ class BloodConnectRepository private constructor() {
         _bkashNumber.value = prefs.getString("payment_bkash", _bkashNumber.value) ?: _bkashNumber.value
         _nagadNumber.value = prefs.getString("payment_nagad", _nagadNumber.value) ?: _nagadNumber.value
         _rocketNumber.value = prefs.getString("payment_rocket", _rocketNumber.value) ?: _rocketNumber.value
+        _upayNumber.value = prefs.getString("payment_upay", _upayNumber.value) ?: _upayNumber.value
         _googlePlayMerchant.value = prefs.getString("payment_googleplay", _googlePlayMerchant.value) ?: _googlePlayMerchant.value
         _wiseAccount.value = prefs.getString("payment_wise", _wiseAccount.value) ?: _wiseAccount.value
+        _payoneerAccount.value = prefs.getString("payment_payoneer", _payoneerAccount.value) ?: _payoneerAccount.value
+        _usdtWalletAddress.value = prefs.getString("payment_usdt", _usdtWalletAddress.value) ?: _usdtWalletAddress.value
+        _paymentInstructionsText.value = prefs.getString("payment_instructions_text", _paymentInstructionsText.value) ?: _paymentInstructionsText.value
+
+        _supportPhone.value = prefs.getString("support_phone", _supportPhone.value) ?: _supportPhone.value
+        _supportEmail.value = prefs.getString("support_email", _supportEmail.value) ?: _supportEmail.value
+        _supportTelegram.value = prefs.getString("support_telegram", _supportTelegram.value) ?: _supportTelegram.value
+        _supportWhatsapp.value = prefs.getString("support_whatsapp", _supportWhatsapp.value) ?: _supportWhatsapp.value
+        _supportHours.value = prefs.getString("support_hours", _supportHours.value) ?: _supportHours.value
+        _supportAddress.value = prefs.getString("support_address", _supportAddress.value) ?: _supportAddress.value
+
+        val compSubsStr = prefs.getString("company_subscriptions_list", "") ?: ""
+        _companySubscriptions.value = deserializeCompanySubscriptions(compSubsStr)
+
+        val allPaymentsStr = prefs.getString("all_payments_history_list", "") ?: ""
+        _allPayments.value = deserializePayments(allPaymentsStr)
 
         _privacyPolicyEn.value = prefs.getString("policy_privacy_en", _privacyPolicyEn.value) ?: _privacyPolicyEn.value
         _privacyPolicyBn.value = prefs.getString("policy_privacy_bn", _privacyPolicyBn.value) ?: _privacyPolicyBn.value
@@ -1915,18 +2174,28 @@ class BloodConnectRepository private constructor() {
         val bookingsStr = prefs.getString("ambulance_bookings_list", "") ?: ""
         _ambulanceBookings.value = deserializeBookings(bookingsStr)
 
-        // Load Subscriptions
+        // Load Subscriptions & Plans
         val subscriptionPlansStr = prefs.getString("v9_subscription_plans_list", "") ?: ""
         var loadedPlans = deserializeSubscriptionPlans(subscriptionPlansStr)
-        if (loadedPlans.isEmpty()) {
+        if (loadedPlans.isEmpty() || loadedPlans.none { it.durationDays == -1 }) {
             loadedPlans = listOf(
-                V9SubscriptionPlan("plan_doc_advance", "Doctor Advance Plan", "ডাক্তার অ্যাডভান্স প্ল্যান", 499.0, 30, "Direct phone call button, Golden badge & top search position", "সরাসরি কল বাটন, গোল্ডেন ব্যাজ এবং সার্চে টপ পজিশন", "Doctor"),
-                V9SubscriptionPlan("plan_hosp_advance", "Hospital Advance Plan", "হাসপাতাল অ্যাডভান্স প্ল্যান", 999.0, 30, "60-min booking window, direct emergency call & priority badge", "৬০ মিনিট বুকিং উইন্ডো, সরাসরি কল এবং প্রিমিয়াম ব্যাজ", "Hospital"),
-                V9SubscriptionPlan("plan_amb_advance", "Ambulance Advance Plan", "অ্যাম্বুলেন্স অ্যাডভান্স প্ল্যান", 799.0, 30, "Direct driver phone call, emergency VIP badge & top search ranking", "সরাসরি ড্রাইভার কল, ভিআইপি ব্যাজ এবং সার্চের শীর্ষে প্রদর্শন", "Ambulance"),
-                V9SubscriptionPlan("plan_donor_pro", "VIP Donor & Seeker Pack", "ভিআইপি ডোনার ও মেম্বার প্যাক", 350.0, 90, "VIP verified member status & urgent blood alert priority", "ভিআইপি ভেরিফাইড মেম্বার স্ট্যাটাস এবং জরুরি ব্লাড অ্যালার্ট", "Donor"),
-                V9SubscriptionPlan("plan_ultimate_vip", "Ultimate Lifetime VIP", "আল্টিমেট আজীবন ভিআইপি", 1999.0, 365, "Lifetime special badge and VIP system access", "আজীবন বিশেষ ব্যাজ এবং ভিআইপি সিস্টেম অ্যাক্সেস", "All")
+                V9SubscriptionPlan("plan_doc_advance", "Doctor Advance Plan", "ডাক্তার অ্যাডভান্স প্ল্যান", 499.0, -1, "Direct phone call button, Golden badge & top search position (Lifetime Unlocked)", "সরাসরি কল বাটন, গোল্ডেন ব্যাজ এবং সার্চে টপ পজিশন (আজীবন আনলকড)", "Doctor"),
+                V9SubscriptionPlan("plan_hosp_advance", "Hospital Advance Plan", "হাসপাতাল অ্যাডভান্স প্ল্যান", 999.0, -1, "60-min booking window, direct emergency call & priority badge (Lifetime)", "৬০ মিনিট বুকিং উইন্ডো, সরাসরি কল এবং প্রিমিয়াম ব্যাজ (আজীবন)", "Hospital"),
+                V9SubscriptionPlan("plan_amb_advance", "Ambulance Advance Plan", "অ্যাম্বুলেন্স অ্যাডভান্স প্ল্যান", 799.0, -1, "Direct driver phone call, emergency VIP badge & top search ranking (Lifetime)", "সরাসরি ড্রাইভার কল, ভিআইপি ব্যাজ এবং সার্চের শীর্ষে প্রদর্শন (আজীবন)", "Ambulance"),
+                V9SubscriptionPlan("plan_donor_pro", "VIP Donor & Seeker Pack", "ভিআইপি ডোনার ও মেম্বার প্যাক", 350.0, -1, "VIP verified member status & urgent blood alert priority (Lifetime)", "ভিআইপি ভেরিফাইড মেম্বার স্ট্যাটাস এবং জরুরি ব্লাড অ্যালার্ট (আজীবন)", "Donor"),
+                V9SubscriptionPlan("plan_weekly_ad", "Weekly Ad Banner Plan", "সাপ্তাহিক ব্যানার অ্যাড প্ল্যান", 500.0, 7, "Top banner placement for 7 days on Home screen", "হোম স্ক্রিনে ৭ দিনের জন্য শীর্ষে ব্যানার বিজ্ঞাপন প্রদর্শন", "Advertiser"),
+                V9SubscriptionPlan("plan_monthly_ad", "Monthly Ad Banner Plan", "মাসিক ব্যানার অ্যাড প্ল্যান", 1800.0, 30, "Top banner placement for 30 days with priority rotation", "হোম স্ক্রিনে ৩০ দিনের জন্য অগ্রাধিকার ভিত্তিক ব্যানার বিজ্ঞাপন প্রদর্শন", "Advertiser"),
+                V9SubscriptionPlan("plan_ultimate_vip", "Ultimate Lifetime VIP", "আল্টিমেট আজীবন ভিআইপি", 1999.0, -1, "Lifetime special badge and VIP system access", "আজীবন বিশেষ ব্যাজ এবং ভিআইপি সিস্টেম অ্যাক্সেস", "All")
             )
             prefs.edit().putString("v9_subscription_plans_list", serializeSubscriptionPlans(loadedPlans)).apply()
+        }
+        // Ensure non-Advertiser accounts (Doctor, Hospital, Ambulance, Donor, VIP) have no expiration (durationDays = -1 / Lifetime)
+        loadedPlans = loadedPlans.map { plan ->
+            if (plan.targetRole != "Advertiser" && plan.durationDays != -1) {
+                plan.copy(durationDays = -1)
+            } else {
+                plan
+            }
         }
         _subscriptionPlans.value = loadedPlans
 
@@ -4103,6 +4372,12 @@ class BloodConnectRepository private constructor() {
             val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
             prefs.edit().putString("v9_subscription_plans_list", serializeSubscriptionPlans(current)).apply()
         }
+    }
+
+    fun updateSubscriptionPlansList(context: Context, updatedList: List<V9SubscriptionPlan>) {
+        _subscriptionPlans.value = updatedList
+        val prefs = context.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putString("v9_subscription_plans_list", serializeSubscriptionPlans(updatedList)).apply()
     }
 
     fun deleteSubscriptionPlan(planId: String) {
