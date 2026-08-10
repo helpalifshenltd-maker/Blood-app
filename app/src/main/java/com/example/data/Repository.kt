@@ -94,16 +94,28 @@ class BloodConnectRepository private constructor() {
             current.add(0, doctor)
         }
         _registeredDoctors.value = current
+        pushDoctorToFirebase(doctor)
     }
 
     fun updateDoctorApproval(doctorId: String, isApproved: Boolean) {
         _registeredDoctors.value = _registeredDoctors.value.map {
-            if (it.id == doctorId) it.copy(isApproved = isApproved) else it
+            if (it.id == doctorId) {
+                val updated = it.copy(isApproved = isApproved)
+                pushDoctorToFirebase(updated)
+                updated
+            } else it
         }
     }
 
     fun deleteDoctor(doctorId: String) {
         _registeredDoctors.value = _registeredDoctors.value.filter { it.id != doctorId }
+        appScope.launch {
+            try {
+                getDb()?.getReference("doctors")?.child(cleanKey(doctorId))?.removeValue()
+            } catch (e: Exception) {
+                Log.e("BloodConnectRepo", "Error deleting doctor from Firebase: ${e.message}")
+            }
+        }
     }
 
     fun registerHospital(hospital: RegisteredHospital) {
@@ -113,38 +125,52 @@ class BloodConnectRepository private constructor() {
             (hospital.phone.isNotBlank() && it.phone == hospital.phone) ||
             (hospital.email.isNotBlank() && it.email.equals(hospital.email, ignoreCase = true))
         }
+        val targetHospital: RegisteredHospital
         if (existingIndex >= 0) {
             val existing = current[existingIndex]
-            current[existingIndex] = hospital.copy(id = existing.id)
+            targetHospital = hospital.copy(id = existing.id)
+            current[existingIndex] = targetHospital
         } else {
-            current.add(0, hospital)
+            targetHospital = hospital
+            current.add(0, targetHospital)
         }
         _registeredHospitals.value = current
+        pushHospitalToFirebase(targetHospital)
     }
 
     fun updateHospitalApproval(hospitalId: String, isApproved: Boolean) {
         _registeredHospitals.value = _registeredHospitals.value.map {
-            if (it.id == hospitalId) it.copy(isApproved = isApproved) else it
+            if (it.id == hospitalId) {
+                val updated = it.copy(isApproved = isApproved)
+                pushHospitalToFirebase(updated)
+                updated
+            } else it
         }
     }
 
     fun updateHospitalDetails(hospitalId: String, name: String, phone: String, address: String, bloodAvailability: String, urgentNotice: String) {
         _registeredHospitals.value = _registeredHospitals.value.map { hosp ->
             if (hosp.id == hospitalId) {
-                hosp.copy(
+                val updated = hosp.copy(
                     name = name,
                     phone = phone,
                     address = address,
                     bloodAvailability = bloodAvailability,
                     urgentNotice = urgentNotice
                 )
+                pushHospitalToFirebase(updated)
+                updated
             } else hosp
         }
     }
 
     fun toggleHospitalFeatured(hospitalId: String, isFeatured: Boolean) {
         _registeredHospitals.value = _registeredHospitals.value.map {
-            if (it.id == hospitalId) it.copy(isFeatured = isFeatured) else it
+            if (it.id == hospitalId) {
+                val updated = it.copy(isFeatured = isFeatured)
+                pushHospitalToFirebase(updated)
+                updated
+            } else it
         }
     }
 
@@ -154,13 +180,15 @@ class BloodConnectRepository private constructor() {
         val userEmail = _currentUser.value?.email ?: ""
         _registeredHospitals.value = _registeredHospitals.value.map { hosp ->
             if (hosp.id == hospitalId || (hospitalId.isBlank() && (hosp.phone == userPhone || (userEmail.isNotBlank() && hosp.email == userEmail)))) {
-                hosp.copy(
+                val updated = hosp.copy(
                     planType = planType,
                     subscriptionExpiryDate = expiryDate,
                     isFeatured = isAdv,
                     paymentMethod = paymentMethod,
                     paymentTxnId = txnId
                 )
+                pushHospitalToFirebase(updated)
+                updated
             } else hosp
         }
     }
@@ -171,12 +199,14 @@ class BloodConnectRepository private constructor() {
         val userEmail = _currentUser.value?.email ?: ""
         _registeredDoctors.value = _registeredDoctors.value.map { doc ->
             if (doc.id == doctorId || (doctorId.isBlank() && (doc.phone == userPhone || (userEmail.isNotBlank() && doc.email == userEmail)))) {
-                doc.copy(
+                val updated = doc.copy(
                     planType = planType,
                     isFeatured = isAdv,
                     paymentMethod = paymentMethod,
                     paymentTxnId = txnId
                 )
+                pushDoctorToFirebase(updated)
+                updated
             } else doc
         }
     }
@@ -562,6 +592,21 @@ class BloodConnectRepository private constructor() {
     private val _paymentInstructionsText = MutableStateFlow("বিকাশ, নগদ, রকেট, উপায় বা যেকোনো ওয়ালেটে টাকা পাঠাতে নিচের নম্বর ব্যবহার করুন। সেন্ড মানি বা পে করার পর ট্রানজেকশন আইডি ও পেমেন্ট স্ক্রিনশট সংযুক্ত করে কনফার্ম করুন।")
     val paymentInstructionsText: StateFlow<String> = _paymentInstructionsText.asStateFlow()
 
+    private val _bkashInstructions = MutableStateFlow("বিকাশ অ্যাপ বা *247# দিয়ে সেন্ড মানি অথবা পেমেন্ট করুন। তারপর ট্রানজেকশন আইডি প্রদান করুন।")
+    val bkashInstructions: StateFlow<String> = _bkashInstructions.asStateFlow()
+
+    private val _nagadInstructions = MutableStateFlow("নগদ অ্যাপ বা *167# দিয়ে সেন্ড মানি করুন। তারপর ট্রানজেকশন আইডি প্রদান করুন।")
+    val nagadInstructions: StateFlow<String> = _nagadInstructions.asStateFlow()
+
+    private val _rocketInstructions = MutableStateFlow("রকেট অ্যাপ বা *322# দিয়ে সেন্ড মানি বা পেমেন্ট করুন। তারপর ট্রানজেকশন আইডি প্রদান করুন।")
+    val rocketInstructions: StateFlow<String> = _rocketInstructions.asStateFlow()
+
+    private val _googlePlayInstructions = MutableStateFlow("গুগল পে/প্লে বিলিং মার্চেন্ট আইডিতে পেমেন্ট করুন। গুগল পেতে কোনো ট্রানজেকশন আইডি দেওয়া বাধ্যতামূলক নয়।")
+    val googlePlayInstructions: StateFlow<String> = _googlePlayInstructions.asStateFlow()
+
+    private val _wiseInstructions = MutableStateFlow("Wise / Upay ওয়ালেট নাম্বারে মানি সেন্ড করুন। সেন্ড করার পর ট্রানজেকশন আইডি দিন।")
+    val wiseInstructions: StateFlow<String> = _wiseInstructions.asStateFlow()
+
     private val _supportPhone = MutableStateFlow("01700000000 / 01800000000")
     val supportPhone: StateFlow<String> = _supportPhone.asStateFlow()
 
@@ -591,7 +636,12 @@ class BloodConnectRepository private constructor() {
         wise: String = "daimondtopup32@gmail.com",
         upay: String = "+8801700000000",
         payoneer: String = "payoneer.global@alifbd.com",
-        usdt: String = "0x71C7656EC7ab88b098defB751B7401B5f6d8976F"
+        usdt: String = "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
+        bkashInst: String = "",
+        nagadInst: String = "",
+        rocketInst: String = "",
+        googlePlayInst: String = "",
+        wiseInst: String = ""
     ) {
         _bkashNumber.value = bkash
         _nagadNumber.value = nagad
@@ -601,6 +651,28 @@ class BloodConnectRepository private constructor() {
         _upayNumber.value = upay
         _payoneerAccount.value = payoneer
         _usdtWalletAddress.value = usdt
+        if (bkashInst.isNotBlank()) _bkashInstructions.value = bkashInst
+        if (nagadInst.isNotBlank()) _nagadInstructions.value = nagadInst
+        if (rocketInst.isNotBlank()) _rocketInstructions.value = rocketInst
+        if (googlePlayInst.isNotBlank()) _googlePlayInstructions.value = googlePlayInst
+        if (wiseInst.isNotBlank()) _wiseInstructions.value = wiseInst
+
+        appContext?.let { ctx ->
+            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+            prefs.edit().apply {
+                putString("payment_bkash", bkash)
+                putString("payment_nagad", nagad)
+                putString("payment_rocket", rocket)
+                putString("payment_googleplay", googlePlay)
+                putString("payment_wise", wise)
+                if (bkashInst.isNotBlank()) putString("inst_bkash", bkashInst)
+                if (nagadInst.isNotBlank()) putString("inst_nagad", nagadInst)
+                if (rocketInst.isNotBlank()) putString("inst_rocket", rocketInst)
+                if (googlePlayInst.isNotBlank()) putString("inst_googleplay", googlePlayInst)
+                if (wiseInst.isNotBlank()) putString("inst_wise", wiseInst)
+                apply()
+            }
+        }
         saveAppConfigLocal()
         pushAppConfigToRemote()
     }
@@ -2138,6 +2210,11 @@ class BloodConnectRepository private constructor() {
         _payoneerAccount.value = prefs.getString("payment_payoneer", _payoneerAccount.value) ?: _payoneerAccount.value
         _usdtWalletAddress.value = prefs.getString("payment_usdt", _usdtWalletAddress.value) ?: _usdtWalletAddress.value
         _paymentInstructionsText.value = prefs.getString("payment_instructions_text", _paymentInstructionsText.value) ?: _paymentInstructionsText.value
+        _bkashInstructions.value = prefs.getString("inst_bkash", _bkashInstructions.value) ?: _bkashInstructions.value
+        _nagadInstructions.value = prefs.getString("inst_nagad", _nagadInstructions.value) ?: _nagadInstructions.value
+        _rocketInstructions.value = prefs.getString("inst_rocket", _rocketInstructions.value) ?: _rocketInstructions.value
+        _googlePlayInstructions.value = prefs.getString("inst_googleplay", _googlePlayInstructions.value) ?: _googlePlayInstructions.value
+        _wiseInstructions.value = prefs.getString("inst_wise", _wiseInstructions.value) ?: _wiseInstructions.value
 
         _supportPhone.value = prefs.getString("support_phone", _supportPhone.value) ?: _supportPhone.value
         _supportEmail.value = prefs.getString("support_email", _supportEmail.value) ?: _supportEmail.value
@@ -2560,6 +2637,34 @@ class BloodConnectRepository private constructor() {
                 db.getReference("ambulances").child(key).setValue(finalAmb)
             } catch (e: Exception) {
                 Log.e("BloodConnectRepo", "Firebase push ambulance error: ${e.message}")
+            }
+        }
+    }
+
+    fun pushHospitalToFirebase(hospital: RegisteredHospital) {
+        appScope.launch {
+            try {
+                val db = getDb() ?: return@launch
+                val safeId = hospital.id.ifBlank { "hosp_${System.currentTimeMillis()}" }
+                val finalHosp = hospital.copy(id = safeId)
+                val key = cleanKey(safeId)
+                db.getReference("hospitals").child(key).setValue(finalHosp)
+            } catch (e: Exception) {
+                Log.e("BloodConnectRepo", "Firebase push hospital error: ${e.message}")
+            }
+        }
+    }
+
+    fun pushDoctorToFirebase(doctor: RegisteredDoctor) {
+        appScope.launch {
+            try {
+                val db = getDb() ?: return@launch
+                val safeId = doctor.id.ifBlank { "doc_${System.currentTimeMillis()}" }
+                val finalDoc = doctor.copy(id = safeId)
+                val key = cleanKey(safeId)
+                db.getReference("doctors").child(key).setValue(finalDoc)
+            } catch (e: Exception) {
+                Log.e("BloodConnectRepo", "Firebase push doctor error: ${e.message}")
             }
         }
     }
@@ -3108,6 +3213,54 @@ class BloodConnectRepository private constructor() {
                     saveBookingsLocal()
                 } catch (e: Exception) {
                     Log.e("BloodConnectRepo", "Error listening to Firebase bookings: ${e.message}")
+                }
+            }
+            override fun onCancelled(error: com.google.firebase.database.DatabaseError) {}
+        })
+
+        // Listen to Hospitals
+        db.getReference("hospitals").addValueEventListener(object : com.google.firebase.database.ValueEventListener {
+            override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
+                try {
+                    val list = mutableListOf<RegisteredHospital>()
+                    if (snapshot.exists()) {
+                        for (child in snapshot.children) {
+                            val hosp = child.getValue(RegisteredHospital::class.java)
+                            if (hosp != null) {
+                                val safeId = if (hosp.id.isBlank()) (child.key ?: "") else hosp.id
+                                list.add(hosp.copy(id = safeId))
+                            }
+                        }
+                    }
+                    if (list.isNotEmpty()) {
+                        _registeredHospitals.value = list
+                    }
+                } catch (e: Exception) {
+                    Log.e("BloodConnectRepo", "Error listening to Firebase hospitals: ${e.message}")
+                }
+            }
+            override fun onCancelled(error: com.google.firebase.database.DatabaseError) {}
+        })
+
+        // Listen to Doctors
+        db.getReference("doctors").addValueEventListener(object : com.google.firebase.database.ValueEventListener {
+            override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
+                try {
+                    val list = mutableListOf<RegisteredDoctor>()
+                    if (snapshot.exists()) {
+                        for (child in snapshot.children) {
+                            val doc = child.getValue(RegisteredDoctor::class.java)
+                            if (doc != null) {
+                                val safeId = if (doc.id.isBlank()) (child.key ?: "") else doc.id
+                                list.add(doc.copy(id = safeId))
+                            }
+                        }
+                    }
+                    if (list.isNotEmpty()) {
+                        _registeredDoctors.value = list
+                    }
+                } catch (e: Exception) {
+                    Log.e("BloodConnectRepo", "Error listening to Firebase doctors: ${e.message}")
                 }
             }
             override fun onCancelled(error: com.google.firebase.database.DatabaseError) {}

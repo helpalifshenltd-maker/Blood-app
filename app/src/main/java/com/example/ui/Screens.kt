@@ -621,6 +621,13 @@ fun V9SubscriptionDialog(
     val currentNagad by viewModel.nagadNumber.collectAsState()
     val currentRocket by viewModel.rocketNumber.collectAsState()
     val currentWise by viewModel.wiseAccount.collectAsState()
+    val currentGooglePay by viewModel.googlePlayMerchant.collectAsState()
+
+    val currentBkashInst by viewModel.bkashInstructions.collectAsState()
+    val currentNagadInst by viewModel.nagadInstructions.collectAsState()
+    val currentRocketInst by viewModel.rocketInstructions.collectAsState()
+    val currentWiseInst by viewModel.wiseInstructions.collectAsState()
+    val currentGooglePlayInst by viewModel.googlePlayInstructions.collectAsState()
 
     var authTabIsRegister by remember { mutableStateOf(true) } // true for Register, false for Login
 
@@ -1151,7 +1158,7 @@ fun V9SubscriptionDialog(
                             .padding(bottom = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        listOf("bKash", "Nagad", "Rocket", "Wise").forEach { m ->
+                        listOf("bKash", "Nagad", "Rocket", "Google Pay", "Wise").forEach { m ->
                             val isSel = paymentMethodInput == m
                             Box(
                                 modifier = Modifier
@@ -1165,7 +1172,7 @@ fun V9SubscriptionDialog(
                                     text = m,
                                     color = if (isSel) Color.White else DarkText,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 11.sp
+                                    fontSize = 10.sp
                                 )
                             }
                         }
@@ -1174,32 +1181,62 @@ fun V9SubscriptionDialog(
                     val targetNum = when (paymentMethodInput) {
                         "Nagad" -> currentNagad
                         "Rocket" -> currentRocket
+                        "Google Pay" -> currentGooglePay
                         "Wise" -> currentWise
                         else -> currentBkash
                     }
 
-                    Text(
-                        text = if (language == AppLanguage.BAN)
-                            "অফিশিয়াল $paymentMethodInput নম্বর $targetNum এ টাকা পাঠিয়ে নিচে পেমেন্ট নম্বর ও ট্রানজেকশন আইডি দিন:"
-                        else "Send payment to official $paymentMethodInput number $targetNum and enter details below:",
-                        fontSize = 11.sp,
-                        color = Color.DarkGray,
-                        modifier = Modifier.padding(bottom = 6.dp)
-                    )
+                    val targetInst = when (paymentMethodInput) {
+                        "Nagad" -> currentNagadInst
+                        "Rocket" -> currentRocketInst
+                        "Google Pay" -> currentGooglePlayInst
+                        "Wise" -> currentWiseInst
+                        else -> currentBkashInst
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
+                            .background(Color(0xFFFFF3E0), RoundedCornerShape(8.dp))
+                            .border(1.dp, Color(0xFFFFB74D), RoundedCornerShape(8.dp))
+                            .padding(8.dp)
+                    ) {
+                        Text(
+                            text = if (language == AppLanguage.BAN)
+                                "অফিশিয়াল $paymentMethodInput নম্বর/আইডি: ${targetNum.ifBlank { "01700000000" }}"
+                            else "Official $paymentMethodInput Number/ID: ${targetNum.ifBlank { "01700000000" }}",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFE65100)
+                        )
+                        if (targetInst.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = targetInst,
+                                fontSize = 11.sp,
+                                color = Color(0xFF5D4037)
+                            )
+                        }
+                    }
 
                     OutlinedTextField(
                         value = senderPhoneInput,
                         onValueChange = { senderPhoneInput = it },
-                        label = { Text(if (language == AppLanguage.BAN) "আপনার পেমেন্ট নম্বর" else "Sender Phone Number") },
+                        label = { Text(if (language == AppLanguage.BAN) "আপনার পেমেন্ট নম্বর / ইমেইল" else "Sender Phone Number / Email") },
                         modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
                     )
 
-                    OutlinedTextField(
-                        value = paymentTxnIdInput,
-                        onValueChange = { paymentTxnIdInput = it },
-                        label = { Text(if (language == AppLanguage.BAN) "ট্রানজেকশন আইডি (TxnID) *" else "Transaction ID (TxnID) *") },
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
-                    )
+                    val isGpayAd = paymentMethodInput == "Google Pay"
+                    if (!isGpayAd) {
+                        OutlinedTextField(
+                            value = paymentTxnIdInput,
+                            onValueChange = { paymentTxnIdInput = it },
+                            label = { Text(if (language == AppLanguage.BAN) "ট্রানজেকশন আইডি (TxnID) *" else "Transaction ID (TxnID) *") },
+                            placeholder = { Text("TRX123456") },
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                        )
+                    }
 
                     // REAL-TIME LIVE ADS & VIDEO PERFORMANCE TRACKER DASHBOARD
                     if (advertiserCompanyAds.isNotEmpty()) {
@@ -3915,7 +3952,7 @@ fun HomeScreen(viewModel: MainViewModel) {
 
     val displayHomeNotice = remember(homeNotice, language) {
         if (language == AppLanguage.ENG) {
-            if (homeNotice == "স্বাগতম আলিফ ব্লাড ব্যাংকে! জরুরি প্রয়োজনে চ্যাট বা কল করুন।") {
+            if (homeNotice == "স্বাগতম আলিফ ব্লাড ব্যাংকে! জরুরি প্রয়োজনে চ্যাট বা কল করুন।" || homeNotice.contains("স্বাগতম") || homeNotice.contains("আলিফ") || homeNotice.contains("জরুরি")) {
                 "Welcome to Alif Blood Bank! Chat or call in case of emergency."
             } else {
                 homeNotice
@@ -3927,7 +3964,7 @@ fun HomeScreen(viewModel: MainViewModel) {
 
     val displayPopupNotice = remember(popupNotice, language) {
         if (language == AppLanguage.ENG) {
-            if (popupNotice == "আমাদের অ্যাপটি নিয়মিত আপডেট করুন এবং রক্ত দানে উৎসাহিত হোন।") {
+            if (popupNotice == "আমাদের অ্যাপটি নিয়মিত আপডেট করুন এবং রক্ত দানে উৎসাহিত হোন।" || popupNotice.contains("আমাদের অ্যাপটি") || popupNotice.contains("উৎসাহিত") || popupNotice.contains("রক্ত দানে")) {
                 "Please update our app regularly and be encouraged to donate blood."
             } else {
                 popupNotice
@@ -5472,7 +5509,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = if (language == AppLanguage.BAN) "Assalamu Alaikum / Namaskar (New Version)" else "আসসালামু আলাইকুম / নমস্কার (নতুন সংস্করণ)",
+                        text = if (language == AppLanguage.BAN) "আসসালামু আলাইকুম / নমস্কার (নতুন সংস্করণ)" else "Assalamu Alaikum / Namaskar (New Version)",
                         color = Color.White.copy(alpha = 0.85f),
                         fontSize = 14.sp
                     )
@@ -10314,6 +10351,8 @@ fun UserProfileScreen(viewModel: MainViewModel) {
         val isDoctorRole = finalUser.role.equals("Doctor", ignoreCase = true)
         val isAmbulanceRole = finalUser.role.equals("Ambulance", ignoreCase = true) || myAmbulance != null
         val isAmbulanceUser = isAmbulanceRole
+        val isAdvertiserRole = finalUser.role.equals("Advertiser", ignoreCase = true) || finalUser.role.equals("Company", ignoreCase = true) || finalUser.role.equals("Ads", ignoreCase = true)
+        val hasWalletSystem = isHospitalRole || isDoctorRole || isAmbulanceRole || isAdvertiserRole
 
         // HOSPITAL ACCOUNT & SUBSCRIPTION STATUS CARD (ONLY shown for Hospital users or general sub users, NOT for Doctor or Ambulance roles)
         if (!isDoctorRole && !isAmbulanceRole && (isHospitalRole || isAdvancePlanUser || activeSub != null)) {
@@ -10463,6 +10502,14 @@ fun UserProfileScreen(viewModel: MainViewModel) {
         val bkashNumber by viewModel.bkashNumber.collectAsState()
         val nagadNumber by viewModel.nagadNumber.collectAsState()
         val rocketNumber by viewModel.rocketNumber.collectAsState()
+        val googlePlayMerchant by viewModel.googlePlayMerchant.collectAsState()
+        val wiseAccount by viewModel.wiseAccount.collectAsState()
+
+        val bkashInst by viewModel.bkashInstructions.collectAsState()
+        val nagadInst by viewModel.nagadInstructions.collectAsState()
+        val rocketInst by viewModel.rocketInstructions.collectAsState()
+        val googlePlayInst by viewModel.googlePlayInstructions.collectAsState()
+        val wiseInst by viewModel.wiseInstructions.collectAsState()
 
         var showPointsDialog by remember { mutableStateOf(false) }
         var showCouponsDialog by remember { mutableStateOf(false) }
@@ -10584,6 +10631,69 @@ fun UserProfileScreen(viewModel: MainViewModel) {
                         Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(if (language == AppLanguage.BAN) "অ্যাম্বুলেন্স প্ল্যান পেজে যান" else "Go to Ambulance Plan Page", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        // WALLET SYSTEM CARD (For Ads, Ambulance, Doctor, Hospital accounts)
+        if (hasWalletSystem) {
+            Spacer(modifier = Modifier.height(10.dp))
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFFE8F5E9)
+                ),
+                border = BorderStroke(1.5.dp, Color(0xFF2E7D32))
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.AccountBalanceWallet,
+                                contentDescription = "Wallet Balance",
+                                tint = Color(0xFF2E7D32),
+                                modifier = Modifier.size(26.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = if (language == AppLanguage.BAN) "মাই অ্যাকাউন্ট ওয়ালেট (My Wallet)" else "My Account Wallet",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = DarkText
+                                )
+                                Text(
+                                    text = if (language == AppLanguage.BAN) "বুকিং কমিশন ও প্ল্যান চার্জ ওয়ালেট থেকে অটো কাটবে" else "Booking commission & plan fees auto-deduct here",
+                                    fontSize = 10.sp,
+                                    color = Color.Gray
+                                )
+                            }
+                        }
+                        Text(
+                            text = "৳${finalUser.walletBalance.toInt()}",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 20.sp,
+                            color = Color(0xFF1B5E20)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Button(
+                        onClick = { showAddBalanceDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(Icons.Default.AddCard, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(if (language == AppLanguage.BAN) "ওয়ালেটে টাকা ডিপোজিট করুন (Recharge)" else "Deposit Funds to Wallet", fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -11703,10 +11813,10 @@ fun UserProfileScreen(viewModel: MainViewModel) {
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            listOf("bKash", "Nagad", "Rocket").forEach { method ->
+                            listOf("bKash", "Nagad", "Rocket", "Google Pay", "Wise").forEach { method ->
                                 val isSelected = selectedPaymentMethod == method
                                 Box(
                                     contentAlignment = Alignment.Center,
@@ -11726,7 +11836,7 @@ fun UserProfileScreen(viewModel: MainViewModel) {
                                 ) {
                                     Text(
                                         text = method,
-                                        fontSize = 12.sp,
+                                        fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = if (isSelected) Color(0xFF2E7D32) else Color.DarkGray
                                     )
@@ -11738,25 +11848,46 @@ fun UserProfileScreen(viewModel: MainViewModel) {
                         val merchantNumber = when (selectedPaymentMethod) {
                             "bKash" -> bkashNumber
                             "Nagad" -> nagadNumber
-                            else -> rocketNumber
+                            "Rocket" -> rocketNumber
+                            "Google Pay" -> googlePlayMerchant
+                            else -> wiseAccount
                         }
-                        Text(
-                            text = if (language == AppLanguage.BAN) 
-                                "দয়া করে নিচের মার্চেন্ট নম্বরে সেন্ড মানি বা পেমেন্ট করুন:\nনম্বর: $merchantNumber"
-                                else "Please send money or payment to the merchant number below:\nNumber: $merchantNumber",
-                            fontSize = 11.sp,
-                            color = Color(0xFFE65100),
-                            fontWeight = FontWeight.Bold,
-                            lineHeight = 16.sp,
+                        val paymentInstruction = when (selectedPaymentMethod) {
+                            "bKash" -> bkashInst
+                            "Nagad" -> nagadInst
+                            "Rocket" -> rocketInst
+                            "Google Pay" -> googlePlayInst
+                            else -> wiseInst
+                        }
+
+                        Column(
                             modifier = Modifier
-                                .background(Color(0xFFFFF3E0), RoundedCornerShape(6.dp))
-                                .padding(8.dp)
+                                .background(Color(0xFFFFF3E0), RoundedCornerShape(8.dp))
+                                .border(1.dp, Color(0xFFFFB74D), RoundedCornerShape(8.dp))
+                                .padding(10.dp)
                                 .fillMaxWidth()
-                        )
+                        ) {
+                            Text(
+                                text = if (language == AppLanguage.BAN) 
+                                    "অফিশিয়াল $selectedPaymentMethod নম্বর/আইডি: ${merchantNumber.ifBlank { "01700000000" }}"
+                                    else "Official $selectedPaymentMethod Number/ID: ${merchantNumber.ifBlank { "01700000000" }}",
+                                fontSize = 11.sp,
+                                color = Color(0xFFE65100),
+                                fontWeight = FontWeight.Bold
+                            )
+                            if (paymentInstruction.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = paymentInstruction,
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF5D4037)
+                                )
+                            }
+                        }
                         
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = if (language == AppLanguage.BAN) "আপনার পেমেন্ট নম্বর" else "Your Payment Phone",
+                            text = if (language == AppLanguage.BAN) "আপনার পেমেন্ট নম্বর / ইমেইল" else "Your Payment Phone / Email",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = SecondaryText
@@ -11774,20 +11905,23 @@ fun UserProfileScreen(viewModel: MainViewModel) {
                         )
                         
                         Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = if (language == AppLanguage.BAN) "ট্রানজেকশন আইডি (TxnID)" else "Transaction ID (TxnID)",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = SecondaryText
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        OutlinedTextField(
-                            value = paymentTxnId,
-                            onValueChange = { paymentTxnId = it },
-                            placeholder = { Text("TRX1234567") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
+                        val isGpay = selectedPaymentMethod == "Google Pay"
+                        if (!isGpay) {
+                            Text(
+                                text = if (language == AppLanguage.BAN) "ট্রানজেকশন আইডি (TxnID) *" else "Transaction ID (TxnID) *",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = SecondaryText
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            OutlinedTextField(
+                                value = paymentTxnId,
+                                onValueChange = { paymentTxnId = it },
+                                placeholder = { Text("TRX1234567") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                        }
                     }
                 },
                 confirmButton = {
@@ -11798,10 +11932,12 @@ fun UserProfileScreen(viewModel: MainViewModel) {
                                 Toast.makeText(context, if (language == AppLanguage.BAN) "সঠিক পরিমাণ প্রবেশ করান!" else "Enter a valid amount!", Toast.LENGTH_SHORT).show()
                                 return@Button
                             }
-                            if (paymentPhone.isBlank() || paymentTxnId.isBlank()) {
-                                Toast.makeText(context, if (language == AppLanguage.BAN) "সব তথ্য পূরণ করুন!" else "Please fill all fields!", Toast.LENGTH_SHORT).show()
+                            val isGpay = selectedPaymentMethod == "Google Pay"
+                            if (paymentPhone.isBlank() || (!isGpay && paymentTxnId.isBlank())) {
+                                Toast.makeText(context, if (language == AppLanguage.BAN) "সব প্রয়োজনীয় তথ্য পূরণ করুন!" else "Please fill all required fields!", Toast.LENGTH_SHORT).show()
                                 return@Button
                             }
+                            val finalTxn = if (paymentTxnId.isBlank()) "GPAY_${System.currentTimeMillis()}" else paymentTxnId
                             viewModel.addWalletBalance(amt)
                             showAddBalanceDialog = false
                             addAmountStr = ""
@@ -20194,6 +20330,7 @@ fun PlanPaymentModalDialog(
         }
     }
 
+    val currentUser by viewModel.currentUser.collectAsState()
     val bkashNum by viewModel.bkashNumber.collectAsState()
     val nagadNum by viewModel.nagadNumber.collectAsState()
     val rocketNum by viewModel.rocketNumber.collectAsState()
@@ -20201,6 +20338,11 @@ fun PlanPaymentModalDialog(
     val wiseAccount by viewModel.wiseAccount.collectAsState()
     val payoneerAccount by viewModel.payoneerAccount.collectAsState()
     val usdtAddress by viewModel.usdtWalletAddress.collectAsState()
+
+    val bkashInst by viewModel.bkashInstructions.collectAsState()
+    val nagadInst by viewModel.nagadInstructions.collectAsState()
+    val rocketInst by viewModel.rocketInstructions.collectAsState()
+    val wiseInst by viewModel.wiseInstructions.collectAsState()
 
     val context = LocalContext.current
 
@@ -20240,41 +20382,110 @@ fun PlanPaymentModalDialog(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = if (language == AppLanguage.BAN) "মুদ্রা/পেমেন্ট কারেন্সি নির্বাচন করুন (USD, USDT, BDT):" else "Select Payment Currency (USD, USDT, BDT):",
+                    text = if (language == AppLanguage.BAN) "পেমেন্ট পদ্ধতি নির্বাচন করুন (Wallet, BDT, USD, USDT):" else "Select Payment Method (Wallet, BDT, USD, USDT):",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = DarkText
                 )
 
-                // 3 MAIN CURRENCY TABS: USD, USDT, BDT
+                // 4 MAIN PAYMENT METHOD TABS: WALLET, BDT, USD, USDT
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    listOf("USD" to "USD ($)", "USDT" to "USDT (Crypto)", "BDT" to "BDT (৳)").forEach { (key, label) ->
+                    listOf(
+                        "WALLET" to (if (language == AppLanguage.BAN) "ওয়ালেট" else "Wallet"),
+                        "BDT" to "BDT (৳)",
+                        "USD" to "USD ($)",
+                        "USDT" to "USDT"
+                    ).forEach { (key, label) ->
                         val isSelected = selectedCurrencyTab == key
                         Surface(
                             modifier = Modifier
                                 .weight(1f)
                                 .clickable { selectedCurrencyTab = key },
-                            shape = RoundedCornerShape(10.dp),
+                            shape = RoundedCornerShape(8.dp),
                             color = if (isSelected) Color(0xFF2E7D32) else Color(0xFFF0F0F0),
                             border = BorderStroke(1.dp, if (isSelected) Color(0xFF1B5E20) else Color.LightGray)
                         ) {
                             Text(
                                 text = label,
-                                fontSize = 11.sp,
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (isSelected) Color.White else DarkText,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                modifier = Modifier.padding(vertical = 10.dp, horizontal = 2.dp)
+                                modifier = Modifier.padding(vertical = 8.dp, horizontal = 2.dp)
                             )
                         }
                     }
                 }
 
-                // TAB CONTENT BASED ON CURRENCY
+                // TAB CONTENT BASED ON CURRENCY/METHOD
                 when (selectedCurrencyTab) {
+                    "WALLET" -> {
+                        val userBalance = currentUser?.walletBalance ?: 0.0
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+                            border = BorderStroke(1.dp, Color(0xFF2E7D32))
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = Color(0xFF2E7D32), modifier = Modifier.size(36.dp))
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = if (language == AppLanguage.BAN) "মাই অ্যাকাউন্ট ওয়ালেট ব্যালেন্স থেকে পেমেন্ট" else "Pay using My Account Wallet Balance",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = DarkText
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = if (language == AppLanguage.BAN) "আপনার বর্তমান ওয়ালেট ব্যালেন্স: ৳${userBalance.toInt()}" else "Your Current Wallet Balance: ৳${userBalance.toInt()}",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1B5E20)
+                                )
+                                Text(
+                                    text = if (language == AppLanguage.BAN) "প্ল্যানের সাবস্ক্রিপশন ফি: ৳${planPrice.toInt()}" else "Plan Subscription Fee: ৳${planPrice.toInt()}",
+                                    fontSize = 12.sp,
+                                    color = Color.Gray
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+                                if (userBalance >= planPrice) {
+                                    Button(
+                                        onClick = {
+                                            val deducted = viewModel.deductWalletBalance(planPrice)
+                                            if (deducted) {
+                                                Toast.makeText(context, if (language == AppLanguage.BAN) "ওয়ালেট থেকে কেটে নেওয়া হয়েছে!" else "Deducted from wallet balance!", Toast.LENGTH_SHORT).show()
+                                                onPaymentSuccess("Wallet Balance", "WALLET_PAY_${System.currentTimeMillis()}")
+                                            } else {
+                                                Toast.makeText(context, if (language == AppLanguage.BAN) "ব্যালেন্স থেকে কাটতে ব্যর্থ!" else "Failed to deduct from wallet!", Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxWidth().height(42.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text(
+                                            text = if (language == AppLanguage.BAN) "ওয়ালেট ব্যালেন্স দিয়ে প্ল্যান পরিবর্তন নিশ্চিত করুন (৳${planPrice.toInt()})" else "Confirm Plan Switch with Wallet Balance (৳${planPrice.toInt()})",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                } else {
+                                    Text(
+                                        text = if (language == AppLanguage.BAN) "আপনার ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই। প্রয়োজনীয়: ৳${planPrice.toInt()}, বর্তমান: ৳${userBalance.toInt()}। 'মাই একাউন্ট' থেকে ওয়ালেট রিচার্জ করুন।" else "Insufficient Wallet Balance. Required: ৳${planPrice.toInt()}, Available: ৳${userBalance.toInt()}. Please recharge wallet from My Account.",
+                                        fontSize = 11.sp,
+                                        color = BloodRed,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
+                    }
                     "USD" -> {
                         // USD GATEWAYS: Google Pay, Wise, Payoneer
                         Text(
@@ -20329,17 +20540,9 @@ fun PlanPaymentModalDialog(
                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                     )
                                     Spacer(modifier = Modifier.height(10.dp))
-                                    OutlinedTextField(
-                                        value = txnId,
-                                        onValueChange = { txnId = it },
-                                        label = { Text(if (language == AppLanguage.BAN) "অর্ডার / ট্রানজেকশন আইডি (Optional)" else "Order / Transaction ID (Optional)") },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        singleLine = true
-                                    )
-                                    Spacer(modifier = Modifier.height(10.dp))
                                     Button(
                                         onClick = {
-                                            val finalTxn = if (txnId.isNotBlank()) txnId else "GPAY_${System.currentTimeMillis()}"
+                                            val finalTxn = "GPAY_${System.currentTimeMillis()}"
                                             onPaymentSuccess("Google Pay (USD)", finalTxn)
                                         },
                                         modifier = Modifier.fillMaxWidth().height(42.dp),
@@ -20916,11 +21119,23 @@ fun AdminSubscriptionsTab(
     val currentGooglePlay by viewModel.googlePlayMerchant.collectAsState()
     val currentWise by viewModel.wiseAccount.collectAsState()
 
+    val currentBkashInst by viewModel.bkashInstructions.collectAsState()
+    val currentNagadInst by viewModel.nagadInstructions.collectAsState()
+    val currentRocketInst by viewModel.rocketInstructions.collectAsState()
+    val currentGooglePlayInst by viewModel.googlePlayInstructions.collectAsState()
+    val currentWiseInst by viewModel.wiseInstructions.collectAsState()
+
     var editBkash by remember(currentBkash) { mutableStateOf(currentBkash) }
     var editNagad by remember(currentNagad) { mutableStateOf(currentNagad) }
     var editRocket by remember(currentRocket) { mutableStateOf(currentRocket) }
     var editGooglePlay by remember(currentGooglePlay) { mutableStateOf(currentGooglePlay) }
     var editWise by remember(currentWise) { mutableStateOf(currentWise) }
+
+    var editBkashInst by remember(currentBkashInst) { mutableStateOf(currentBkashInst) }
+    var editNagadInst by remember(currentNagadInst) { mutableStateOf(currentNagadInst) }
+    var editRocketInst by remember(currentRocketInst) { mutableStateOf(currentRocketInst) }
+    var editGooglePlayInst by remember(currentGooglePlayInst) { mutableStateOf(currentGooglePlayInst) }
+    var editWiseInst by remember(currentWiseInst) { mutableStateOf(currentWiseInst) }
 
     var showAddPlanDialog by remember { mutableStateOf(false) }
     var editingPlan by remember { mutableStateOf<V9SubscriptionPlan?>(null) }
@@ -20960,7 +21175,7 @@ fun AdminSubscriptionsTab(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (language == AppLanguage.ENG) "Global Payment Configs" else "গ্লোবাল পেমেন্ট কনফিগারেশন",
+                        text = if (language == AppLanguage.ENG) "Global Payment Configs & Gateway Details" else "গ্লোবাল পেমেন্ট কনফিগারেশন ও গেটওয়ে ডিটেইলস",
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleSmall,
                         color = DarkText
@@ -20969,284 +21184,152 @@ fun AdminSubscriptionsTab(
                 Spacer(modifier = Modifier.height(10.dp))
                 
                 Text(
-                    text = if (language == AppLanguage.ENG) "Configure the official mobile banking numbers for BD & Google Play for outside." else "বাংলাদেশী ব্যবহারকারীদের জন্য অফিশিয়াল মোবাইল ব্যাংকিং এবং বাইরের জন্য গুগল প্লে সেট করুন।",
+                    text = if (language == AppLanguage.ENG) "Configure official numbers and specific payment instructions for each gateway separately." else "প্রতিটি পেমেন্ট গেটওয়ের জন্য আলাদা আলাদা নম্বর এবং পেমেন্ট করার বিস্তারিত নিয়ম (Details Instructions) সেট করুন।",
                     fontSize = 11.sp,
                     color = Color.Gray,
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
 
-                OutlinedTextField(
-                    value = editBkash,
-                    onValueChange = { editBkash = it },
-                    label = { Text(if (language == AppLanguage.ENG) "bKash Number" else "বিকাশ নম্বর") },
-                    leadingIcon = { Icon(Icons.Default.Phone, null, tint = Color(0xFFE91E63)) },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                )
+                // bKash
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF0F5)),
+                    border = BorderStroke(1.dp, Color(0xFFF8BBD0))
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        OutlinedTextField(
+                            value = editBkash,
+                            onValueChange = { editBkash = it },
+                            label = { Text(if (language == AppLanguage.ENG) "bKash Number" else "বিকাশ নম্বর") },
+                            leadingIcon = { Icon(Icons.Default.Phone, null, tint = Color(0xFFE91E63)) },
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+                        )
+                        OutlinedTextField(
+                            value = editBkashInst,
+                            onValueChange = { editBkashInst = it },
+                            label = { Text(if (language == AppLanguage.ENG) "bKash Instructions / Details" else "বিকাশ পেমেন্ট নিয়ম / ডিটেইলস") },
+                            modifier = Modifier.fillMaxWidth(),
+                            minLines = 2
+                        )
+                    }
+                }
 
-                OutlinedTextField(
-                    value = editNagad,
-                    onValueChange = { editNagad = it },
-                    label = { Text(if (language == AppLanguage.ENG) "Nagad Number" else "নগদ নম্বর") },
-                    leadingIcon = { Icon(Icons.Default.Phone, null, tint = Color(0xFFFF9800)) },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                )
+                // Nagad
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8E1)),
+                    border = BorderStroke(1.dp, Color(0xFFFFE082))
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        OutlinedTextField(
+                            value = editNagad,
+                            onValueChange = { editNagad = it },
+                            label = { Text(if (language == AppLanguage.ENG) "Nagad Number" else "নগদ নম্বর") },
+                            leadingIcon = { Icon(Icons.Default.Phone, null, tint = Color(0xFFFF9800)) },
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+                        )
+                        OutlinedTextField(
+                            value = editNagadInst,
+                            onValueChange = { editNagadInst = it },
+                            label = { Text(if (language == AppLanguage.ENG) "Nagad Instructions / Details" else "নগদ পেমেন্ট নিয়ম / ডিটেইলস") },
+                            modifier = Modifier.fillMaxWidth(),
+                            minLines = 2
+                        )
+                    }
+                }
 
-                OutlinedTextField(
-                    value = editRocket,
-                    onValueChange = { editRocket = it },
-                    label = { Text(if (language == AppLanguage.ENG) "Rocket Number" else "রকেট নম্বর") },
-                    leadingIcon = { Icon(Icons.Default.Phone, null, tint = Color(0xFF673AB7)) },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                )
+                // Rocket
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF3E5F5)),
+                    border = BorderStroke(1.dp, Color(0xFFE1BEE7))
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        OutlinedTextField(
+                            value = editRocket,
+                            onValueChange = { editRocket = it },
+                            label = { Text(if (language == AppLanguage.ENG) "Rocket Number" else "রকেট নম্বর") },
+                            leadingIcon = { Icon(Icons.Default.Phone, null, tint = Color(0xFF673AB7)) },
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+                        )
+                        OutlinedTextField(
+                            value = editRocketInst,
+                            onValueChange = { editRocketInst = it },
+                            label = { Text(if (language == AppLanguage.ENG) "Rocket Instructions / Details" else "রকেট পেমেন্ট নিয়ম / ডিটেইলস") },
+                            modifier = Modifier.fillMaxWidth(),
+                            minLines = 2
+                        )
+                    }
+                }
 
-                OutlinedTextField(
-                    value = editGooglePlay,
-                    onValueChange = { editGooglePlay = it },
-                    label = { Text(if (language == AppLanguage.ENG) "Google Play Billing Merchant ID" else "গুগল প্লে বিলিং মার্চেন্ট আইডি") },
-                    leadingIcon = { Icon(Icons.Default.Star, null, tint = Color(0xFF4CAF50)) },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                )
+                // Google Play / Pay
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+                    border = BorderStroke(1.dp, Color(0xFFA5D6A7))
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        OutlinedTextField(
+                            value = editGooglePlay,
+                            onValueChange = { editGooglePlay = it },
+                            label = { Text(if (language == AppLanguage.ENG) "Google Play Billing Merchant ID" else "গুগল প্লে মার্চেন্ট আইডি") },
+                            leadingIcon = { Icon(Icons.Default.Star, null, tint = Color(0xFF4CAF50)) },
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+                        )
+                        OutlinedTextField(
+                            value = editGooglePlayInst,
+                            onValueChange = { editGooglePlayInst = it },
+                            label = { Text(if (language == AppLanguage.ENG) "Google Pay Instructions / Details" else "গুগল পে পেমেন্ট নিয়ম / ডিটেইলস") },
+                            modifier = Modifier.fillMaxWidth(),
+                            minLines = 2
+                        )
+                    }
+                }
 
-                OutlinedTextField(
-                    value = editWise,
-                    onValueChange = { editWise = it },
-                    label = { Text(if (language == AppLanguage.ENG) "Wise / Upay Wallet Tag" else "উপায় / ওয়াইজ (Wise) অ্যাকাউন্ট নম্বর") },
-                    leadingIcon = { Icon(Icons.Default.WorkspacePremium, null, tint = Color(0xFF2E008B)) },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
-                )
+                // Wise / Upay
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8EAF6)),
+                    border = BorderStroke(1.dp, Color(0xFFC5CAE9))
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        OutlinedTextField(
+                            value = editWise,
+                            onValueChange = { editWise = it },
+                            label = { Text(if (language == AppLanguage.ENG) "Wise / Upay Wallet Tag" else "উপায় / ওয়াইজ (Wise) নম্বর") },
+                            leadingIcon = { Icon(Icons.Default.WorkspacePremium, null, tint = Color(0xFF2E008B)) },
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+                        )
+                        OutlinedTextField(
+                            value = editWiseInst,
+                            onValueChange = { editWiseInst = it },
+                            label = { Text(if (language == AppLanguage.ENG) "Wise/Upay Instructions / Details" else "ওয়াইজ/উপায় পেমেন্ট নিয়ম / ডিটেইলস") },
+                            modifier = Modifier.fillMaxWidth(),
+                            minLines = 2
+                        )
+                    }
+                }
 
                 Button(
                     onClick = {
-                        viewModel.updatePaymentConfig(editBkash, editNagad, editRocket, editGooglePlay, editWise)
-                        android.widget.Toast.makeText(context, if (language == AppLanguage.ENG) "Payment configs saved successfully!" else "পেমেন্ট কনফিগারেশন সফলভাবে সংরক্ষিত হয়েছে!", android.widget.Toast.LENGTH_SHORT).show()
+                        viewModel.updatePaymentConfig(
+                            bkash = editBkash,
+                            nagad = editNagad,
+                            rocket = editRocket,
+                            googlePlay = editGooglePlay,
+                            wise = editWise,
+                            bkashInst = editBkashInst,
+                            nagadInst = editNagadInst,
+                            rocketInst = editRocketInst,
+                            googlePlayInst = editGooglePlayInst,
+                            wiseInst = editWiseInst
+                        )
+                        android.widget.Toast.makeText(context, if (language == AppLanguage.ENG) "Payment gateway configs & instructions saved!" else "পেমেন্ট গেটওয়ে নম্বর ও ডিটেইলস সফলভাবে সংরক্ষিত হয়েছে!", android.widget.Toast.LENGTH_SHORT).show()
                     },
                     modifier = Modifier.align(Alignment.End),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
                 ) {
-                    Text(if (language == AppLanguage.ENG) "Save Configs" else "কনফিগারেশন সংরক্ষণ করুন", fontSize = 12.sp)
-                }
-            }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = if (language == AppLanguage.ENG) "Plan Manager & Pricing" else "প্ল্যান ম্যানেজার ও প্রাইস সেটিংস",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = BloodRed
-            )
-            Button(
-                onClick = {
-                    editingPlan = null
-                    planId = "v9_plan_${System.currentTimeMillis()}"
-                    nameEn = ""
-                    nameBn = ""
-                    price = ""
-                    durationDays = "30"
-                    descEn = ""
-                    descBn = ""
-                    targetRole = "All"
-                    showAddPlanDialog = true
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = BloodRed)
-            ) {
-                Text(if (language == AppLanguage.ENG) "+ Create Plan" else "+ নতুন প্ল্যান ক্রিয়েট করুন", fontSize = 12.sp)
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        if (plans.isEmpty()) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF3F4F6))
-            ) {
-                Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = if (language == AppLanguage.ENG) "No plans created yet." else "কোন প্ল্যান তৈরি করা হয়নি।",
-                        color = Color.Gray,
-                        fontSize = 13.sp
-                    )
-                }
-            }
-        } else {
-            plans.forEach { plan ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    border = BorderStroke(1.dp, Color(0xFFE5E7EB))
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = if (language == AppLanguage.ENG) plan.nameEn else plan.nameBn,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp,
-                                    color = DarkText
-                                )
-                                Surface(
-                                    color = when (plan.targetRole) {
-                                        "Doctor" -> Color(0xFF8E24AA)
-                                        "Hospital" -> Color(0xFF00897B)
-                                        "Ambulance" -> Color(0xFFD32F2F)
-                                        "Donor" -> Color(0xFFE65100)
-                                        else -> Color(0xFF1976D2)
-                                    },
-                                    shape = RoundedCornerShape(4.dp),
-                                    modifier = Modifier.padding(top = 4.dp)
-                                ) {
-                                    Text(
-                                        text = "Target: ${plan.targetRole}",
-                                        color = Color.White,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
-                                }
-                            }
-                            Text(
-                                text = "৳${plan.price.toInt()} BDT",
-                                fontWeight = FontWeight.Black,
-                                fontSize = 16.sp,
-                                color = BloodRed
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "${if (language == AppLanguage.ENG) "Duration" else "মেয়াদ"}: ${plan.durationDays} ${if (language == AppLanguage.ENG) "Days" else "দিন"}",
-                            fontSize = 12.sp,
-                            color = Color.DarkGray
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = if (language == AppLanguage.ENG) plan.descriptionEn else plan.descriptionBn,
-                            fontSize = 12.sp,
-                            color = Color.Gray
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End
-                        ) {
-                            TextButton(
-                                onClick = {
-                                    editingPlan = plan
-                                    planId = plan.id
-                                    nameEn = plan.nameEn
-                                    nameBn = plan.nameBn
-                                    price = plan.price.toString()
-                                    durationDays = plan.durationDays.toString()
-                                    descEn = plan.descriptionEn
-                                    descBn = plan.descriptionBn
-                                    targetRole = plan.targetRole
-                                    showAddPlanDialog = true
-                                }
-                            ) {
-                                Text(if (language == AppLanguage.ENG) "Edit Price & Info" else "এডিট ও প্রাইস পরিবর্তন", color = Color(0xFF1976D2))
-                            }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            TextButton(
-                                onClick = {
-                                    viewModel.triggerDeleteSubscriptionPlan(plan.id)
-                                    android.widget.Toast.makeText(context, "Plan Deleted", android.widget.Toast.LENGTH_SHORT).show()
-                                }
-                            ) {
-                                Text(if (language == AppLanguage.ENG) "Delete" else "মুছুন", color = BloodRed)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Text(
-            text = if (language == AppLanguage.ENG) "Registered Subscribers" else "নিবন্ধিত সাবস্ক্রাইবার তালিকা",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = BloodRed,
-            modifier = Modifier.padding(bottom = 12.dp)
-        )
-
-        if (subscriptions.isEmpty()) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF3F4F6))
-            ) {
-                Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = if (language == AppLanguage.ENG) "No subscribers found." else "কোন গ্রাহক পাওয়া যায়নি।",
-                        color = Color.Gray,
-                        fontSize = 13.sp
-                    )
-                }
-            }
-        } else {
-            subscriptions.forEach { sub ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    border = BorderStroke(1.dp, Color(0xFFE5E7EB))
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "${if (language == AppLanguage.ENG) "User Phone" else "ব্যবহারকারীর ফোন"}: ${sub.userPhone}",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                color = DarkText
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .background(
-                                        Color(0xFFE8F5E9),
-                                        RoundedCornerShape(4.dp)
-                                    )
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = if (language == AppLanguage.ENG) "Active (Permanent)" else "সক্রিয় (স্থায়ী)",
-                                    color = Color(0xFF2E7D32),
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "${if (language == AppLanguage.ENG) "Plan" else "প্যাক"}: ${if (language == AppLanguage.ENG) sub.planNameEn else sub.planNameBn} (${sub.pricePaid} BDT)",
-                            fontSize = 12.sp,
-                            color = Color.DarkGray
-                        )
-                        Text(
-                            text = "${if (language == AppLanguage.ENG) "Duration" else "মেয়াদ"}: ${sub.startDate} to ${sub.endDate}",
-                            fontSize = 11.sp,
-                            color = Color.Gray
-                        )
-                        Text(
-                            text = "${if (language == AppLanguage.ENG) "Txn ID" else "ট্রানজেকশন আইডি"}: ${sub.transactionId} (${sub.paymentMethod})",
-                            fontSize = 11.sp,
-                            color = Color.Gray
-                        )
-                    }
+                    Text(if (language == AppLanguage.ENG) "Save Gateway Configs" else "কনফিগারেশন সেভ করুন", fontSize = 12.sp)
                 }
             }
         }
@@ -23054,7 +23137,7 @@ fun HospitalDirectoryScreen(viewModel: MainViewModel) {
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "(১ ঘণ্টা বুকিং উইন্ডো)",
+                                    text = if (language == AppLanguage.BAN) "(১ ঘণ্টা বুকিং উইন্ডো)" else "(1 Hour Booking Window)",
                                     fontSize = 10.sp,
                                     color = Color(0xFFFF8F00),
                                     fontWeight = FontWeight.Medium
@@ -23415,20 +23498,22 @@ fun HospitalDirectoryScreen(viewModel: MainViewModel) {
                     ) {
                         Column(modifier = Modifier.padding(10.dp)) {
                             Text(
-                                text = if (isAdv)
-                                    "বুকিং উইন্ডো: ১ ঘণ্টা (৬০ মিনিট) | একসেপ্ট ফি: ৳৩০ (ওয়ালেট কর্তন)"
-                                else
-                                    "বুকিং উইন্ডো: ৫ মিনিট | একসেপ্ট ফি: ৳৫০ (ওয়ালেট কর্তন)",
+                                text = if (isAdv) {
+                                    if (language == AppLanguage.BAN) "বুকিং উইন্ডো: ১ ঘণ্টা (৬০ মিনিট) | একসেপ্ট ফি: ৳৩০ (ওয়ালেট কর্তন)" else "Booking Window: 1 Hour (60 Mins) | Acceptance Fee: ৳30 (Wallet)"
+                                } else {
+                                    if (language == AppLanguage.BAN) "বুকিং উইন্ডো: ৫ মিনিট | একসেপ্ট ফি: ৳৫০ (ওয়ালেট কর্তন)" else "Booking Window: 5 Mins | Acceptance Fee: ৳50 (Wallet)"
+                                },
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp,
                                 color = if (isAdv) Color(0xFFE65100) else Color(0xFF0288D1)
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = if (isAdv)
-                                    "সময়সীমা অতিক্রম করলে বুকিং অটোমেটিক বাতিল হয়ে যাবে। হাসপাতাল কর্তৃপক্ষ একসেপ্ট করলে ওয়ালেট থেকে ৳৩০ কাটা হবে।"
-                                else
-                                    "সময়সীমা (৫ মিনিট) অতিক্রম করলে বুকিং অটো বাতিল হয়ে যাবে। একসেপ্ট করতে হাসপাতাল ওয়ালেটে ন্যূনতম ৳৫০ থাকতে হবে।",
+                                text = if (isAdv) {
+                                    if (language == AppLanguage.BAN) "সময়সীমা অতিক্রম করলে বুকিং অটোমেটিক বাতিল হয়ে যাবে। হাসপাতাল কর্তৃপক্ষ একসেপ্ট করলে ওয়ালেট থেকে ৳৩০ কাটা হবে।" else "Booking auto-expires when time limit passes. ৳30 deducted from wallet upon acceptance."
+                                } else {
+                                    if (language == AppLanguage.BAN) "সময়সীমা (৫ মিনিট) অতিক্রম করলে বুকিং অটো বাতিল হয়ে যাবে। একসেপ্ট করতে হাসপাতাল ওয়ালেটে ন্যূনতম ৳৫০ থাকতে হবে।" else "Booking auto-cancels after 5 minutes. Hospital wallet needs ৳50 min balance."
+                                },
                                 fontSize = 10.sp,
                                 color = DarkText.copy(alpha = 0.8f)
                             )
@@ -24993,14 +25078,16 @@ fun AdvertiserPortalScreen(viewModel: MainViewModel) {
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    OutlinedTextField(
-                        value = paymentTxnIdInput,
-                        onValueChange = { paymentTxnIdInput = it },
-                        label = { Text(if (language == AppLanguage.BAN) "ট্রানজেকশন আইডি (TrxID)" else "Payment Transaction ID (TrxID)") },
-                        placeholder = { Text("e.g., 9J78A2KLP") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp)
-                    )
+                    if (!paymentMethodInput.contains("Google Pay", ignoreCase = true)) {
+                        OutlinedTextField(
+                            value = paymentTxnIdInput,
+                            onValueChange = { paymentTxnIdInput = it },
+                            label = { Text(if (language == AppLanguage.BAN) "ট্রানজেকশন আইডি (TrxID) *" else "Payment Transaction ID (TrxID) *") },
+                            placeholder = { Text("e.g., 9J78A2KLP") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(18.dp))
 

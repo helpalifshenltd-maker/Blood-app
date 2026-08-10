@@ -648,7 +648,11 @@ fun AdminDonorsTab(
             )
         }
     } else {
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(bottom = 160.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
             items(donors) { donor ->
                 Card(
                     modifier = Modifier
@@ -824,7 +828,11 @@ fun AdminRequestsTab(
             )
         }
     } else {
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(bottom = 160.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
             items(requests) { req ->
                 Card(
                     modifier = Modifier
@@ -6061,6 +6069,7 @@ fun AdminAdsBannerTab(
                 } else {
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
+                        contentPadding = PaddingValues(bottom = 160.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
                         items(filteredAds, key = { it.id }) { ad ->
@@ -6112,6 +6121,7 @@ fun AdminAdsBannerTab(
                 } else {
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
+                        contentPadding = PaddingValues(bottom = 160.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
                         items(filteredPayments, key = { it.id }) { sub ->
@@ -6148,6 +6158,7 @@ fun AdminAdsBannerTab(
                 } else {
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
+                        contentPadding = PaddingValues(bottom = 160.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
                         items(filteredCompanies, key = { it.id }) { company ->

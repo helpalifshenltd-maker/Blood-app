@@ -300,6 +300,11 @@ class MainViewModel(
     val payoneerAccount: StateFlow<String> = repository.payoneerAccount
     val usdtWalletAddress: StateFlow<String> = repository.usdtWalletAddress
     val paymentInstructionsText: StateFlow<String> = repository.paymentInstructionsText
+    val bkashInstructions: StateFlow<String> = repository.bkashInstructions
+    val nagadInstructions: StateFlow<String> = repository.nagadInstructions
+    val rocketInstructions: StateFlow<String> = repository.rocketInstructions
+    val googlePlayInstructions: StateFlow<String> = repository.googlePlayInstructions
+    val wiseInstructions: StateFlow<String> = repository.wiseInstructions
 
     val supportPhone: StateFlow<String> = repository.supportPhone
     val supportEmail: StateFlow<String> = repository.supportEmail
@@ -503,8 +508,30 @@ class MainViewModel(
         return repository.deductWalletBalance(amount)
     }
 
-    fun updatePaymentConfig(bkash: String, nagad: String, rocket: String, googlePlay: String, wise: String = "daimondtopup32@gmail.com") {
-        repository.updatePaymentConfig(bkash, nagad, rocket, googlePlay, wise)
+    fun updatePaymentConfig(
+        bkash: String,
+        nagad: String,
+        rocket: String,
+        googlePlay: String,
+        wise: String = "daimondtopup32@gmail.com",
+        bkashInst: String = "",
+        nagadInst: String = "",
+        rocketInst: String = "",
+        googlePlayInst: String = "",
+        wiseInst: String = ""
+    ) {
+        repository.updatePaymentConfig(
+            bkash = bkash,
+            nagad = nagad,
+            rocket = rocket,
+            googlePlay = googlePlay,
+            wise = wise,
+            bkashInst = bkashInst,
+            nagadInst = nagadInst,
+            rocketInst = rocketInst,
+            googlePlayInst = googlePlayInst,
+            wiseInst = wiseInst
+        )
     }
 
     val customCountries: StateFlow<List<Pair<String, String>>> = repository.customCountries
