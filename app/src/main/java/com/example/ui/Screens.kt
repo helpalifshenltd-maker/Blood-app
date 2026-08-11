@@ -1464,7 +1464,7 @@ fun CommonTopAppBar(
     var showSubscriptionDialog by remember { mutableStateOf(false) }
 
     if (showSubscriptionDialog && viewModel != null) {
-        V9SubscriptionDialog(
+        VideoAdvertiserPortalDialog(
             viewModel = viewModel,
             language = currentLang,
             onDismiss = { showSubscriptionDialog = false }
@@ -1548,7 +1548,7 @@ fun CommonTopAppBar(
                 )
             }
 
-            // V9 Premium Badge Button (Updated Design with WorkspacePremium Icon & Gold Gradient Border)
+            // Video Ads & Advertiser Portal Button (Top Bar Paper Plane / Video Icon)
             if (viewModel != null) {
                 Surface(
                     shape = RoundedCornerShape(20.dp),
@@ -1569,14 +1569,14 @@ fun CommonTopAppBar(
                         modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.WorkspacePremium,
-                            contentDescription = "Ad Plan",
+                            imageVector = Icons.Default.Videocam,
+                            contentDescription = "Video Ads Portal",
                             tint = Color(0xFFFFD700),
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = if (currentLang == AppLanguage.ENG) "Ad Plan" else "অ্যাড প্ল্যান",
+                            text = if (currentLang == AppLanguage.ENG) "Video Ads" else "ভিডিও অ্যাড",
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.sp
@@ -1783,42 +1783,7 @@ fun ScrollableDrawerItems(
             0
         )
 
-        // 9. CPA & Sponsored Offers
-        val contextForDrawerCpa = androidx.compose.ui.platform.LocalContext.current
-        val uriHandlerForDrawerCpa = androidx.compose.ui.platform.LocalUriHandler.current
 
-        NavigationDrawerItem(
-            label = {
-                Text(
-                    text = if (currentLanguage == AppLanguage.BAN) "CPA ও স্পন্সরড অফার" else "CPA & Sponsored Offers",
-                    fontWeight = FontWeight.Normal
-                )
-            },
-            icon = { Icon(imageVector = Icons.Filled.CardGiftcard, contentDescription = "CPA Offers", tint = Color(0xFFE65100)) },
-            selected = false,
-            onClick = {
-                val rawUrl = "https://www.affmine.com"
-                val formattedUrl = if (!rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) "https://$rawUrl" else rawUrl
-                try {
-                    val intent = android.content.Intent(
-                        android.content.Intent.ACTION_VIEW,
-                        android.net.Uri.parse(formattedUrl)
-                    ).apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) }
-                    contextForDrawerCpa.startActivity(intent)
-                } catch (e: Exception) {
-                    try { uriHandlerForDrawerCpa.openUri(formattedUrl) } catch (ex: Exception) { ex.printStackTrace() }
-                }
-            },
-            colors = NavigationDrawerItemDefaults.colors(
-                unselectedContainerColor = Color.Transparent,
-                unselectedIconColor = Color(0xFFE65100),
-                unselectedTextColor = DarkText
-            ),
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier
-                .padding(vertical = 4.dp)
-                .testTag("drawer_cpa_offers")
-        )
 
         // Only show if Admin is authenticated
         if (isAdmin) {
@@ -2843,42 +2808,6 @@ fun LoginRegisterScreen(viewModel: MainViewModel) {
         )
 
         Spacer(modifier = Modifier.height(16.dp))
-
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { viewModel.navigateTo(AppScreen.ADVERTISER_PORTAL) },
-            shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
-            border = BorderStroke(1.dp, Color(0xFF90CAF9))
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Business, contentDescription = null, tint = Color(0xFF1565C0), modifier = Modifier.size(24.dp))
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = if (language == AppLanguage.BAN) "কোম্পানি / অ্যাডভারটাইজার লগইন & সাইন আপ" else "Company / Advertiser Portal Access",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1565C0)
-                        )
-                        Text(
-                            text = if (language == AppLanguage.BAN) "সাপ্তাহিক ও মাসিক প্ল্যানে ব্যানার অ্যাড দিন" else "Publish Weekly & Monthly Banner Ads",
-                            fontSize = 10.sp,
-                            color = DarkText.copy(alpha = 0.8f)
-                        )
-                    }
-                }
-                Icon(Icons.Filled.ArrowForward, contentDescription = null, tint = Color(0xFF1565C0), modifier = Modifier.size(18.dp))
-            }
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
 
         // Tab Row Switcher (Unified 2 options: Sign In & Register)
         Row(
@@ -4428,259 +4357,133 @@ fun HomeScreen(viewModel: MainViewModel) {
 
     if (showHospitalNetworksDialog) {
         val registeredHospList by viewModel.registeredHospitals.collectAsState()
-        val offersList by viewModel.hospitalOffers.collectAsState()
         val context = LocalContext.current
         val isBn = language == AppLanguage.BAN
 
-        var activeDialogTab by remember { mutableStateOf(0) } // 0: Directory, 1: Register, 2: Plans & Payment
         var searchHospText by remember { mutableStateOf("") }
 
-        // Registration form state
-        var regName by remember { mutableStateOf("") }
-        var regType by remember { mutableStateOf("Hospital & Diagnostic") }
-        var regAddress by remember { mutableStateOf("") }
-        var regDistrict by remember { mutableStateOf("Dhaka") }
-        var regUpazila by remember { mutableStateOf("Dhanmondi") }
-        var regPhone by remember { mutableStateOf("") }
-        var regEmail by remember { mutableStateOf("") }
-        var regWebsite by remember { mutableStateOf("") }
-        var regServices by remember { mutableStateOf("") }
-        var regBloodAvail by remember { mutableStateOf("") }
-        var regWhatsapp by remember { mutableStateOf("") }
-        var regPlanType by remember { mutableStateOf("Free") } // "Free", "Premium (Monthly)", "Premium (Yearly)"
+        val staticHospitals = remember(detectedCountry, isBn) {
+            val rawList = when (detectedCountry) {
+                "Bangladesh", "BD" -> listOf(
+                    HospitalInfo("Dhaka Medical College Hospital (DMCH)", "ঢাকা মেডিকেল কলেজ হাসপাতাল (DMCH)", "Dhaka", "Tejgaon", "Bangladesh"),
+                    HospitalInfo("Sir Salimullah Medical College Hospital", "স্যার সলিমুল্লাহ মেডিকেল কলেজ হাসপাতাল", "Dhaka", "Dhanmondi", "Bangladesh"),
+                    HospitalInfo("Chattogram General Hospital (CGH)", "চট্টগ্রাম জেনারেল হাসপাতাল (CGH)", "Chattogram", "Double Mooring", "Bangladesh"),
+                    HospitalInfo("Sylhet MAG Osmani Medical College", "সিলেট এমএজি ওসমানী মেডিকেল কলেজ", "Sylhet", "Sylhet Sadar", "Bangladesh"),
+                    HospitalInfo("Rajshahi Medical College Hospital", "রাজশাহী মেডিকেল কলেজ হাসপাতাল", "Rajshahi", "Rajpara", "Bangladesh"),
+                    HospitalInfo("Mymensingh Medical College Hospital", "ময়মনসিংহ মেডিকেল কলেজ হাসপাতাল", "Mymensingh", "Sadar", "Bangladesh"),
+                    HospitalInfo("Khulna Medical College Hospital", "খুলনা মেডিকেল কলেজ হাসপাতাল", "Khulna", "Sadar", "Bangladesh"),
+                    HospitalInfo("Sher-e-Bangla Medical College Hospital", "শের-ই-বাংলা মেডিকেল কলেজ হাসপাতাল", "Barishal", "Sadar", "Bangladesh"),
+                    HospitalInfo("Labaid Specialized Hospital", "ল্যাবএইড স্পেশালাইজড হাসপাতাল", "Dhaka", "Dhanmondi", "Bangladesh"),
+                    HospitalInfo("Square Hospitals Ltd.", "স্কয়ার হাসপাতাল লিমিটেড", "Dhaka", "Panthapath", "Bangladesh"),
+                    HospitalInfo("Evercare Hospital Dhaka", "এভারকেয়ার হাসপাতাল ঢাকা", "Dhaka", "Bashundhara", "Bangladesh"),
+                    HospitalInfo("Popular Diagnostic Centre", "পপুলার ডায়াগনস্টিক সেন্টার", "Dhaka", "Dhanmondi", "Bangladesh"),
+                    HospitalInfo("Ibn Sina Medical College Hospital", "ইবনে সিনা মেডিকেল কলেজ হাসপাতাল", "Dhaka", "Kalyanpur", "Bangladesh"),
+                    HospitalInfo("United Hospital Dhaka", "ইউনাইটেড হাসপাতাল ঢাকা", "Dhaka", "Gulshan", "Bangladesh")
+                )
+                "United States", "USA" -> listOf(
+                    HospitalInfo("Mount Sinai Hospital", "মাউন্ট সিনাই হাসপাতাল", "New York", "Manhattan", "United States"),
+                    HospitalInfo("Stanford Health Care", "স্ট্যানফোর্ড হেলথ কেয়ার", "California", "San Francisco", "United States"),
+                    HospitalInfo("Houston Methodist Hospital", "হিউস্টন মেথোডিস্ট হাসপাতাল", "Texas", "Houston", "United States"),
+                    HospitalInfo("Johns Hopkins Hospital", "জনস হপকিন্স হাসপাতাল", "Maryland", "Baltimore", "United States")
+                )
+                else -> listOf(
+                    HospitalInfo("$detectedCountry Central Health Center", "$detectedCountry সেন্ট্রাল হেলথ কেয়ার", "Sadar", "Sadar", detectedCountry)
+                )
+            }
 
-        // Payment gateway modal state
-        var showPaymentModal by remember { mutableStateOf(false) }
-        var selectedGateway by remember { mutableStateOf("bKash") } // "bKash", "Nagad", "Rocket", "Google Pay"
-        var paymentTrxIdInput by remember { mutableStateOf("") }
-        var paymentPhoneInput by remember { mutableStateOf("") }
+            rawList.mapIndexed { index, h ->
+                RegisteredHospital(
+                    id = "static_hosp_$index",
+                    name = if (isBn) h.banglaName else h.name,
+                    type = if (isBn) "হাসপাতাল ও ডায়াগনস্টিক" else "Hospital & Diagnostic",
+                    address = "${h.upazila}, ${h.district}",
+                    district = h.district,
+                    upazila = h.upazila,
+                    phone = "16263",
+                    email = "info@health.gov.bd",
+                    website = "https://health.gov.bd",
+                    logoUrl = "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=300&auto=format&fit=crop&q=80",
+                    photoUrl = "https://images.unsplash.com/photo-1587351021759-3e566b6af7cc?w=600&auto=format&fit=crop&q=80",
+                    services = if (isBn) "২৪/৭ জরুরি বিভাগ, আইসিইউ, সিসিইউ, অ্যাম্বুলেন্স সেবা ও ব্লাড ব্যাংক" else "24/7 Emergency, ICU, CCU, Ambulance & Blood Bank",
+                    bloodAvailability = if (isBn) "জরুরি রক্ত সরবরাহ ও ব্লাড ব্যাংক তথ্য" else "Emergency Blood Supply & Info",
+                    planType = "Verified",
+                    subscriptionExpiryDate = "Lifetime",
+                    isApproved = true,
+                    isFeatured = index < 3,
+                    urgentNotice = if (isBn) "⚡ জরুরি হেল্পলাইন: ১৬২৬৩" else "⚡ Emergency Helpline: 16263",
+                    whatsappNumber = "16263",
+                    country = h.country,
+                    paymentMethod = "Verified",
+                    paymentTxnId = "VERIFIED",
+                    registrationDate = "2026-01-01"
+                )
+            }
+        }
+
+        val allHospList = remember(registeredHospList, staticHospitals) {
+            (registeredHospList + staticHospitals).distinctBy { it.name.trim().lowercase() }
+        }
+
+        val filteredList = remember(allHospList, searchHospText) {
+            if (searchHospText.isBlank()) {
+                allHospList
+            } else {
+                allHospList.filter { h ->
+                    h.name.contains(searchHospText, ignoreCase = true) ||
+                    h.district.contains(searchHospText, ignoreCase = true) ||
+                    h.upazila.contains(searchHospText, ignoreCase = true) ||
+                    h.services.contains(searchHospText, ignoreCase = true)
+                }
+            }
+        }
 
         AlertDialog(
             onDismissRequest = { showHospitalNetworksDialog = false },
             title = {
-                Column {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icon(Icons.Filled.LocalHospital, null, tint = BloodRed, modifier = Modifier.size(24.dp))
-                            Text(
-                                text = if (isBn) "হাসপাতাল ও ডায়াগনস্টিক সার্ভিস" else "Hospitals & Diagnostics",
-                                fontWeight = FontWeight.Bold,
-                                color = DarkText,
-                                fontSize = 17.sp
-                            )
-                        }
-                        IconButton(onClick = { showHospitalNetworksDialog = false }, modifier = Modifier.size(28.dp)) {
-                            Icon(Icons.Default.Close, "Close", tint = SecondaryText, modifier = Modifier.size(18.dp))
-                        }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Filled.LocalHospital, null, tint = BloodRed, modifier = Modifier.size(24.dp))
+                        Text(
+                            text = if (isBn) "হাসপাতাল ও ডায়াগনস্টিক নেটওয়ার্ক (${filteredList.size})" else "Hospitals & Diagnostics (${filteredList.size})",
+                            fontWeight = FontWeight.Bold,
+                            color = DarkText,
+                            fontSize = 16.sp
+                        )
                     }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Tab selector bar
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xFFF1F5F9), RoundedCornerShape(10.dp))
-                            .padding(4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        val tabLabels = if (isBn) {
-                            listOf("ডিরেক্টরি", "রেজিস্ট্রেশন", "প্ল্যান ও অফার")
-                        } else {
-                            listOf("Directory", "Register", "Plans & Offers")
-                        }
-                        tabLabels.forEachIndexed { index, label ->
-                            Button(
-                                onClick = { activeDialogTab = index },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (activeDialogTab == index) BloodRed else Color.Transparent
-                                ),
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.weight(1f),
-                                contentPadding = PaddingValues(vertical = 6.dp)
-                            ) {
-                                Text(
-                                    text = label,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (activeDialogTab == index) Color.White else SecondaryText,
-                                    maxLines = 1
-                                )
-                            }
-                        }
+                    IconButton(onClick = { showHospitalNetworksDialog = false }, modifier = Modifier.size(28.dp)) {
+                        Icon(Icons.Default.Close, "Close", tint = SecondaryText, modifier = Modifier.size(18.dp))
                     }
                 }
             },
             text = {
                 Column(modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp)) {
-                    when (activeDialogTab) {
-                        0 -> { // Directory List
-                            Column {
-                                // Search bar
-                                OutlinedTextField(
-                                    value = searchHospText,
-                                    onValueChange = { searchHospText = it },
-                                    placeholder = { Text(if (isBn) "হাসপাতাল, জেলা বা সেবার নাম লিখুন..." else "Search hospital name or district...", fontSize = 11.sp) },
-                                    leadingIcon = { Icon(Icons.Default.Search, null, tint = SecondaryText, modifier = Modifier.size(18.dp)) },
-                                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp),
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = BloodRed,
-                                        unfocusedBorderColor = LightBorder,
-                                        focusedContainerColor = Color.White,
-                                        unfocusedContainerColor = Color.White
-                                    )
-                                )
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                val filteredList = remember(registeredHospList, searchHospText, detectedCountry) {
-                                    registeredHospList.filter { h ->
-                                        val matchCountry = h.country.equals(detectedCountry, ignoreCase = true) ||
-                                            (detectedCountry.equals("Bangladesh", ignoreCase = true) && (h.country.equals("BD", ignoreCase = true) || h.country.isBlank() || h.country.equals("Bangladesh", ignoreCase = true))) ||
-                                            (detectedCountry.equals("BD", ignoreCase = true) && (h.country.equals("BD", ignoreCase = true) || h.country.isBlank() || h.country.equals("Bangladesh", ignoreCase = true)))
-                                        val matchQuery = searchHospText.isBlank() ||
-                                            h.name.contains(searchHospText, ignoreCase = true) ||
-                                            h.district.contains(searchHospText, ignoreCase = true) ||
-                                            h.upazila.contains(searchHospText, ignoreCase = true) ||
-                                            h.services.contains(searchHospText, ignoreCase = true)
-                                        matchCountry && matchQuery
-                                    }.sortedByDescending { it.isFeatured } // Featured hospitals appear FIRST!
+                    // Search bar
+                    OutlinedTextField(
+                        value = searchHospText,
+                        onValueChange = { searchHospText = it },
+                        placeholder = { Text(if (isBn) "হাসপাতাল, জেলা বা সেবার নাম লিখুন..." else "Search hospital name or district...", fontSize = 11.sp) },
+                        leadingIcon = { Icon(Icons.Default.Search, null, tint = SecondaryText, modifier = Modifier.size(18.dp)) },
+                        trailingIcon = {
+                            if (searchHospText.isNotEmpty()) {
+                                IconButton(onClick = { searchHospText = "" }) {
+                                    Icon(Icons.Default.Close, null, modifier = Modifier.size(16.dp))
                                 }
-
-                                LazyColumn(
-                                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    items(filteredList.size) { index ->
-                                        val hosp = filteredList[index]
-                                        Card(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .then(
-                                                    if (hosp.isFeatured) Modifier.border(1.5.dp, Color(0xFFF59E0B), RoundedCornerShape(12.dp))
-                                                    else Modifier
-                                                ),
-                                            colors = CardDefaults.cardColors(
-                                                containerColor = if (hosp.isFeatured) Color(0xFFFFFBEB) else Color(0xFFF8FAFC)
-                                            ),
-                                            shape = RoundedCornerShape(12.dp)
-                                        ) {
-                                            Column(modifier = Modifier.padding(12.dp)) {
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    // Logo / Thumbnail
-                                                    AsyncImage(
-                                                        model = hosp.logoUrl.ifBlank { "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=300&auto=format&fit=crop&q=80" },
-                                                        contentDescription = null,
-                                                        modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)),
-                                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                                                    )
-                                                    Spacer(modifier = Modifier.width(10.dp))
-                                                    Column(modifier = Modifier.weight(1f)) {
-                                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                                            Text(
-                                                                text = hosp.name,
-                                                                fontWeight = FontWeight.Bold,
-                                                                fontSize = 13.sp,
-                                                                color = DarkText,
-                                                                maxLines = 1,
-                                                                overflow = TextOverflow.Ellipsis
-                                                            )
-                                                            if (hosp.isFeatured) {
-                                                                Spacer(modifier = Modifier.width(4.dp))
-                                                                Text(
-                                                                    text = "⚡ FEATURED",
-                                                                    fontSize = 8.sp,
-                                                                    fontWeight = FontWeight.Black,
-                                                                    color = Color.White,
-                                                                    modifier = Modifier
-                                                                        .background(Color(0xFFD97706), RoundedCornerShape(4.dp))
-                                                                        .padding(horizontal = 4.dp, vertical = 2.dp)
-                                                                )
-                                                            }
-                                                        }
-                                                        Text(
-                                                            text = "${hosp.type} • ${hosp.upazila}, ${hosp.district}",
-                                                            fontSize = 10.sp,
-                                                            color = SecondaryText
-                                                        )
-                                                    }
-                                                }
-
-                                                if (hosp.urgentNotice.isNotBlank()) {
-                                                    Spacer(modifier = Modifier.height(6.dp))
-                                                    Text(
-                                                        text = hosp.urgentNotice,
-                                                        fontSize = 10.sp,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = Color(0xFFB91C1C),
-                                                        modifier = Modifier
-                                                            .fillMaxWidth()
-                                                            .background(Color(0xFFFEF2F2), RoundedCornerShape(6.dp))
-                                                            .padding(6.dp)
-                                                    )
-                                                }
-
-                                                if (hosp.services.isNotBlank()) {
-                                                    Spacer(modifier = Modifier.height(6.dp))
-                                                    Text(
-                                                        text = "🩺 ${hosp.services}",
-                                                        fontSize = 10.sp,
-                                                        color = DarkText.copy(alpha = 0.8f),
-                                                        maxLines = 2,
-                                                        overflow = TextOverflow.Ellipsis
-                                                    )
-                                                }
-
-                                                if (hosp.bloodAvailability.isNotBlank()) {
-                                                    Spacer(modifier = Modifier.height(4.dp))
-                                                    Text(
-                                                        text = "🩸 ${hosp.bloodAvailability}",
-                                                        fontSize = 10.sp,
-                                                        fontWeight = FontWeight.SemiBold,
-                                                        color = BloodRed
-                                                    )
-                                                }
-
-                                                Spacer(modifier = Modifier.height(8.dp))
-
-                                                // Call & WhatsApp Action Buttons
-                                                Row(
-                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                    modifier = Modifier.fillMaxWidth()
-                                                ) {
-                                                    Button(
-                                                        onClick = {
-                                                            try {
-                                                                val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
-                                                                    data = android.net.Uri.parse("tel:${hosp.phone}")
-                                                                }
-                                                                context.startActivity(intent)
-                                                            } catch (e: Exception) {
-                                                                Toast.makeText(context, "Cannot launch dialer", Toast.LENGTH_SHORT).show()
-                                                            }
-                                                        },
-                                                        colors = ButtonDefaults.buttonColors(containerColor = BloodRed),
-                                                        shape = RoundedCornerShape(6.dp),
-                                                        modifier = Modifier.weight(1f).height(32.dp),
-                                                        contentPadding = PaddingValues(horizontal = 4.dp)
-                                                    ) {
-                                                        Icon(Icons.Default.Phone, null, modifier = Modifier.size(12.dp), tint = Color.White)
-                                                        Spacer(modifier = Modifier.width(4.dp))
-                                                        Text(if (isBn) "কল করুন" else "Call", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                                    }
-
-                                                    if (hosp.whatsappNumber.isNotBlank()) {
-                                                        Button(
-                                                            onClick = {
-                                                                try {
-                                                                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                                                                        data = android.net.Uri.parse("https://api.whatsapp.com/send?phone=${hosp.whatsappNumber}")
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = BloodRed,
+                            unfocusedBorderColor = LightBorder,
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White
+                        )
+                    )
                                                                     }
                                                                     context.startActivity(intent)
                                                                 } catch (e: Exception) {
@@ -5113,7 +4916,6 @@ fun HomeScreen(viewModel: MainViewModel) {
     if (selectedHospitalForDetails != null) {
         val hosp = selectedHospitalForDetails!!
         val isBn = language == AppLanguage.BAN
-        val matchDonors = donors.filter { it.district.equals(hosp.district, ignoreCase = true) }
         
         AlertDialog(
             onDismissRequest = { selectedHospitalForDetails = null },
@@ -5132,7 +4934,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                             modifier = Modifier.size(24.dp)
                         )
                         Text(
-                            text = if (isBn) "নির্বাচিত হাসপাতাল বিবরণ" else "Selected Hospital Info",
+                            text = if (isBn) "হাসপাতাল ও মেডিকেল তথ্য" else "Hospital & Medical Information",
                             fontWeight = FontWeight.Bold,
                             color = DarkText,
                             fontSize = 16.sp
@@ -5146,7 +4948,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                         lineHeight = 22.sp
                     )
                     Text(
-                        text = if (isBn) "ঠিকানা: ${hosp.upazila}, ${hosp.district}" else "Address: ${hosp.upazila}, ${hosp.district}",
+                        text = if (isBn) "অবস্থান: ${hosp.upazila}, ${hosp.district}, ${hosp.country}" else "Location: ${hosp.upazila}, ${hosp.district}, ${hosp.country}",
                         fontSize = 12.sp,
                         color = SecondaryText,
                         fontWeight = FontWeight.Medium
@@ -5154,117 +4956,51 @@ fun HomeScreen(viewModel: MainViewModel) {
                 }
             },
             text = {
-                Column {
-                    Text(
-                        text = if (isBn) {
-                            "এই হাসপাতালের জেলা সংশ্লিষ্ট সকল নিবন্ধিত রক্তদাতার তালিকা নিচে দেয়া হলো:"
-                        } else {
-                            "List of all registered donors in this hospital's district:"
-                        },
-                        fontSize = 12.sp,
-                        color = SecondaryText,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-
-                    if (matchDonors.isEmpty()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(120.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Surface(
+                        color = Color(0xFFEFF6FF),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
                             Text(
-                                text = if (isBn) "দুঃখিত, এই এলাকায় কোনো রক্তদাতা পাওয়া যায়নি।" else "Sorry, no donors registered in this district.",
-                                color = SecondaryText,
+                                text = if (isBn) "🏥 সেবা ও ইমার্জেন্সি সার্ভিস" else "🏥 Services & Emergency Facilities",
+                                fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium
+                                color = Color(0xFF1E40AF)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = if (isBn) "• ২৪/৭ জরুরী বিভাগ ও এম্বুলেন্স সেবা\n• আইসিইউ, সিসিইউ ও বেড সার্ভিস\n• কেন্দ্রীয় হেল্পলাইন সাপোর্ট" else "• 24/7 Emergency & Ambulance Service\n• ICU, CCU & General Bed Support\n• Central Helpline Desk",
+                                fontSize = 11.sp,
+                                color = DarkText,
+                                lineHeight = 16.sp
                             )
                         }
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.heightIn(max = 280.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(matchDonors.size) { index ->
-                                val donor = matchDonors[index]
-                                Card(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            selectedHospitalForDetails = null
-                                            showHospitalNetworksDialog = false
-                                            viewModel.selectDonorAndNavigate(donor.id)
-                                        },
-                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFCFCFC)),
-                                    border = BorderStroke(1.dp, LightBorder),
-                                    shape = RoundedCornerShape(10.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(10.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(36.dp)
-                                                .background(BloodRed, CircleShape),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = donor.bloodGroup,
-                                                color = Color.White,
-                                                fontSize = 13.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
+                    }
 
-                                        Spacer(modifier = Modifier.width(10.dp))
-
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = donor.name,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 13.sp,
-                                                color = DarkText
-                                            )
-                                            Text(
-                                                text = "${donor.upazila}, ${donor.district}",
-                                                fontSize = 11.sp,
-                                                color = SecondaryText
-                                            )
-                                            Text(
-                                                text = if (isBn) "রক্তদান: ${donor.donationCount} বার" else "Donations: ${donor.donationCount} times",
-                                                fontSize = 10.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                color = BloodRed
-                                            )
-                                        }
-
-                                        IconButton(
-                                            onClick = {
-                                                val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${donor.phone}"))
-                                                context.startActivity(intent)
-                                            },
-                                            modifier = Modifier
-                                                .background(LightPinkRed.copy(alpha = 0.5f), CircleShape)
-                                                .size(32.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Filled.Call,
-                                                contentDescription = "Call",
-                                                tint = BloodRed,
-                                                modifier = Modifier.size(14.dp)
-                                            )
-                                        }
-                                    }
-                                }
+                    Button(
+                        onClick = {
+                            try {
+                                val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:16263"))
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Cannot launch dialer", Toast.LENGTH_SHORT).show()
                             }
-                        }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = BloodRed),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth().height(42.dp)
+                    ) {
+                        Icon(Icons.Filled.Call, contentDescription = "Call", tint = Color.White, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(if (isBn) "হাসপাতাল / স্বাস্থ্য বাতায়নে কল করুন (১৬২৬৩)" else "Call Hospital / Health Line (16263)", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
                 }
             },
             confirmButton = {
                 TextButton(onClick = { selectedHospitalForDetails = null }) {
-                    Text(if (isBn) "ফিরে যান" else "Back", color = BloodRed, fontWeight = FontWeight.Bold)
+                    Text(if (isBn) "বন্ধ করুন" else "Close", color = SecondaryText, fontWeight = FontWeight.Bold)
                 }
             }
         )
@@ -10519,7 +10255,27 @@ fun UserProfileScreen(viewModel: MainViewModel) {
         var showMyTeamDialog by remember { mutableStateOf(false) }
         var showHospitalKeeperDialog by remember { mutableStateOf(false) }
         var showAddDoctorDialog by remember { mutableStateOf(false) }
+        var showDoctorMyAccountDialog by remember { mutableStateOf(false) }
+        var showDonorMyAccountDialog by remember { mutableStateOf(false) }
+        var showRecipientMyAccountDialog by remember { mutableStateOf(false) }
         var showDeleteAccountDialog by remember { mutableStateOf(false) }
+
+        // Expanded My Account features state flags
+        var showBookingsDialog by remember { mutableStateOf(false) }
+        var showMyHospitalsDialog by remember { mutableStateOf(false) }
+        var showAddSuggestHospitalDialog by remember { mutableStateOf(false) }
+        var showMyPaymentsDialog by remember { mutableStateOf(false) }
+        var showMedicalRecordsDialog by remember { mutableStateOf(false) }
+        var showFamilyMembersDialog by remember { mutableStateOf(false) }
+        var showFavoriteDoctorsDialog by remember { mutableStateOf(false) }
+        var showMyReportsDialog by remember { mutableStateOf(false) }
+        var showMyOrdersDialog by remember { mutableStateOf(false) }
+        var showHealthCardDialog by remember { mutableStateOf(false) }
+        var showNotificationsCenterDialog by remember { mutableStateOf(false) }
+        var showSupportDialog by remember { mutableStateOf(false) }
+        var showMyReviewsDialog by remember { mutableStateOf(false) }
+        var showReferralDialog by remember { mutableStateOf(false) }
+        var showSettingsDialog by remember { mutableStateOf(false) }
 
         val allDonorTeams by viewModel.donorTeams.collectAsState()
         val myDonorTeam = remember(allDonorTeams, finalUser.phone) {
@@ -10966,12 +10722,151 @@ fun UserProfileScreen(viewModel: MainViewModel) {
                     }
                 }
 
+                // 1.5 DONOR MY ACCOUNT OPTION
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showDonorMyAccountDialog = true },
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+                    border = BorderStroke(1.5.dp, Color(0xFFD32F2F)),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(Color(0xFFD32F2F), RoundedCornerShape(12.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Bloodtype,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = if (language == AppLanguage.BAN) "🩸 ডোনার মাই একাউন্ট (Donor My Account)" else "🩸 Donor My Account",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFB71C1C)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Surface(
+                                    color = Color(0xFFFFCDD2),
+                                    shape = RoundedCornerShape(4.dp)
+                                ) {
+                                    Text(
+                                        text = finalUser.bloodGroup.ifBlank { "A+" },
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFB71C1C),
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = if (language == AppLanguage.BAN) "প্রোফাইল, ডোনেশন স্ট্যাটাস, রক্তদান ইতিহাস, রিকুয়েস্ট, লোকেশন, ব্যাজ, ডোনার কার্ড ও প্রাইভেসি।"
+                                else "Profile, donation status, donation history, requests, location, badges, card & privacy.",
+                                fontSize = 11.sp,
+                                color = DarkText.copy(alpha = 0.8f),
+                                lineHeight = 15.sp
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Surface(
+                                color = Color(0xFFD32F2F),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = if (language == AppLanguage.BAN) "ডোনার মাই একাউন্টে প্রবেশ করুন ➔" else "Open Donor My Account ➔",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // 1.6 BLOOD RECIPIENT / SEEKER MY ACCOUNT OPTION
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showRecipientMyAccountDialog = true },
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
+                    border = BorderStroke(1.5.dp, Color(0xFFE65100)),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(Color(0xFFE65100), RoundedCornerShape(12.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.VolunteerActivism,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = if (language == AppLanguage.BAN) "🩸 গ্রহীতা / পেশেন্ট মাই একাউন্ট (Recipient My Account)" else "🩸 Blood Recipient My Account",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFE65100)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = if (language == AppLanguage.BAN) "ব্লাড রিকুয়েস্ট, নতুন রিকুয়েস্ট পোস্ট, ডোনার সার্চ, কাছে থাকা ডোনার, সেভকৃত ডোনার, হিস্ট্রি ও অ্যাম্বুলেন্স।"
+                                else "Blood requests, create request, donor search, nearby donors, saved donors, history & ambulance.",
+                                fontSize = 11.sp,
+                                color = DarkText.copy(alpha = 0.8f),
+                                lineHeight = 15.sp
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Surface(
+                                color = Color(0xFFE65100),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = if (language == AppLanguage.BAN) "গ্রহীতা মাই একাউন্টে প্রবেশ করুন ➔" else "Open Recipient My Account ➔",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
                 // 2. DOCTOR DETAILS MANAGEMENT OPTION (Only for Doctor role or general accounts)
                 if (showDoctorPanel) {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { showAddDoctorDialog = true },
+                            .clickable { showDoctorMyAccountDialog = true },
                         colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
                         border = BorderStroke(1.5.dp, Color(0xFF2E7D32)),
                         shape = RoundedCornerShape(16.dp)
@@ -10997,7 +10892,7 @@ fun UserProfileScreen(viewModel: MainViewModel) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
-                                        text = if (language == AppLanguage.BAN) "👨‍⚕️ ডাক্তার ডিটেইলস & চেম্বার প্যানেল" else "👨‍⚕️ Doctor Details & Chamber",
+                                        text = if (language == AppLanguage.BAN) "👨‍⚕️ ডাক্তার মাই একাউন্ট (Doctor My Account)" else "👨‍⚕️ Doctor My Account",
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color(0xFF1B5E20)
@@ -11020,8 +10915,8 @@ fun UserProfileScreen(viewModel: MainViewModel) {
                                 }
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = if (language == AppLanguage.BAN) "ডাক্তারের নাম, ডিগ্রী, বিশেষজ্ঞতা, চেম্বার, দেখার সময়সূচী ও ফি বিস্তারিত যোগ/আপডেট করুন।"
-                                    else "Add/update doctor name, degrees, specialty, chamber address, visiting hours, & fee.",
+                                    text = if (language == AppLanguage.BAN) "প্রোফাইল, অ্যাপয়েন্টমেন্টস, কমিশন স্ট্যাটাস, চেম্বার, সময়সূচী, রোগী ও প্রেসক্রিপশন সম্পূর্ণ প্যানেল।"
+                                    else "Profile, appointments, commission status, chamber, schedule, patients, & prescriptions panel.",
                                     fontSize = 11.sp,
                                     color = DarkText.copy(alpha = 0.8f),
                                     lineHeight = 15.sp
@@ -11032,7 +10927,7 @@ fun UserProfileScreen(viewModel: MainViewModel) {
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
                                     Text(
-                                        text = if (language == AppLanguage.BAN) "ডাক্তার ইনফরমেশন এড / আপডেট করুন ➔" else "Add / Edit Doctor Info ➔",
+                                        text = if (language == AppLanguage.BAN) "ডাক্তার মাই একাউন্ট প্যানেলে প্রবেশ করুন ➔" else "Open Doctor My Account ➔",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color.White,
@@ -11053,18 +10948,242 @@ fun UserProfileScreen(viewModel: MainViewModel) {
             modifier = Modifier.fillMaxWidth().testTag("wallet_balance_card"),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Row 1
+            // Section Header: স্বাস্থ্য সেবা & বুকিং (Healthcare & Bookings)
+            Text(
+                text = if (language == AppLanguage.BAN) "স্বাস্থ্য সেবা & বুকিং" else "Healthcare & Bookings",
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = Color(0xFF1565C0),
+                modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
+            )
+
+            // Row 1: Health Card, Bookings, Doctors
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Box(modifier = Modifier.weight(1f)) {
                     DashboardCard(
-                        title = if (language == AppLanguage.BAN) "বুকিং সমূহ" else "Orders",
-                        icon = Icons.Default.AirportShuttle,
-                        backgroundColor = Color(0xFFBDC27E),
+                        title = if (language == AppLanguage.BAN) "ডিজিটাল কার্ড" else "Health Card",
+                        icon = Icons.Default.CreditCard,
+                        backgroundColor = Color(0xFF1976D2),
+                        badgeText = "Pro",
+                        onClick = { showHealthCardDialog = true }
+                    )
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    DashboardCard(
+                        title = if (language == AppLanguage.BAN) "আমার বুকিং" else "My Bookings",
+                        icon = Icons.Default.CalendarMonth,
+                        backgroundColor = Color(0xFF2E7D32),
                         badgeText = if (userBookingsCount > 0) userBookingsCount.toString() else "3",
-                        onClick = { viewModel.navigateTo(AppScreen.AMBULANCE_BOOKINGS) }
+                        onClick = { showBookingsDialog = true }
+                    )
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    DashboardCard(
+                        title = if (language == AppLanguage.BAN) "প্রিয় ডাক্তার" else "Fav Doctors",
+                        icon = Icons.Default.MedicalServices,
+                        backgroundColor = Color(0xFF00838F),
+                        badgeText = "2",
+                        onClick = { showFavoriteDoctorsDialog = true }
+                    )
+                }
+            }
+
+            // Row 2: Hospitals, Add Hospital, Family
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(modifier = Modifier.weight(1f)) {
+                    DashboardCard(
+                        title = if (language == AppLanguage.BAN) "আমার হাসপাতাল" else "My Hospitals",
+                        icon = Icons.Default.LocalHospital,
+                        backgroundColor = Color(0xFF1565C0),
+                        badgeText = "2",
+                        onClick = { showMyHospitalsDialog = true }
+                    )
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    DashboardCard(
+                        title = if (language == AppLanguage.BAN) "হাসপাতাল যুক্ত" else "Add Hospital",
+                        icon = Icons.Default.AddBusiness,
+                        backgroundColor = Color(0xFFED6C02),
+                        onClick = { showAddSuggestHospitalDialog = true }
+                    )
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    DashboardCard(
+                        title = if (language == AppLanguage.BAN) "পরিবার" else "Family",
+                        icon = Icons.Default.FamilyRestroom,
+                        backgroundColor = Color(0xFF388E3C),
+                        badgeText = "2",
+                        onClick = { showFamilyMembersDialog = true }
+                    )
+                }
+            }
+
+            // Section Header: রিপোর্টস, রেকর্ডস & ওয়ালেট
+            Text(
+                text = if (language == AppLanguage.BAN) "মেডিকেল রেকর্ডস, ওয়ালেট & পেমেন্ট" else "Records, Wallet & Payments",
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = Color(0xFF673AB7),
+                modifier = Modifier.padding(top = 6.dp, bottom = 2.dp)
+            )
+
+            // Row 3: Medical Records, Reports, Orders
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(modifier = Modifier.weight(1f)) {
+                    DashboardCard(
+                        title = if (language == AppLanguage.BAN) "রেকর্ডস" else "Records",
+                        icon = Icons.Default.FolderSpecial,
+                        backgroundColor = Color(0xFF673AB7),
+                        badgeText = "3",
+                        onClick = { showMedicalRecordsDialog = true }
+                    )
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    DashboardCard(
+                        title = if (language == AppLanguage.BAN) "টেস্ট রিপোর্ট" else "Test Reports",
+                        icon = Icons.Default.Biotech,
+                        backgroundColor = Color(0xFF0097A7),
+                        badgeText = "4",
+                        onClick = { showMyReportsDialog = true }
+                    )
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    DashboardCard(
+                        title = if (language == AppLanguage.BAN) "মেডিসিন অর্ডার" else "Pharmacy",
+                        icon = Icons.Default.Medication,
+                        backgroundColor = Color(0xFFD32F2F),
+                        badgeText = "1",
+                        onClick = { showMyOrdersDialog = true }
+                    )
+                }
+            }
+
+            // Row 4: My Payments, Wallet, Notifications
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(modifier = Modifier.weight(1f)) {
+                    DashboardCard(
+                        title = if (language == AppLanguage.BAN) "পেমেন্ট & ইনভয়েস" else "My Payments",
+                        icon = Icons.Default.ReceiptLong,
+                        backgroundColor = Color(0xFF2E7D32),
+                        onClick = { showMyPaymentsDialog = true }
+                    )
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    DashboardCard(
+                        title = if (language == AppLanguage.BAN) "আমার ওয়ালেট" else "My Wallet",
+                        icon = Icons.Default.AccountBalanceWallet,
+                        backgroundColor = Color(0xFFC38B86),
+                        badgeText = "${finalUser.walletBalance.toInt()}৳",
+                        onClick = { showAddBalanceDialog = true }
+                    )
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    DashboardCard(
+                        title = if (language == AppLanguage.BAN) "নোটিফিকেশন" else "Alerts",
+                        icon = Icons.Default.Notifications,
+                        backgroundColor = Color(0xFFE53935),
+                        badgeText = "3",
+                        onClick = { showNotificationsCenterDialog = true }
+                    )
+                }
+            }
+
+            // Section Header: সুবিধা, শেয়ার & অ্যাকাউন্ট সেটিংস
+            Text(
+                text = if (language == AppLanguage.BAN) "অফার, সাপোর্ট & সেটিংস" else "Offers, Support & Settings",
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = Color(0xFF0288D1),
+                modifier = Modifier.padding(top = 6.dp, bottom = 2.dp)
+            )
+
+            // Row 5: My Reviews, Referral, Support
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(modifier = Modifier.weight(1f)) {
+                    DashboardCard(
+                        title = if (language == AppLanguage.BAN) "আমার রিভিউ" else "My Reviews",
+                        icon = Icons.Default.RateReview,
+                        backgroundColor = Color(0xFFF57C00),
+                        onClick = { showMyReviewsDialog = true }
+                    )
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    DashboardCard(
+                        title = if (language == AppLanguage.BAN) "রেফার & বোনাস" else "Refer & Earn",
+                        icon = Icons.Default.Share,
+                        backgroundColor = Color(0xFF0288D1),
+                        onClick = { showReferralDialog = true }
+                    )
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    DashboardCard(
+                        title = if (language == AppLanguage.BAN) "হেল্প & সাপোর্ট" else "Help Support",
+                        icon = Icons.Default.SupportAgent,
+                        backgroundColor = Color(0xFF1565C0),
+                        onClick = { showSupportDialog = true }
+                    )
+                }
+            }
+
+            // Row 6: Edit Profile, App Settings, Donation History
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(modifier = Modifier.weight(1f)) {
+                    DashboardCard(
+                        title = if (language == AppLanguage.BAN) "প্রোফাইল পরিবর্তন" else "Edit Profile",
+                        icon = Icons.Default.Person,
+                        backgroundColor = Color(0xFF5C6BC0),
+                        onClick = { showEditProfileFields = !showEditProfileFields }
+                    )
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    DashboardCard(
+                        title = if (language == AppLanguage.BAN) "অ্যাপ সেটিংস" else "Settings",
+                        icon = Icons.Default.Settings,
+                        backgroundColor = Color(0xFF78909C),
+                        onClick = { showSettingsDialog = true }
+                    )
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    DashboardCard(
+                        title = if (language == AppLanguage.BAN) "রক্তদানের ইতিহাস" else "Donation History",
+                        icon = Icons.Default.VolunteerActivism,
+                        backgroundColor = Color(0xFFE57373),
+                        badgeText = "${finalUser.donationCount}",
+                        onClick = { showDonationHistoryDialog = true }
+                    )
+                }
+            }
+
+            // Row 7: Coupons, Points, Logout
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(modifier = Modifier.weight(1f)) {
+                    DashboardCard(
+                        title = if (language == AppLanguage.BAN) "আমার কুপন" else "My Coupons",
+                        icon = Icons.Default.ConfirmationNumber,
+                        backgroundColor = Color(0xFF8D6E63),
+                        badgeText = "3",
+                        onClick = { showCouponsDialog = true }
                     )
                 }
                 Box(modifier = Modifier.weight(1f)) {
@@ -11075,84 +11194,6 @@ fun UserProfileScreen(viewModel: MainViewModel) {
                         badgeText = if (finalUser.donationCount > 0) (finalUser.donationCount * 100).toString() else "0",
                         onClick = { showPointsDialog = true }
                     )
-                }
-                Box(modifier = Modifier.weight(1f)) {
-                    DashboardCard(
-                        title = if (language == AppLanguage.BAN) "আমার কুপন" else "My Coupons",
-                        icon = Icons.Default.ConfirmationNumber,
-                        backgroundColor = Color(0xFFEFF5D4),
-                        badgeText = "3",
-                        onClick = { showCouponsDialog = true }
-                    )
-                }
-            }
-
-            // Row 2
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Box(modifier = Modifier.weight(1f)) {
-                    DashboardCard(
-                        title = if (language == AppLanguage.BAN) "প্রোফাইল পরিবর্তন" else "Auctions Setting",
-                        icon = Icons.Default.Settings,
-                        backgroundColor = Color(0xFF9EBEF3),
-                        onClick = { showEditProfileFields = !showEditProfileFields }
-                    )
-                }
-                Box(modifier = Modifier.weight(1f)) {
-                    DashboardCard(
-                        title = if (language == AppLanguage.BAN) "আমার রিকোয়েস্ট" else "My Auctions",
-                        icon = Icons.Default.Favorite,
-                        backgroundColor = Color(0xFFA9EFA3),
-                        badgeText = if (userRequestsCount > 0) userRequestsCount.toString() else "1",
-                        onClick = { viewModel.navigateTo(AppScreen.EMERGENCY_REQUESTS) }
-                    )
-                }
-                Box(modifier = Modifier.weight(1f)) {
-                    DashboardCard(
-                        title = if (language == AppLanguage.BAN) "ডোনার খুঁজুন" else "My Watchlist",
-                        icon = Icons.Default.Search,
-                        backgroundColor = Color(0xFFF7E2A9),
-                        onClick = { viewModel.navigateTo(AppScreen.SEARCH_DONOR) }
-                    )
-                }
-            }
-
-            // Row 3
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Box(modifier = Modifier.weight(1f)) {
-                    DashboardCard(
-                        title = if (language == AppLanguage.BAN) "রক্তদানের ইতিহাস" else "Donation History",
-                        icon = Icons.Default.VolunteerActivism,
-                        backgroundColor = Color(0xFFE57373),
-                        badgeText = "${finalUser.donationCount}",
-                        onClick = { showDonationHistoryDialog = true }
-                    )
-                }
-                if (isAmbulanceUser) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        DashboardCard(
-                            title = if (language == AppLanguage.BAN) "আমার ওয়ালেট" else "My Wallet",
-                            icon = Icons.Default.AccountBalanceWallet,
-                            backgroundColor = Color(0xFFC38B86),
-                            badgeText = "${finalUser.walletBalance.toInt()}৳",
-                            onClick = { showAddBalanceDialog = true }
-                        )
-                    }
-                } else {
-                    Box(modifier = Modifier.weight(1f)) {
-                        DashboardCard(
-                            title = if (language == AppLanguage.BAN) "প্রিয় তালিকা" else "Wishlist",
-                            icon = Icons.Default.FavoriteBorder,
-                            backgroundColor = Color(0xFF9EEB9F),
-                            badgeText = "2",
-                            onClick = { showWishlistDialog = true }
-                        )
-                    }
                 }
                 Box(modifier = Modifier.weight(1f)) {
                     DashboardCard(
@@ -11381,6 +11422,33 @@ fun UserProfileScreen(viewModel: MainViewModel) {
                         Text(if (language == AppLanguage.BAN) "বাতিল" else "Cancel")
                     }
                 }
+            )
+        }
+
+        if (showDoctorMyAccountDialog) {
+            DoctorMyAccountDialog(
+                user = finalUser,
+                viewModel = viewModel,
+                language = language,
+                onDismiss = { showDoctorMyAccountDialog = false }
+            )
+        }
+
+        if (showDonorMyAccountDialog) {
+            DonorMyAccountDialog(
+                user = finalUser,
+                viewModel = viewModel,
+                language = language,
+                onDismiss = { showDonorMyAccountDialog = false }
+            )
+        }
+
+        if (showRecipientMyAccountDialog) {
+            RecipientMyAccountDialog(
+                user = finalUser,
+                viewModel = viewModel,
+                language = language,
+                onDismiss = { showRecipientMyAccountDialog = false }
             )
         }
 
@@ -11955,6 +12023,116 @@ fun UserProfileScreen(viewModel: MainViewModel) {
                         Text(if (language == AppLanguage.BAN) "বাতিল" else "Cancel")
                     }
                 }
+            )
+        }
+
+        // EXPANDED MY ACCOUNT DIALOGS
+        if (showHealthCardDialog) {
+            DigitalHealthCardDialog(
+                user = finalUser,
+                language = language,
+                onDismiss = { showHealthCardDialog = false }
+            )
+        }
+
+        if (showFamilyMembersDialog) {
+            FamilyMembersDialog(
+                language = language,
+                onDismiss = { showFamilyMembersDialog = false }
+            )
+        }
+
+        if (showBookingsDialog) {
+            BookingsAndAppointmentsDialog(
+                language = language,
+                onDismiss = { showBookingsDialog = false }
+            )
+        }
+
+        if (showAddSuggestHospitalDialog) {
+            SuggestAddHospitalDialog(
+                language = language,
+                onDismiss = { showAddSuggestHospitalDialog = false }
+            )
+        }
+
+        if (showMyHospitalsDialog) {
+            MyHospitalsDialog(
+                language = language,
+                onDismiss = { showMyHospitalsDialog = false },
+                onSuggestNew = { showAddSuggestHospitalDialog = true }
+            )
+        }
+
+        if (showMyPaymentsDialog) {
+            MyPaymentsDialog(
+                language = language,
+                onDismiss = { showMyPaymentsDialog = false }
+            )
+        }
+
+        if (showMedicalRecordsDialog) {
+            MedicalRecordsDialog(
+                language = language,
+                onDismiss = { showMedicalRecordsDialog = false }
+            )
+        }
+
+        if (showFavoriteDoctorsDialog) {
+            FavoriteDoctorsDialog(
+                language = language,
+                onDismiss = { showFavoriteDoctorsDialog = false }
+            )
+        }
+
+        if (showMyReportsDialog) {
+            MyReportsDialog(
+                language = language,
+                onDismiss = { showMyReportsDialog = false }
+            )
+        }
+
+        if (showMyOrdersDialog) {
+            MyOrdersDialog(
+                language = language,
+                onDismiss = { showMyOrdersDialog = false }
+            )
+        }
+
+        if (showMyReviewsDialog) {
+            MyReviewsDialog(
+                language = language,
+                onDismiss = { showMyReviewsDialog = false }
+            )
+        }
+
+        if (showReferralDialog) {
+            ReferralDialog(
+                user = finalUser,
+                language = language,
+                onDismiss = { showReferralDialog = false }
+            )
+        }
+
+        if (showNotificationsCenterDialog) {
+            NotificationsCenterDialog(
+                language = language,
+                onDismiss = { showNotificationsCenterDialog = false }
+            )
+        }
+
+        if (showSupportDialog) {
+            MessagesSupportDialog(
+                language = language,
+                onDismiss = { showSupportDialog = false }
+            )
+        }
+
+        if (showSettingsDialog) {
+            SettingsAndSecurityDialog(
+                viewModel = viewModel,
+                language = language,
+                onDismiss = { showSettingsDialog = false }
             )
         }
 
@@ -12560,6 +12738,7 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
         Triple("REPORTS", if (language == AppLanguage.ENG) "Fraud Reports" else "প্রতারণা রিপোর্ট", Icons.Default.Warning),
         Triple("V9_SUBSCRIPTIONS", if (language == AppLanguage.ENG) "Subscribers" else "গ্রাহক সাবস্ক্রিপশন", Icons.Default.Star),
         Triple("ADS_BANNER", if (language == AppLanguage.ENG) "Ads Banner" else "অ্যাডস ব্যানার (Ads Banner)", Icons.Default.Campaign),
+        Triple("VIDEO_ADS", if (language == AppLanguage.ENG) "Video Ads & Advertisers" else "ভিডিও বিজ্ঞাপন ও এডভারটাইজার", Icons.Default.Videocam),
         Triple("SETTINGS", if (language == AppLanguage.ENG) "App Settings" else "অ্যাপ সেটিংস", Icons.Default.Settings)
     )
 
@@ -14148,6 +14327,9 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                                 }
                                 "ADS_BANNER" -> {
                                     AdminAdsBannerTab(viewModel = viewModel, language = language)
+                                }
+                                "VIDEO_ADS" -> {
+                                    AdminVideoAdsTab(viewModel = viewModel, language = language)
                                 }
                                 "HOSPITALS" -> {
                                     AdminHospitalsTab(viewModel = viewModel, language = language)

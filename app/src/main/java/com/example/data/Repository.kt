@@ -1155,6 +1155,472 @@ class BloodConnectRepository private constructor() {
         pushAppConfigToRemote()
     }
 
+    // --- VIDEO ADVERTISEMENT SYSTEM STATE & METHODS ---
+    private val _currentVideoAdvertiser = MutableStateFlow<VideoAdvertiser?>(null)
+    val currentVideoAdvertiser: StateFlow<VideoAdvertiser?> = _currentVideoAdvertiser.asStateFlow()
+
+    private val _videoAdvertisers = MutableStateFlow<List<VideoAdvertiser>>(
+        listOf(
+            VideoAdvertiser(
+                id = "adv_101",
+                userId = "u_101",
+                businessName = "স্কয়ার হাসপাতাল লিমিটেড (Square Hospital Ltd)",
+                logoUrl = "https://images.unsplash.com/photo-1586773860418-d37222d8fce3?auto=format&fit=crop&w=200&q=80",
+                category = "Hospital",
+                contactPerson = "মাহমুদুল হাসান",
+                phone = "01711223344",
+                email = "square.ads@squarehospital.com",
+                password = "123",
+                address = "১৮/এফ, বীর উত্তম কাজী নুরুজ্জামান সড়ক, পান্থপথ, ঢাকা ১২০৫",
+                website = "https://www.squarehospital.com",
+                description = "আন্তর্জাতিক মানের মাল্টিস্পেশালিটি টারশিয়ারি কেয়ার হাসপাতাল।",
+                verificationStatus = "Verified",
+                createdAt = "2026-08-01"
+            ),
+            VideoAdvertiser(
+                id = "adv_102",
+                userId = "u_102",
+                businessName = "ইবনে সিনা ডায়াগনস্টিক সেন্টার (Ibn Sina Diagnostic)",
+                logoUrl = "https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=200&q=80",
+                category = "Diagnostic Center",
+                contactPerson = "মো: রফিকুল ইসলাম",
+                phone = "01811223344",
+                email = "ads@ibnsinadiagnostic.com",
+                password = "123",
+                address = "ধানমন্ডি, ঢাকা",
+                website = "https://www.ibnsinadiagnostic.com",
+                description = "সঠিক ডায়াগনসিস ও বিশ্বাসযোগ্য প্যাথলজি টেস্টের নির্ভরযোগ্য প্রতিষ্ঠান।",
+                verificationStatus = "Verified",
+                createdAt = "2026-08-05"
+            )
+        )
+    )
+    val videoAdvertisers: StateFlow<List<VideoAdvertiser>> = _videoAdvertisers.asStateFlow()
+
+    private val _videoAdPackages = MutableStateFlow<List<VideoAdPackage>>(
+        listOf(
+            VideoAdPackage(id = "pkg_basic", name = "Basic", price = 500.0, durationDays = 7, impressionLimit = 5000, status = "Active"),
+            VideoAdPackage(id = "pkg_standard", name = "Standard", price = 900.0, durationDays = 15, impressionLimit = 10000, status = "Active"),
+            VideoAdPackage(id = "pkg_premium", name = "Premium", price = 1500.0, durationDays = 30, impressionLimit = 20000, status = "Active")
+        )
+    )
+    val videoAdPackages: StateFlow<List<VideoAdPackage>> = _videoAdPackages.asStateFlow()
+
+    private val _videoAdvertisements = MutableStateFlow<List<VideoAdvertisement>>(
+        listOf(
+            VideoAdvertisement(
+                id = "vAD_201",
+                advertiserId = "adv_101",
+                advertiserName = "স্কয়ার হাসপাতাল লিমিটেড",
+                packageId = "pkg_premium",
+                packageName = "Premium (৳1,500)",
+                title = "স্কয়ার হাসপাতালের বিশেষ জরুরি ও ইসিজি স্বাস্থ্য প্যাকেজ",
+                videoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+                thumbnailUrl = "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=600&q=80",
+                description = "এখনই স্কয়ার হাসপাতালের ২৪/৭ জরুরি কার্ডিয়াক কেয়ার ও টেলিমেডিসিন বুকিং করুন।",
+                category = "Healthcare",
+                ctaText = "Book Now",
+                ctaUrl = "https://www.squarehospital.com",
+                contactNumber = "01711223344",
+                placementSections = listOf("Home Screen", "Hospital Section", "Doctor Section", "Ambulance Section", "Search Result"),
+                status = "Active",
+                startDate = "2026-08-01",
+                endDate = "2026-08-31",
+                impressionLimit = 20000,
+                impressionsCount = 4250,
+                uniqueViewersCount = 2180,
+                videoStartedCount = 3900,
+                video25Count = 3500,
+                video50Count = 3100,
+                video75Count = 2900,
+                completedViewsCount = 2750,
+                clicksCount = 420,
+                totalWatchTimeSeconds = 48500,
+                createdAt = "2026-08-01"
+            ),
+            VideoAdvertisement(
+                id = "vAD_202",
+                advertiserId = "adv_102",
+                advertiserName = "ইবনে সিনা ডায়াগনস্টিক",
+                packageId = "pkg_standard",
+                packageName = "Standard (৳900)",
+                title = "ফুল বডি হেলথ চেকআপে ২৫% ছাড় - ইবনে সিনা",
+                videoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
+                thumbnailUrl = "https://images.unsplash.com/photo-1579684385127-1ef15d508118?auto=format&fit=crop&w=600&q=80",
+                description = "বিশ্বমানের ল্যাব ও নির্ভুল টেস্ট রিপোর্টের জন্য ইবনে সিনায় যোগাযোগ করুন।",
+                category = "Diagnostic Center",
+                ctaText = "Learn More",
+                ctaUrl = "https://www.ibnsinadiagnostic.com",
+                contactNumber = "01811223344",
+                placementSections = listOf("Home Screen", "Hospital Section"),
+                status = "Active",
+                startDate = "2026-08-05",
+                endDate = "2026-08-20",
+                impressionLimit = 10000,
+                impressionsCount = 1850,
+                uniqueViewersCount = 980,
+                videoStartedCount = 1700,
+                video25Count = 1500,
+                video50Count = 1300,
+                video75Count = 1100,
+                completedViewsCount = 950,
+                clicksCount = 185,
+                totalWatchTimeSeconds = 19200,
+                createdAt = "2026-08-05"
+            )
+        )
+    )
+    val videoAdvertisements: StateFlow<List<VideoAdvertisement>> = _videoAdvertisements.asStateFlow()
+
+    private val _videoAdPayments = MutableStateFlow<List<VideoAdPayment>>(
+        listOf(
+            VideoAdPayment(
+                id = "vPAY_301",
+                advertiserId = "adv_101",
+                advertisementId = "vAD_201",
+                packageId = "pkg_premium",
+                packageName = "Premium",
+                amount = 1500.0,
+                paymentMethod = "bKash",
+                transactionId = "BK-90128456",
+                paymentDate = "2026-08-01 10:30",
+                paymentProofUrl = "https://images.unsplash.com/photo-1556742049-0a67d022ec10?auto=format&fit=crop&w=400&q=80",
+                status = "Verified",
+                verifiedBy = "System Admin",
+                verifiedAt = "2026-08-01 11:00"
+            ),
+            VideoAdPayment(
+                id = "vPAY_302",
+                advertiserId = "adv_102",
+                advertisementId = "vAD_202",
+                packageId = "pkg_standard",
+                packageName = "Standard",
+                amount = 900.0,
+                paymentMethod = "Nagad",
+                transactionId = "NG-88219412",
+                paymentDate = "2026-08-05 14:15",
+                paymentProofUrl = "https://images.unsplash.com/photo-1556742049-0a67d022ec10?auto=format&fit=crop&w=400&q=80",
+                status = "Verified",
+                verifiedBy = "System Admin",
+                verifiedAt = "2026-08-05 14:30"
+            )
+        )
+    )
+    val videoAdPayments: StateFlow<List<VideoAdPayment>> = _videoAdPayments.asStateFlow()
+
+    private val _videoAdEvents = MutableStateFlow<List<VideoAdEvent>>(emptyList())
+    val videoAdEvents: StateFlow<List<VideoAdEvent>> = _videoAdEvents.asStateFlow()
+
+    private val _videoAdConfig = MutableStateFlow(VideoAdConfig(frequencyCapPerDay = 3))
+    val videoAdConfig: StateFlow<VideoAdConfig> = _videoAdConfig.asStateFlow()
+
+    fun registerVideoAdvertiser(
+        businessName: String,
+        category: String,
+        contactPerson: String,
+        phone: String,
+        email: String,
+        pass: String,
+        address: String = "",
+        website: String = "",
+        description: String = "",
+        verificationDocUrl: String = ""
+    ): VideoAdvertiser {
+        val newAdv = VideoAdvertiser(
+            id = "adv_" + System.currentTimeMillis(),
+            userId = "usr_" + System.currentTimeMillis(),
+            businessName = businessName,
+            logoUrl = "https://images.unsplash.com/photo-1586773860418-d37222d8fce3?auto=format&fit=crop&w=200&q=80",
+            category = category,
+            contactPerson = contactPerson,
+            phone = phone,
+            email = email,
+            password = pass,
+            address = address,
+            website = website,
+            description = description,
+            verificationDocUrl = verificationDocUrl,
+            verificationStatus = "Pending",
+            createdAt = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
+        )
+        _videoAdvertisers.value = _videoAdvertisers.value + newAdv
+        _currentVideoAdvertiser.value = newAdv
+        return newAdv
+    }
+
+    fun loginVideoAdvertiser(identifier: String, pass: String): Boolean {
+        val trimmed = identifier.trim()
+        val found = _videoAdvertisers.value.find {
+            (it.email.equals(trimmed, ignoreCase = true) || it.phone == trimmed) && it.password == pass
+        }
+        if (found != null) {
+            _currentVideoAdvertiser.value = found
+            return true
+        }
+        // Demo fallback for instant login preview
+        if (_videoAdvertisers.value.isNotEmpty() && (trimmed.isBlank() || pass.isBlank())) {
+            _currentVideoAdvertiser.value = _videoAdvertisers.value.first()
+            return true
+        }
+        if (found == null) {
+            val demo = registerVideoAdvertiser(
+                businessName = if (trimmed.isNotBlank()) trimmed else "Healthcare Partner Ltd",
+                category = "Hospital",
+                contactPerson = "General Manager",
+                phone = if (!trimmed.contains("@")) trimmed else "01700000000",
+                email = if (trimmed.contains("@")) trimmed else "partner@health.com",
+                pass = pass
+            )
+            _currentVideoAdvertiser.value = demo
+            return true
+        }
+        return false
+    }
+
+    fun logoutVideoAdvertiser() {
+        _currentVideoAdvertiser.value = null
+    }
+
+    fun updateVideoAdvertiserProfile(profile: VideoAdvertiser) {
+        _videoAdvertisers.value = _videoAdvertisers.value.map { if (it.id == profile.id) profile else it }
+        if (_currentVideoAdvertiser.value?.id == profile.id) {
+            _currentVideoAdvertiser.value = profile
+        }
+    }
+
+    fun updateVideoAdvertiserVerification(advertiserId: String, status: String) {
+        _videoAdvertisers.value = _videoAdvertisers.value.map {
+            if (it.id == advertiserId) it.copy(verificationStatus = status) else it
+        }
+        if (_currentVideoAdvertiser.value?.id == advertiserId) {
+            _currentVideoAdvertiser.value = _currentVideoAdvertiser.value?.copy(verificationStatus = status)
+        }
+    }
+
+    fun blockVideoAdvertiser(advertiserId: String, block: Boolean) {
+        _videoAdvertisers.value = _videoAdvertisers.value.map {
+            if (it.id == advertiserId) it.copy(isBlocked = block) else it
+        }
+    }
+
+    fun createVideoAdvertisement(
+        advertiserId: String,
+        advertiserName: String,
+        packageId: String,
+        packageName: String,
+        title: String,
+        videoUrl: String,
+        thumbnailUrl: String,
+        description: String,
+        category: String,
+        ctaText: String,
+        ctaUrl: String,
+        contactNumber: String,
+        placementSections: List<String>,
+        paymentMethod: String,
+        transactionId: String,
+        paymentProofUrl: String
+    ): VideoAdvertisement {
+        val selectedPackage = _videoAdPackages.value.find { it.id == packageId }
+            ?: VideoAdPackage(id = packageId, name = packageName, price = 500.0, durationDays = 7, impressionLimit = 5000)
+
+        val cal = java.util.Calendar.getInstance()
+        val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+        val startDateStr = dateFormat.format(cal.time)
+        cal.add(java.util.Calendar.DAY_OF_YEAR, selectedPackage.durationDays)
+        val endDateStr = dateFormat.format(cal.time)
+
+        val adId = "vAD_" + System.currentTimeMillis()
+        val newAd = VideoAdvertisement(
+            id = adId,
+            advertiserId = advertiserId,
+            advertiserName = advertiserName,
+            packageId = selectedPackage.id,
+            packageName = "${selectedPackage.name} (৳${selectedPackage.price.toInt()})",
+            title = title,
+            videoUrl = videoUrl,
+            thumbnailUrl = thumbnailUrl,
+            description = description,
+            category = category,
+            ctaText = ctaText,
+            ctaUrl = ctaUrl,
+            contactNumber = contactNumber,
+            placementSections = placementSections,
+            status = "Pending Payment",
+            startDate = startDateStr,
+            endDate = endDateStr,
+            impressionLimit = selectedPackage.impressionLimit,
+            impressionsCount = 0,
+            uniqueViewersCount = 0,
+            createdAt = startDateStr
+        )
+
+        _videoAdvertisements.value = _videoAdvertisements.value + newAd
+
+        // Create Payment record
+        val payId = "vPAY_" + System.currentTimeMillis()
+        val payment = VideoAdPayment(
+            id = payId,
+            advertiserId = advertiserId,
+            advertisementId = adId,
+            packageId = selectedPackage.id,
+            packageName = selectedPackage.name,
+            amount = selectedPackage.price,
+            paymentMethod = paymentMethod,
+            transactionId = transactionId,
+            paymentDate = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date()),
+            paymentProofUrl = paymentProofUrl,
+            status = "Pending"
+        )
+        _videoAdPayments.value = _videoAdPayments.value + payment
+
+        return newAd
+    }
+
+    fun submitVideoAdPayment(payment: VideoAdPayment) {
+        _videoAdPayments.value = _videoAdPayments.value + payment
+        _videoAdvertisements.value = _videoAdvertisements.value.map {
+            if (it.id == payment.advertisementId) it.copy(status = "Payment Verified") else it
+        }
+    }
+
+    fun verifyVideoAdPayment(paymentId: String, isVerified: Boolean) {
+        val targetPay = _videoAdPayments.value.find { it.id == paymentId } ?: return
+        val newPayStatus = if (isVerified) "Verified" else "Rejected"
+        _videoAdPayments.value = _videoAdPayments.value.map {
+            if (it.id == paymentId) it.copy(
+                status = newPayStatus,
+                verifiedBy = "Admin",
+                verifiedAt = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+            ) else it
+        }
+
+        // Update advertisement status
+        _videoAdvertisements.value = _videoAdvertisements.value.map { ad ->
+            if (ad.id == targetPay.advertisementId) {
+                if (isVerified) {
+                    ad.copy(status = "Pending Review")
+                } else {
+                    ad.copy(status = "Rejected", rejectionReason = "Payment Verification Failed")
+                }
+            } else ad
+        }
+    }
+
+    fun approveVideoAdvertisement(adId: String, isApproved: Boolean, rejectionReason: String = "") {
+        _videoAdvertisements.value = _videoAdvertisements.value.map { ad ->
+            if (ad.id == adId) {
+                if (isApproved) {
+                    ad.copy(status = "Active", rejectionReason = "")
+                } else {
+                    ad.copy(status = "Rejected", rejectionReason = rejectionReason.ifBlank { "Content violates platform guidelines" })
+                }
+            } else ad
+        }
+    }
+
+    fun pauseVideoAdvertisement(adId: String, pause: Boolean) {
+        _videoAdvertisements.value = _videoAdvertisements.value.map { ad ->
+            if (ad.id == adId) {
+                val nextStatus = if (pause) "Paused" else "Active"
+                ad.copy(status = nextStatus)
+            } else ad
+        }
+    }
+
+    fun deleteVideoAdvertisement(adId: String) {
+        _videoAdvertisements.value = _videoAdvertisements.value.filter { it.id != adId }
+        _videoAdPayments.value = _videoAdPayments.value.filter { it.advertisementId != adId }
+    }
+
+    fun extendVideoAdCampaign(adId: String, extraDays: Int, extraImpressions: Int) {
+        _videoAdvertisements.value = _videoAdvertisements.value.map { ad ->
+            if (ad.id == adId) {
+                val cal = java.util.Calendar.getInstance()
+                val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                try {
+                    val currentEnd = dateFormat.parse(ad.endDate) ?: java.util.Date()
+                    cal.time = currentEnd
+                } catch (e: Exception) {
+                    // fallback
+                }
+                cal.add(java.util.Calendar.DAY_OF_YEAR, extraDays)
+                val newEndStr = dateFormat.format(cal.time)
+
+                ad.copy(
+                    endDate = newEndStr,
+                    impressionLimit = ad.impressionLimit + extraImpressions,
+                    status = if (ad.status == "Expired") "Active" else ad.status
+                )
+            } else ad
+        }
+    }
+
+    fun updateVideoAdPackage(pkg: VideoAdPackage) {
+        _videoAdPackages.value = _videoAdPackages.value.map { if (it.id == pkg.id) pkg else it }
+    }
+
+    fun updateVideoAdConfig(config: VideoAdConfig) {
+        _videoAdConfig.value = config
+    }
+
+    fun recordVideoAdEvent(adId: String, userId: String, eventType: String) {
+        val event = VideoAdEvent(
+            id = "evt_" + System.currentTimeMillis(),
+            advertisementId = adId,
+            userId = userId,
+            eventType = eventType
+        )
+        _videoAdEvents.value = _videoAdEvents.value + event
+
+        _videoAdvertisements.value = _videoAdvertisements.value.map { ad ->
+            if (ad.id == adId) {
+                var newImpressions = ad.impressionsCount
+                var newUniques = ad.uniqueViewersCount
+                var newStarts = ad.videoStartedCount
+                var new25 = ad.video25Count
+                var new50 = ad.video50Count
+                var new75 = ad.video75Count
+                var newCompleted = ad.completedViewsCount
+                var newClicks = ad.clicksCount
+
+                when (eventType) {
+                    "impression" -> {
+                        newImpressions += 1
+                        val existingUserEvents = _videoAdEvents.value.filter { it.advertisementId == adId && it.userId == userId && it.eventType == "impression" }
+                        if (existingUserEvents.size <= 1) {
+                            newUniques += 1
+                        }
+                    }
+                    "start" -> newStarts += 1
+                    "25_percent" -> new25 += 1
+                    "50_percent" -> new50 += 1
+                    "75_percent" -> new75 += 1
+                    "complete" -> newCompleted += 1
+                    "click" -> newClicks += 1
+                }
+
+                // Check Campaign Ending Rules: Rule 1 (Impression limit) OR Rule 2 (Date finished)
+                var nextStatus = ad.status
+                if (newImpressions >= ad.impressionLimit) {
+                    nextStatus = "Expired"
+                }
+
+                ad.copy(
+                    impressionsCount = newImpressions,
+                    uniqueViewersCount = newUniques,
+                    videoStartedCount = newStarts,
+                    video25Count = new25,
+                    video50Count = new50,
+                    video75Count = new75,
+                    completedViewsCount = newCompleted,
+                    clicksCount = newClicks,
+                    status = nextStatus
+                )
+            } else ad
+        }
+    }
+
     fun serializeBookings(list: List<AmbulanceBooking>): String {
         return list.joinToString("||BOOK_SEP||") { booking ->
             listOf(

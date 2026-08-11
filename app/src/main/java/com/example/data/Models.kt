@@ -96,6 +96,106 @@ data class CustomAdConfig(
 )
 
 @com.squareup.moshi.JsonClass(generateAdapter = true)
+data class VideoAdvertiser(
+    val id: String = "",
+    val userId: String = "",
+    val businessName: String = "",
+    val logoUrl: String = "",
+    val category: String = "Hospital", // Hospital, Diagnostic Center, Pharmacy, Corporate, E-commerce, Local Business, Other
+    val contactPerson: String = "",
+    val phone: String = "",
+    val email: String = "",
+    val password: String = "",
+    val address: String = "",
+    val website: String = "",
+    val description: String = "",
+    val verificationDocUrl: String = "",
+    val verificationStatus: String = "Pending", // Pending, Verified, Rejected
+    val isBlocked: Boolean = false,
+    val createdAt: String = ""
+)
+
+@com.squareup.moshi.JsonClass(generateAdapter = true)
+data class VideoAdPackage(
+    val id: String = "",
+    val name: String = "Basic", // Basic, Standard, Premium
+    val price: Double = 500.0,
+    val durationDays: Int = 7,
+    val impressionLimit: Int = 5000,
+    val status: String = "Active" // Active, Inactive
+)
+
+@com.squareup.moshi.JsonClass(generateAdapter = true)
+data class VideoAdvertisement(
+    val id: String = "",
+    val advertiserId: String = "",
+    val advertiserName: String = "",
+    val packageId: String = "",
+    val packageName: String = "Basic",
+    val title: String = "",
+    val videoUrl: String = "",
+    val thumbnailUrl: String = "",
+    val description: String = "",
+    val category: String = "Healthcare",
+    val ctaText: String = "Learn More", // Learn More, Call Now, Visit Website, Contact Us, Book Now
+    val ctaUrl: String = "",
+    val contactNumber: String = "",
+    val placementSections: List<String> = listOf("Home Screen", "Hospital Section", "Doctor Section"),
+    val status: String = "Pending Payment", // Pending Payment, Payment Verified, Pending Review, Approved, Active, Paused, Rejected, Expired
+    val rejectionReason: String = "",
+    val startDate: String = "",
+    val endDate: String = "",
+    val impressionLimit: Int = 5000,
+    val impressionsCount: Int = 0,
+    val uniqueViewersCount: Int = 0,
+    val videoStartedCount: Int = 0,
+    val video25Count: Int = 0,
+    val video50Count: Int = 0,
+    val video75Count: Int = 0,
+    val completedViewsCount: Int = 0,
+    val clicksCount: Int = 0,
+    val totalWatchTimeSeconds: Long = 0,
+    val createdAt: String = ""
+)
+
+@com.squareup.moshi.JsonClass(generateAdapter = true)
+data class VideoAdPayment(
+    val id: String = "",
+    val advertiserId: String = "",
+    val advertisementId: String = "",
+    val packageId: String = "",
+    val packageName: String = "",
+    val amount: Double = 0.0,
+    val paymentMethod: String = "bKash", // bKash, Nagad, Rocket, Bank
+    val transactionId: String = "",
+    val paymentDate: String = "",
+    val paymentProofUrl: String = "",
+    val status: String = "Pending", // Pending, Verified, Rejected
+    val verifiedBy: String = "",
+    val verifiedAt: String = ""
+)
+
+@com.squareup.moshi.JsonClass(generateAdapter = true)
+data class VideoAdEvent(
+    val id: String = "",
+    val advertisementId: String = "",
+    val userId: String = "",
+    val eventType: String = "impression", // impression, start, 25_percent, 50_percent, 75_percent, complete, click
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+@com.squareup.moshi.JsonClass(generateAdapter = true)
+data class VideoAdConfig(
+    val frequencyCapPerDay: Int = 3,
+    val isHomeEnabled: Boolean = true,
+    val isHospitalEnabled: Boolean = true,
+    val isDoctorEnabled: Boolean = true,
+    val isAmbulanceEnabled: Boolean = true,
+    val isNewsEnabled: Boolean = true,
+    val isSearchEnabled: Boolean = true
+)
+
+@com.squareup.moshi.JsonClass(generateAdapter = true)
 data class AdvertiserCompany(
     val id: String = "",
     val companyName: String = "",

@@ -261,15 +261,27 @@ class MainViewModel(
     val allAmbulanceBookings: StateFlow<List<AmbulanceBooking>> = repository.ambulanceBookings
 
     val donors: StateFlow<List<BloodDonor>> = combine(repository.donors, detectedCountry) { list, countryName ->
-        val filtered = list.filter {
-            it.country.isBlank() ||
-            it.country.equals(countryName, ignoreCase = true) ||
-            (countryName.equals("Bangladesh", ignoreCase = true) && it.country.equals("BD", ignoreCase = true)) ||
-            (countryName.equals("BD", ignoreCase = true) && it.country.equals("Bangladesh", ignoreCase = true)) ||
-            countryName.equals("Global", ignoreCase = true) ||
-            countryName.equals("International", ignoreCase = true)
+        list.filter { donor ->
+            val isDonorRole = donor.role.isBlank() ||
+                    donor.role.equals("Donor", ignoreCase = true) ||
+                    donor.role.equals("User", ignoreCase = true)
+            val isNotOtherAccount = !donor.role.equals("Hospital", ignoreCase = true) &&
+                    !donor.role.equals("Doctor", ignoreCase = true) &&
+                    !donor.role.equals("Ambulance", ignoreCase = true) &&
+                    !donor.role.equals("Advertiser", ignoreCase = true) &&
+                    !donor.role.equals("Company", ignoreCase = true) &&
+                    !donor.role.equals("Admin", ignoreCase = true)
+            val isNotNA = !donor.bloodGroup.equals("N/A", ignoreCase = true) && donor.bloodGroup.isNotBlank()
+
+            isDonorRole && isNotOtherAccount && isNotNA && (
+                donor.country.isBlank() ||
+                donor.country.equals(countryName, ignoreCase = true) ||
+                (countryName.equals("Bangladesh", ignoreCase = true) && (donor.country.equals("BD", ignoreCase = true) || donor.country.equals("Bangladesh", ignoreCase = true))) ||
+                (countryName.equals("BD", ignoreCase = true) && (donor.country.equals("BD", ignoreCase = true) || donor.country.equals("Bangladesh", ignoreCase = true))) ||
+                countryName.equals("Global", ignoreCase = true) ||
+                countryName.equals("International", ignoreCase = true)
+            )
         }
-        if (filtered.isEmpty() && list.isNotEmpty()) list else filtered
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val requests: StateFlow<List<BloodRequest>> = combine(repository.requests, detectedCountry) { list, countryName ->
@@ -404,6 +416,111 @@ class MainViewModel(
     val currentAdvertiser: StateFlow<com.example.data.AdvertiserCompany?> = repository.currentAdvertiser
     val advertiserCompanies: StateFlow<List<com.example.data.AdvertiserCompany>> = repository.advertiserCompanies
     val companySubscriptions: StateFlow<List<com.example.data.CompanyAdSubscription>> = repository.companySubscriptions
+
+    // --- VIDEO ADVERTISEMENT SYSTEM VIEWMODEL BINDINGS ---
+    val currentVideoAdvertiser: StateFlow<com.example.data.VideoAdvertiser?> = repository.currentVideoAdvertiser
+    val videoAdvertisers: StateFlow<List<com.example.data.VideoAdvertiser>> = repository.videoAdvertisers
+    val videoAdPackages: StateFlow<List<com.example.data.VideoAdPackage>> = repository.videoAdPackages
+    val videoAdvertisements: StateFlow<List<com.example.data.VideoAdvertisement>> = repository.videoAdvertisements
+    val videoAdPayments: StateFlow<List<com.example.data.VideoAdPayment>> = repository.videoAdPayments
+    val videoAdEvents: StateFlow<List<com.example.data.VideoAdEvent>> = repository.videoAdEvents
+    val videoAdConfig: StateFlow<com.example.data.VideoAdConfig> = repository.videoAdConfig
+
+    fun registerVideoAdvertiser(
+        businessName: String,
+        category: String,
+        contactPerson: String,
+        phone: String,
+        email: String,
+        pass: String,
+        address: String = "",
+        website: String = "",
+        description: String = "",
+        verificationDocUrl: String = ""
+    ): com.example.data.VideoAdvertiser {
+        return repository.registerVideoAdvertiser(businessName, category, contactPerson, phone, email, pass, address, website, description, verificationDocUrl)
+    }
+
+    fun loginVideoAdvertiser(identifier: String, pass: String): Boolean {
+        return repository.loginVideoAdvertiser(identifier, pass)
+    }
+
+    fun logoutVideoAdvertiser() {
+        repository.logoutVideoAdvertiser()
+    }
+
+    fun updateVideoAdvertiserProfile(profile: com.example.data.VideoAdvertiser) {
+        repository.updateVideoAdvertiserProfile(profile)
+    }
+
+    fun updateVideoAdvertiserVerification(advertiserId: String, status: String) {
+        repository.updateVideoAdvertiserVerification(advertiserId, status)
+    }
+
+    fun blockVideoAdvertiser(advertiserId: String, block: Boolean) {
+        repository.blockVideoAdvertiser(advertiserId, block)
+    }
+
+    fun createVideoAdvertisement(
+        advertiserId: String,
+        advertiserName: String,
+        packageId: String,
+        packageName: String,
+        title: String,
+        videoUrl: String,
+        thumbnailUrl: String,
+        description: String,
+        category: String,
+        ctaText: String,
+        ctaUrl: String,
+        contactNumber: String,
+        placementSections: List<String>,
+        paymentMethod: String,
+        transactionId: String,
+        paymentProofUrl: String
+    ): com.example.data.VideoAdvertisement {
+        return repository.createVideoAdvertisement(
+            advertiserId, advertiserName, packageId, packageName, title, videoUrl, thumbnailUrl,
+            description, category, ctaText, ctaUrl, contactNumber, placementSections,
+            paymentMethod, transactionId, paymentProofUrl
+        )
+    }
+
+    fun submitVideoAdPayment(payment: com.example.data.VideoAdPayment) {
+        repository.submitVideoAdPayment(payment)
+    }
+
+    fun verifyVideoAdPayment(paymentId: String, isVerified: Boolean) {
+        repository.verifyVideoAdPayment(paymentId, isVerified)
+    }
+
+    fun approveVideoAdvertisement(adId: String, isApproved: Boolean, rejectionReason: String = "") {
+        repository.approveVideoAdvertisement(adId, isApproved, rejectionReason)
+    }
+
+    fun pauseVideoAdvertisement(adId: String, pause: Boolean) {
+        repository.pauseVideoAdvertisement(adId, pause)
+    }
+
+    fun deleteVideoAdvertisement(adId: String) {
+        repository.deleteVideoAdvertisement(adId)
+    }
+
+    fun extendVideoAdCampaign(adId: String, extraDays: Int, extraImpressions: Int) {
+        repository.extendVideoAdCampaign(adId, extraDays, extraImpressions)
+    }
+
+    fun updateVideoAdPackage(pkg: com.example.data.VideoAdPackage) {
+        repository.updateVideoAdPackage(pkg)
+    }
+
+    fun updateVideoAdConfig(config: com.example.data.VideoAdConfig) {
+        repository.updateVideoAdConfig(config)
+    }
+
+    fun recordVideoAdEvent(adId: String, userId: String, eventType: String) {
+        repository.recordVideoAdEvent(adId, userId, eventType)
+    }
 
     fun registerAdvertiserCompany(
         companyName: String,
@@ -934,7 +1051,15 @@ class MainViewModel(
             } else {
                 (upz == "All" || donor.upazila.equals(upz, ignoreCase = true))
             }
-            val isRoleValid = donor.role.isBlank() || donor.role.equals("Donor", ignoreCase = true) || donor.role.equals("User", ignoreCase = true) || donor.role.equals("Admin", ignoreCase = true)
+            val isRoleValid = (donor.role.isBlank() || donor.role.equals("Donor", ignoreCase = true) || donor.role.equals("User", ignoreCase = true)) &&
+                    !donor.role.equals("Hospital", ignoreCase = true) &&
+                    !donor.role.equals("Doctor", ignoreCase = true) &&
+                    !donor.role.equals("Ambulance", ignoreCase = true) &&
+                    !donor.role.equals("Advertiser", ignoreCase = true) &&
+                    !donor.role.equals("Company", ignoreCase = true) &&
+                    !donor.role.equals("Admin", ignoreCase = true) &&
+                    !donor.bloodGroup.equals("N/A", ignoreCase = true) &&
+                    donor.bloodGroup.isNotBlank()
             matchCountry && matchGroup && matchDist && matchUpz && donor.isApproved && donor.isAvailable && isRoleValid
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -966,7 +1091,18 @@ class MainViewModel(
                 "hospitals" to 14
             )
         } else {
-            val totalApprovedDonors = donorsList.count { it.isApproved }
+            val totalApprovedDonors = donorsList.count { d ->
+                val isRoleValid = (d.role.isBlank() || d.role.equals("Donor", ignoreCase = true) || d.role.equals("User", ignoreCase = true)) &&
+                        !d.role.equals("Hospital", ignoreCase = true) &&
+                        !d.role.equals("Doctor", ignoreCase = true) &&
+                        !d.role.equals("Ambulance", ignoreCase = true) &&
+                        !d.role.equals("Advertiser", ignoreCase = true) &&
+                        !d.role.equals("Company", ignoreCase = true) &&
+                        !d.role.equals("Admin", ignoreCase = true) &&
+                        !d.bloodGroup.equals("N/A", ignoreCase = true) &&
+                        d.bloodGroup.isNotBlank()
+                d.isApproved && isRoleValid
+            }
             val activeRequests = requestsList.count { it.status == "Active" }
             val livesSaved = donorsList.sumOf { it.donationCount }
             val hospitalCount = 14
@@ -1396,6 +1532,32 @@ class MainViewModel(
         reqContactNumber = ""
         reqDetails = ""
         return true
+    }
+
+    fun createBloodRequestDirect(
+        context: android.content.Context? = null,
+        patientName: String,
+        bloodGroup: String,
+        bloodAmount: String,
+        hospitalName: String,
+        district: String,
+        upazila: String,
+        contactNumber: String,
+        details: String,
+        isEmergency: Boolean
+    ) {
+        repository.createBloodRequest(
+            context = context,
+            patientName = patientName,
+            bloodGroup = bloodGroup,
+            bloodAmount = bloodAmount,
+            hospitalName = hospitalName,
+            district = district,
+            upazila = upazila,
+            contactNumber = contactNumber,
+            details = details,
+            isEmergency = isEmergency
+        )
     }
 
     fun recordNewDonation() {
