@@ -259,6 +259,7 @@ class MainViewModel(
     val allRequests: StateFlow<List<BloodRequest>> = repository.requests
     val allAmbulances: StateFlow<List<Ambulance>> = repository.ambulances
     val allAmbulanceBookings: StateFlow<List<AmbulanceBooking>> = repository.ambulanceBookings
+    val serviceBookings: StateFlow<List<com.example.data.ServiceBooking>> = repository.serviceBookings
 
     val donors: StateFlow<List<BloodDonor>> = combine(repository.donors, detectedCountry) { list, countryName ->
         list.filter { donor ->
@@ -1787,6 +1788,18 @@ class MainViewModel(
         fare: Double? = null
     ) {
         repository.updateBookingStatus(bookingId, newStatus, assignedName, assignedPhone, adminNotes, fare)
+    }
+
+    fun submitServiceBooking(booking: com.example.data.ServiceBooking) {
+        repository.submitServiceBooking(booking)
+    }
+
+    fun updateServiceBookingStatus(bookingId: String, newStatus: String) {
+        repository.updateServiceBookingStatus(bookingId, newStatus)
+    }
+
+    fun deleteServiceBooking(bookingId: String) {
+        repository.deleteServiceBooking(bookingId)
     }
 
     fun triggerPayBookingCommission(

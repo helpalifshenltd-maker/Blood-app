@@ -79,6 +79,7 @@ data class SupportTicket(
 fun DigitalHealthCardDialog(
     user: BloodDonor,
     language: AppLanguage,
+    isAdvancePlanUser: Boolean = false,
     onDismiss: () -> Unit
 ) {
     val isBan = language == AppLanguage.BAN
@@ -174,7 +175,12 @@ fun DigitalHealthCardDialog(
                                 verticalAlignment = Alignment.Bottom
                             ) {
                                 Column {
-                                    Text(if (isBan) "সদস্যপদ: প্রিমিয়াম" else "Membership: Premium", color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp)
+                                    val memText = if (isAdvancePlanUser) {
+                                        if (isBan) "সদস্যপদ: অ্যাডভান্স প্ল্যান" else "Membership: Advance Plan"
+                                    } else {
+                                        if (isBan) "সদস্যপদ: ফ্রি প্ল্যান (Free)" else "Membership: Free Plan"
+                                    }
+                                    Text(memText, color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp)
                                     Text(if (isBan) "জরুরি হটলাইন: ৯৯৯" else "Emergency: 999", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 }
                                 // QR Code placeholder
@@ -418,22 +424,22 @@ fun FamilyMembersDialog(
 @Composable
 fun BookingsAndAppointmentsDialog(
     language: AppLanguage,
+    viewModel: MainViewModel,
+    userPhone: String = "",
     onDismiss: () -> Unit
 ) {
     val isBan = language == AppLanguage.BAN
     val context = LocalContext.current
-    var selectedTab by remember { mutableStateOf("Upcoming") }
+    var selectedTab by remember { mutableStateOf("All") }
 
-    var bookingsList by remember {
-        mutableStateOf(
-            listOf(
-                Triple("1", "ডাঃ আব্দুর রহমান (কার্ডিওলজিস্ট)", "Upcoming"),
-                Triple("2", "স্কয়ার হাসপাতাল লিমিটেড (ICU Booking)", "Pending"),
-                Triple("3", "ল্যাবএইড স্পেশালাইজড হাসপাতাল (MRI Test)", "Confirmed"),
-                Triple("4", "পপুলার ডায়াগনস্টিক সেন্টারে আল্ট্রাসনোগ্রাম", "Completed"),
-                Triple("5", "ডাঃ রেজওয়ানা পারভীন (গাইনি)", "Cancelled")
-            )
-        )
+    val serviceBookings by viewModel.serviceBookings.collectAsState()
+    val ambulanceBookings by viewModel.ambulanceBookings.collectAsState()
+
+    val filteredServiceBookings = serviceBookings.filter {
+        userPhone.isBlank() || it.userPhone == userPhone || it.patientPhone == userPhone
+    }
+    val filteredAmbulanceBookings = ambulanceBookings.filter {
+        userPhone.isBlank() || it.contactPhone == userPhone
     }
 
     AlertDialog(
@@ -463,7 +469,7 @@ fun BookingsAndAppointmentsDialog(
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    listOf("Upcoming", "Pending", "Confirmed", "Completed", "Cancelled").forEach { tab ->
+                    listOf("All", "Pending", "Confirmed", "Completed", "Cancelled").forEach { tab ->
                         val isSelected = selectedTab == tab
                         FilterChip(
                             selected = isSelected,
@@ -471,7 +477,7 @@ fun BookingsAndAppointmentsDialog(
                             label = {
                                 Text(
                                     when (tab) {
-                                        "Upcoming" -> if (isBan) "আগমী" else "Upcoming"
+                                        "All" -> if (isBan) "সব" else "All"
                                         "Pending" -> if (isBan) "অপেক্ষমান" else "Pending"
                                         "Confirmed" -> if (isBan) "কনফার্মড" else "Confirmed"
                                         "Completed" -> if (isBan) "সম্পন্ন" else "Completed"
@@ -485,86 +491,159 @@ fun BookingsAndAppointmentsDialog(
                     }
                 }
 
-                val filtered = bookingsList.filter { it.third.equals(selectedTab, ignoreCase = true) }
+                val hasBookings = filteredServiceBookings.isNotEmpty() || filteredAmbulanceBookings.isNotEmpty()
 
-                if (filtered.isEmpty()) {
+                if (!hasBookings) {
                     Card(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                         colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
                     ) {
-                        Text(
-                            text = if (isBan) "এই ক্যাটাগরিতে কোনো বুকিং পাওয়া যায়নি।" else "No bookings found in this category.",
+                        Column(
                             modifier = Modifier.padding(16.dp),
-                            fontSize = 12.sp,
-                            color = Color.Gray,
-                            textAlign = TextAlign.Center
-                        )
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(Icons.Default.EventBusy, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(32.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = if (isBan) "আপনার অ্যাকাউন্টে কোনো বুকিং বা অ্যাপয়েন্টমেন্ট পাওয়া যায়নি।" else "No bookings or appointments found for your account.",
+                                fontSize = 12.sp,
+                                color = Color.Gray,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 } else {
-                    filtered.forEach { item ->
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
-                            border = BorderStroke(1.dp, Color(0xFFE0E0E0))
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(item.second, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFF1565C0))
-                                    Surface(
-                                        color = when (item.third) {
-                                            "Upcoming", "Confirmed" -> Color(0xFF2E7D32)
-                                            "Pending" -> Color(0xFFED6C02)
-                                            "Completed" -> Color(0xFF1976D2)
-                                            else -> Color(0xFFD32F2F)
-                                        },
-                                        shape = RoundedCornerShape(8.dp)
+                    // Display Service Bookings (Doctor & Hospital)
+                    filteredServiceBookings
+                        .filter { selectedTab == "All" || it.status.equals(selectedTab, ignoreCase = true) }
+                        .forEach { item ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = Color.White),
+                                border = BorderStroke(1.dp, Color(0xFFE0E0E0))
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Text(
-                                            text = item.third,
-                                            color = Color.White,
-                                            fontSize = 10.sp,
+                                            text = "[${item.bookingType}] ${item.providerName}",
                                             fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                            fontSize = 14.sp,
+                                            color = Color(0xFF1565C0)
                                         )
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text("তারিখ: ২৪ আগস্ট, ২০২৬ • সময়: বিকাল ৪:৩০", fontSize = 12.sp, color = Color.DarkGray)
-                                Text("বুকিং আইডি: #BK-${item.first}8902", fontSize = 11.sp, color = Color.Gray)
-
-                                if (item.third == "Upcoming" || item.third == "Pending") {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        OutlinedButton(
-                                            onClick = {
-                                                Toast.makeText(context, if (isBan) "রি-শিডিউল করার জন্য সাপোর্ট সেন্টারে যোগাযোগ করুন" else "Contact support to reschedule", Toast.LENGTH_SHORT).show()
+                                        Surface(
+                                            color = when (item.status) {
+                                                "Confirmed" -> Color(0xFF2E7D32)
+                                                "Pending" -> Color(0xFFED6C02)
+                                                "Completed" -> Color(0xFF1976D2)
+                                                else -> Color(0xFFD32F2F)
                                             },
-                                            modifier = Modifier.weight(1f).height(32.dp),
-                                            contentPadding = PaddingValues(0.dp)
+                                            shape = RoundedCornerShape(8.dp)
                                         ) {
-                                            Text(if (isBan) "রি-শিডিউল" else "Reschedule", fontSize = 11.sp)
+                                            Text(
+                                                text = item.status,
+                                                color = Color.White,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                            )
                                         }
-                                        OutlinedButton(
-                                            onClick = {
-                                                bookingsList = bookingsList.map { if (it.first == item.first) Triple(it.first, it.second, "Cancelled") else it }
-                                                Toast.makeText(context, if (isBan) "বুকিং বাতিল করা হয়েছে" else "Booking cancelled", Toast.LENGTH_SHORT).show()
-                                            },
-                                            modifier = Modifier.weight(1f).height(32.dp),
-                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFD32F2F)),
-                                            border = BorderStroke(1.dp, Color(0xFFD32F2F)),
-                                            contentPadding = PaddingValues(0.dp)
-                                        ) {
-                                            Text(if (isBan) "বাতিল করুন" else "Cancel", fontSize = 11.sp)
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text("রোগী: ${item.patientName} (${item.patientPhone})", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = DarkText)
+                                    Text("তারিখ: ${item.bookingDate} • সার্ভিস: ${item.serviceName}", fontSize = 12.sp, color = Color.DarkGray)
+                                    if (item.notes.isNotBlank()) {
+                                        Text("নোট: ${item.notes}", fontSize = 11.sp, color = Color.Gray)
+                                    }
+
+                                    if (item.status == "Pending" || item.status == "Confirmed") {
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            OutlinedButton(
+                                                onClick = {
+                                                    viewModel.updateServiceBookingStatus(item.id, "Cancelled")
+                                                    Toast.makeText(context, if (isBan) "বুকিং বাতিল করা হয়েছে" else "Booking cancelled", Toast.LENGTH_SHORT).show()
+                                                },
+                                                modifier = Modifier.weight(1f).height(32.dp),
+                                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFD32F2F)),
+                                                border = BorderStroke(1.dp, Color(0xFFD32F2F)),
+                                                contentPadding = PaddingValues(0.dp)
+                                            ) {
+                                                Text(if (isBan) "বাতিল করুন" else "Cancel", fontSize = 11.sp)
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
-                    }
+
+                    // Display Ambulance Bookings
+                    filteredAmbulanceBookings
+                        .filter { selectedTab == "All" || it.status.equals(selectedTab, ignoreCase = true) }
+                        .forEach { item ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = Color.White),
+                                border = BorderStroke(1.dp, Color(0xFFE0E0E0))
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "[Ambulance] ${item.ambulanceType}",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp,
+                                            color = Color(0xFF00796B)
+                                        )
+                                        Surface(
+                                            color = when (item.status) {
+                                                "Confirmed", "On the Way" -> Color(0xFF2E7D32)
+                                                "Pending" -> Color(0xFFED6C02)
+                                                "Completed" -> Color(0xFF1976D2)
+                                                else -> Color(0xFFD32F2F)
+                                            },
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Text(
+                                                text = item.status,
+                                                color = Color.White,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text("রোগী: ${item.patientName} (${item.contactPhone})", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = DarkText)
+                                    Text("পিকআপ: ${item.pickupAddress} ➔ গন্তব্য: ${item.destinationAddress}", fontSize = 11.sp, color = Color.DarkGray)
+                                    Text("তারিখ/সময়: ${item.dateTime}", fontSize = 11.sp, color = Color.Gray)
+
+                                    if (item.status == "Pending" || item.status == "Confirmed") {
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            OutlinedButton(
+                                                onClick = {
+                                                    viewModel.triggerUpdateBookingStatus(item.id, "Cancelled")
+                                                    Toast.makeText(context, if (isBan) "অ্যাম্বুলেন্স বুকিং বাতিল করা হয়েছে" else "Ambulance booking cancelled", Toast.LENGTH_SHORT).show()
+                                                },
+                                                modifier = Modifier.weight(1f).height(32.dp),
+                                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFD32F2F)),
+                                                border = BorderStroke(1.dp, Color(0xFFD32F2F)),
+                                                contentPadding = PaddingValues(0.dp)
+                                            ) {
+                                                Text(if (isBan) "বাতিল করুন" else "Cancel", fontSize = 11.sp)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                 }
             }
         },

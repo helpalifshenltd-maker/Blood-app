@@ -594,6 +594,7 @@ fun MainAppContainer(viewModel: MainViewModel) {
                     }
                 }
             }
+            }
         }
     }
 }
@@ -9784,44 +9785,6 @@ fun UserProfileScreen(viewModel: MainViewModel) {
             }
         }
 
-        // PROFILE HERO STATUS
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = BloodRed)
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(60.dp)
-                        .background(Color.White, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = finalUser.bloodGroup,
-                        color = BloodRed,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                Column {
-                    Text(text = finalUser.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    Text(text = "User ID: ${finalUser.displayUserId}", color = Color.White.copy(alpha = 0.9f), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    if (finalUser.role == "Requester") {
-                        Text(text = if (language == AppLanguage.BAN) "ভূমিকা: রক্ত গ্রহীতা (Seeker)" else "Role: Blood Seeker", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
-                    } else {
-                        Text(text = if (language == AppLanguage.BAN) "পদবী: গোল্ডেন ডোনার" else "Rank: Golden Blood Donor", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
-                        Text(text = if (language == AppLanguage.BAN) "সর্বমোট রক্তদান: ${finalUser.donationCount} বার" else "Total Donations: ${finalUser.donationCount} Times", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            }
-        }
-
         // ROLE ISOLATION HELPERS FOR USER PROFILE
         val registeredHospitals by viewModel.registeredHospitals.collectAsState()
         val ambulancesList by viewModel.ambulances.collectAsState()
@@ -9840,7 +9803,92 @@ fun UserProfileScreen(viewModel: MainViewModel) {
         val isAmbulanceRole = finalUser.role.equals("Ambulance", ignoreCase = true) || myAmbulance != null
         val isAmbulanceUser = isAmbulanceRole
         val isAdvertiserRole = finalUser.role.equals("Advertiser", ignoreCase = true) || finalUser.role.equals("Company", ignoreCase = true) || finalUser.role.equals("Ads", ignoreCase = true)
+        val isRequesterRole = finalUser.role.equals("Requester", ignoreCase = true) || finalUser.role.equals("Patient", ignoreCase = true) || finalUser.role.equals("Seeker", ignoreCase = true)
+        val isDonorRole = finalUser.role.equals("Donor", ignoreCase = true) && !isHospitalRole && !isDoctorRole && !isAmbulanceRole && !isRequesterRole
         val hasWalletSystem = isHospitalRole || isDoctorRole || isAmbulanceRole || isAdvertiserRole
+
+        // PROFILE HERO STATUS
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = BloodRed)
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(60.dp)
+                        .background(Color.White, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = finalUser.bloodGroup.ifBlank { "A+" },
+                        color = BloodRed,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                Column {
+                    Text(text = finalUser.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text(text = "User ID: ${finalUser.displayUserId}", color = Color.White.copy(alpha = 0.9f), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    
+                    when {
+                        isHospitalRole -> {
+                            Text(
+                                text = if (language == AppLanguage.BAN) "ভূমিকা: হাসপাতাল অ্যাকাউন্ট (Health Card)" else "Role: Hospital Account (Health Card)",
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            val planLabel = if (isAdvancePlanUser) (if (language == AppLanguage.BAN) "প্ল্যান: অ্যাডভান্স প্ল্যান" else "Plan: Advance Plan") else (if (language == AppLanguage.BAN) "প্ল্যান: ফ্রি প্ল্যান" else "Plan: Free Plan")
+                            Text(text = planLabel, color = Color.White, fontSize = 12.sp)
+                        }
+                        isDoctorRole -> {
+                            Text(
+                                text = if (language == AppLanguage.BAN) "ভূমিকা: বিশেষজ্ঞ ডাক্তার অ্যাকাউন্ট" else "Role: Doctor Account",
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        isAmbulanceRole -> {
+                            Text(
+                                text = if (language == AppLanguage.BAN) "ভূমিকা: অ্যাম্বুলেন্স সার্ভিস অ্যাকাউন্ট" else "Role: Ambulance Provider",
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        isRequesterRole -> {
+                            Text(
+                                text = if (language == AppLanguage.BAN) "ভূমিকা: রক্ত গ্রহীতা (Health Card)" else "Role: Blood Seeker (Health Card)",
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        isDonorRole -> {
+                            Text(text = if (language == AppLanguage.BAN) "পদবী: গোল্ডেন ডোনার" else "Rank: Golden Blood Donor", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
+                            Text(text = if (language == AppLanguage.BAN) "সর্বমোট রক্তদান: ${finalUser.donationCount} বার" else "Total Donations: ${finalUser.donationCount} Times", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                        else -> {
+                            Text(
+                                text = if (language == AppLanguage.BAN) "ভূমিকা: হেলথ কার্ড সদস্য" else "Role: Health Card Member",
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            val planLabel = if (isAdvancePlanUser) (if (language == AppLanguage.BAN) "প্ল্যান: অ্যাডভান্স প্ল্যান" else "Plan: Advance Plan") else (if (language == AppLanguage.BAN) "প্ল্যান: ফ্রি প্ল্যান" else "Plan: Free Plan")
+                            Text(text = planLabel, color = Color.White, fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+        }
 
         // HOSPITAL ACCOUNT & SUBSCRIPTION STATUS CARD (ONLY shown for Hospital users or general sub users, NOT for Doctor or Ambulance roles)
         if (!isDoctorRole && !isAmbulanceRole && (isHospitalRole || isAdvancePlanUser || activeSub != null)) {
@@ -10257,230 +10305,226 @@ fun UserProfileScreen(viewModel: MainViewModel) {
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // PROMINENT DONATION STATS BANNER FOR DONORS
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp)
-                .clickable { showDonationHistoryDialog = true },
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
-            border = BorderStroke(1.5.dp, Color(0xFFEF4444)),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Row(
+        // PROMINENT DONATION STATS BANNER & TEAM FOR DONORS
+        if (isDonorRole) {
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .padding(vertical = 4.dp)
+                    .clickable { showDonationHistoryDialog = true },
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
+                border = BorderStroke(1.5.dp, Color(0xFFEF4444)),
+                shape = RoundedCornerShape(16.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .background(BloodRed, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.VolunteerActivism,
-                            contentDescription = "Donation Count",
-                            tint = Color.White,
-                            modifier = Modifier.size(26.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = if (language == AppLanguage.BAN) "আমার রক্তদানের মোট সংখ্যা" else "Total Patients Donated To",
-                            fontSize = 11.sp,
-                            color = SecondaryText,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = if (language == AppLanguage.BAN) "${finalUser.donationCount} জন রোগীকে রক্ত দিয়েছেন" else "${finalUser.donationCount} Patients Helped",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Black,
-                            color = BloodRed
-                        )
-                    }
-                }
-                Surface(
-                    color = BloodRed,
-                    shape = RoundedCornerShape(20.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
-                        text = if (language == AppLanguage.BAN) "রেকর্ড দেখুন" else "View Log",
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // MY DONOR TEAM STATUS BANNER
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp)
-                .clickable { showMyTeamDialog = true },
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
-            border = BorderStroke(1.5.dp, Color(0xFF2E7D32)),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .background(Color(0xFF2E7D32), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Groups,
-                            contentDescription = "My Donor Team",
-                            tint = Color.White,
-                            modifier = Modifier.size(26.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = if (language == AppLanguage.BAN) "আমার ডোনার টিম (My Team)" else "My Donor Team",
-                            fontSize = 11.sp,
-                            color = SecondaryText,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = if (myDonorTeam != null) myDonorTeam.teamName else (if (language == AppLanguage.BAN) "যুক্ত হতে বা নতুন টিম খুলতে ক্লিক করুন" else "Not joined yet. Click to view teams"),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1B5E20)
-                        )
-                    }
-                }
-                Surface(
-                    color = Color(0xFF2E7D32),
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    Text(
-                        text = if (myDonorTeam != null) (if (myDonorTeam.isApproved) (if (language == AppLanguage.BAN) "অনুমোদিত" else "Approved") else (if (language == AppLanguage.BAN) "অপেক্ষমান" else "Pending")) else (if (language == AppLanguage.BAN) "টিম দেখুন" else "View"),
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // ROLE-SPECIFIC OPTIONS FOR HOSPITAL & DOCTOR IN MY ACCOUNT
-        val showHospitalPanel = isHospitalRole || (!isDoctorRole && !isAmbulanceRole)
-        val showDoctorPanel = isDoctorRole || (!isHospitalRole && !isAmbulanceRole)
-
-        if (showHospitalPanel || showDoctorPanel) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                // 1. HOSPITAL DETAILS MANAGEMENT OPTION (Only for Hospital role or general accounts)
-                if (showHospitalPanel) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { showHospitalKeeperDialog = true },
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8EAF6)),
-                        border = BorderStroke(1.5.dp, Color(0xFF3F51B5)),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(BloodRed, CircleShape),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .background(Color(0xFF1565C0), RoundedCornerShape(12.dp)),
-                                contentAlignment = Alignment.Center
+                            Icon(
+                                imageVector = Icons.Default.VolunteerActivism,
+                                contentDescription = "Donation Count",
+                                tint = Color.White,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = if (language == AppLanguage.BAN) "আমার রক্তদানের মোট সংখ্যা" else "Total Patients Donated To",
+                                fontSize = 11.sp,
+                                color = SecondaryText,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = if (language == AppLanguage.BAN) "${finalUser.donationCount} জন রোগীকে রক্ত দিয়েছেন" else "${finalUser.donationCount} Patients Helped",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Black,
+                                color = BloodRed
+                            )
+                        }
+                    }
+                    Surface(
+                        color = BloodRed,
+                        shape = RoundedCornerShape(20.dp)
+                    ) {
+                        Text(
+                            text = if (language == AppLanguage.BAN) "রেকর্ড দেখুন" else "View Log",
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // MY DONOR TEAM STATUS BANNER
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+                    .clickable { showMyTeamDialog = true },
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+                border = BorderStroke(1.5.dp, Color(0xFF2E7D32)),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(Color(0xFF2E7D32), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Groups,
+                                contentDescription = "My Donor Team",
+                                tint = Color.White,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = if (language == AppLanguage.BAN) "আমার ডোনার টিম (My Team)" else "My Donor Team",
+                                fontSize = 11.sp,
+                                color = SecondaryText,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = if (myDonorTeam != null) myDonorTeam.teamName else (if (language == AppLanguage.BAN) "যুক্ত হতে বা নতুন টিম খুলতে ক্লিক করুন" else "Not joined yet. Click to view teams"),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1B5E20)
+                            )
+                        }
+                    }
+                    Surface(
+                        color = Color(0xFF2E7D32),
+                        shape = RoundedCornerShape(20.dp)
+                    ) {
+                        Text(
+                            text = if (myDonorTeam != null) (if (myDonorTeam.isApproved) (if (language == AppLanguage.BAN) "অনুমোদিত" else "Approved") else (if (language == AppLanguage.BAN) "অপেক্ষমান" else "Pending")) else (if (language == AppLanguage.BAN) "টিম দেখুন" else "View"),
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // DONOR MY ACCOUNT OPTION
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showDonorMyAccountDialog = true },
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+                border = BorderStroke(1.5.dp, Color(0xFFD32F2F)),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(Color(0xFFD32F2F), RoundedCornerShape(12.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Bloodtype,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = if (language == AppLanguage.BAN) "🩸 ডোনার মাই একাউন্ট (Donor My Account)" else "🩸 Donor My Account",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFB71C1C)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Surface(
+                                color = Color(0xFFFFCDD2),
+                                shape = RoundedCornerShape(4.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.LocalHospital,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = if (language == AppLanguage.BAN) "🏥 হাসপাতাল ডিটেইলস প্যানেল" else "🏥 Hospital Details & Info",
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF1A237E)
-                                    )
-                                    if (finalUser.role.equals("Hospital", ignoreCase = true)) {
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Surface(
-                                            color = Color(0xFFC8E6C9),
-                                            shape = RoundedCornerShape(4.dp)
-                                        ) {
-                                            Text(
-                                                text = if (language == AppLanguage.BAN) "আপনার একাউন্ট" else "Your Role",
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color(0xFF2E7D32),
-                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = if (language == AppLanguage.BAN) "হাসপাতালের নাম, হটলাইন, ঠিকানা, আইসিইউ/ব্লাড ব্যাংক ও জরুরি নোটিশ তথ্য যোগ/আপডেট করুন।"
-                                    else "Add/update hospital name, hotline, address, ICU, blood bank, & emergency notice details.",
-                                    fontSize = 11.sp,
-                                    color = DarkText.copy(alpha = 0.8f),
-                                    lineHeight = 15.sp
+                                    text = finalUser.bloodGroup.ifBlank { "A+" },
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFB71C1C),
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                                 )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Surface(
-                                    color = Color(0xFF1565C0),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Text(
-                                        text = if (language == AppLanguage.BAN) "হাসপাতাল ইনফরমেশন এড / আপডেট করুন ➔" else "Add / Edit Hospital Info ➔",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White,
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                                    )
-                                }
                             }
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = if (language == AppLanguage.BAN) "প্রোফাইল, ডোনেশন স্ট্যাটাস, রক্তদান ইতিহাস, রিকুয়েস্ট, লোকেশন, ব্যাজ, ডোনার কার্ড ও প্রাইভেসি।"
+                            else "Profile, donation status, donation history, requests, location, badges, card & privacy.",
+                            fontSize = 11.sp,
+                            color = DarkText.copy(alpha = 0.8f),
+                            lineHeight = 15.sp
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Surface(
+                            color = Color(0xFFD32F2F),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = if (language == AppLanguage.BAN) "ডোনার মাই একাউন্টে প্রবেশ করুন ➔" else "Open Donor My Account ➔",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
                         }
                     }
                 }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+        }
 
-                // 1.5 DONOR MY ACCOUNT OPTION
+        // ROLE-SPECIFIC PANEL CARDS
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // HOSPITAL DETAILS MANAGEMENT OPTION (Only for Hospital role)
+            if (isHospitalRole) {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { showDonorMyAccountDialog = true },
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
-                    border = BorderStroke(1.5.dp, Color(0xFFD32F2F)),
+                        .clickable { showHospitalKeeperDialog = true },
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8EAF6)),
+                    border = BorderStroke(1.5.dp, Color(0xFF3F51B5)),
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Row(
@@ -10490,11 +10534,11 @@ fun UserProfileScreen(viewModel: MainViewModel) {
                         Box(
                             modifier = Modifier
                                 .size(44.dp)
-                                .background(Color(0xFFD32F2F), RoundedCornerShape(12.dp)),
+                                .background(Color(0xFF1565C0), RoundedCornerShape(12.dp)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Bloodtype,
+                                imageVector = Icons.Default.LocalHospital,
                                 contentDescription = null,
                                 tint = Color.White,
                                 modifier = Modifier.size(24.dp)
@@ -10504,40 +10548,40 @@ fun UserProfileScreen(viewModel: MainViewModel) {
                         Column(modifier = Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = if (language == AppLanguage.BAN) "🩸 ডোনার মাই একাউন্ট (Donor My Account)" else "🩸 Donor My Account",
+                                    text = if (language == AppLanguage.BAN) "🏥 হাসপাতাল ডিটেইলস প্যানেল" else "🏥 Hospital Details & Info",
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFB71C1C)
+                                    color = Color(0xFF1A237E)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Surface(
-                                    color = Color(0xFFFFCDD2),
+                                    color = Color(0xFFC8E6C9),
                                     shape = RoundedCornerShape(4.dp)
                                 ) {
                                     Text(
-                                        text = finalUser.bloodGroup.ifBlank { "A+" },
+                                        text = if (language == AppLanguage.BAN) "আপনার একাউন্ট" else "Your Role",
                                         fontSize = 9.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = Color(0xFFB71C1C),
+                                        color = Color(0xFF2E7D32),
                                         modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                                     )
                                 }
                             }
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = if (language == AppLanguage.BAN) "প্রোফাইল, ডোনেশন স্ট্যাটাস, রক্তদান ইতিহাস, রিকুয়েস্ট, লোকেশন, ব্যাজ, ডোনার কার্ড ও প্রাইভেসি।"
-                                else "Profile, donation status, donation history, requests, location, badges, card & privacy.",
+                                text = if (language == AppLanguage.BAN) "হাসপাতালের নাম, হটলাইন, ঠিকানা, আইসিইউ/ব্লাড ব্যাংক ও জরুরি নোটিশ তথ্য যোগ/আপডেট করুন।"
+                                else "Add/update hospital name, hotline, address, ICU, blood bank, & emergency notice details.",
                                 fontSize = 11.sp,
                                 color = DarkText.copy(alpha = 0.8f),
                                 lineHeight = 15.sp
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Surface(
-                                color = Color(0xFFD32F2F),
+                                color = Color(0xFF1565C0),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
                                 Text(
-                                    text = if (language == AppLanguage.BAN) "ডোনার মাই একাউন্টে প্রবেশ করুন ➔" else "Open Donor My Account ➔",
+                                    text = if (language == AppLanguage.BAN) "হাসপাতাল ইনফরমেশন এড / আপডেট করুন ➔" else "Add / Edit Hospital Info ➔",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White,
@@ -10547,10 +10591,10 @@ fun UserProfileScreen(viewModel: MainViewModel) {
                         }
                     }
                 }
+            }
 
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // 1.6 BLOOD RECIPIENT / SEEKER MY ACCOUNT OPTION
+            // BLOOD RECIPIENT / SEEKER MY ACCOUNT OPTION (For Requesters / Seekers or general user accounts)
+            if (isRequesterRole || (!isDonorRole && !isHospitalRole && !isDoctorRole && !isAmbulanceRole)) {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -10610,82 +10654,78 @@ fun UserProfileScreen(viewModel: MainViewModel) {
                         }
                     }
                 }
+            }
 
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // 2. DOCTOR DETAILS MANAGEMENT OPTION (Only for Doctor role or general accounts)
-                if (showDoctorPanel) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { showDoctorMyAccountDialog = true },
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
-                        border = BorderStroke(1.5.dp, Color(0xFF2E7D32)),
-                        shape = RoundedCornerShape(16.dp)
+            // DOCTOR DETAILS MANAGEMENT OPTION (Only for Doctor role)
+            if (isDoctorRole) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showDoctorMyAccountDialog = true },
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+                    border = BorderStroke(1.5.dp, Color(0xFF2E7D32)),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier.padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(Color(0xFF2E7D32), RoundedCornerShape(12.dp)),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .background(Color(0xFF2E7D32), RoundedCornerShape(12.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.MedicalServices,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = if (language == AppLanguage.BAN) "👨‍⚕️ ডাক্তার মাই একাউন্ট (Doctor My Account)" else "👨‍⚕️ Doctor My Account",
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF1B5E20)
-                                    )
-                                    if (finalUser.role.equals("Doctor", ignoreCase = true)) {
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Surface(
-                                            color = Color(0xFFC8E6C9),
-                                            shape = RoundedCornerShape(4.dp)
-                                        ) {
-                                            Text(
-                                                text = if (language == AppLanguage.BAN) "আপনার একাউন্ট" else "Your Role",
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color(0xFF2E7D32),
-                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(2.dp))
+                            Icon(
+                                imageVector = Icons.Default.MedicalServices,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = if (language == AppLanguage.BAN) "প্রোফাইল, অ্যাপয়েন্টমেন্টস, কমিশন স্ট্যাটাস, চেম্বার, সময়সূচী, রোগী ও প্রেসক্রিপশন সম্পূর্ণ প্যানেল।"
-                                    else "Profile, appointments, commission status, chamber, schedule, patients, & prescriptions panel.",
-                                    fontSize = 11.sp,
-                                    color = DarkText.copy(alpha = 0.8f),
-                                    lineHeight = 15.sp
+                                    text = if (language == AppLanguage.BAN) "👨‍⚕️ ডাক্তার মাই একাউন্ট (Doctor My Account)" else "👨‍⚕️ Doctor My Account",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1B5E20)
                                 )
-                                Spacer(modifier = Modifier.height(6.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Surface(
-                                    color = Color(0xFF2E7D32),
-                                    shape = RoundedCornerShape(8.dp)
+                                    color = Color(0xFFC8E6C9),
+                                    shape = RoundedCornerShape(4.dp)
                                 ) {
                                     Text(
-                                        text = if (language == AppLanguage.BAN) "ডাক্তার মাই একাউন্ট প্যানেলে প্রবেশ করুন ➔" else "Open Doctor My Account ➔",
-                                        fontSize = 11.sp,
+                                        text = if (language == AppLanguage.BAN) "আপনার একাউন্ট" else "Your Role",
+                                        fontSize = 9.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = Color.White,
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                        color = Color(0xFF2E7D32),
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                                     )
                                 }
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = if (language == AppLanguage.BAN) "প্রোফাইল, অ্যাপয়েন্টমেন্টস, কমিশন স্ট্যাটাস, চেম্বার, সময়সূচী, রোগী ও প্রেসক্রিপশন সম্পূর্ণ প্যানেল।"
+                                else "Profile, appointments, commission status, chamber, schedule, patients, & prescriptions panel.",
+                                fontSize = 11.sp,
+                                color = DarkText.copy(alpha = 0.8f),
+                                lineHeight = 15.sp
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Surface(
+                                color = Color(0xFF2E7D32),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = if (language == AppLanguage.BAN) "ডাক্তার মাই একাউন্ট প্যানেলে প্রবেশ করুন ➔" else "Open Doctor My Account ➔",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                )
                             }
                         }
                     }
@@ -11783,6 +11823,7 @@ fun UserProfileScreen(viewModel: MainViewModel) {
             DigitalHealthCardDialog(
                 user = finalUser,
                 language = language,
+                isAdvancePlanUser = isAdvancePlanUser,
                 onDismiss = { showHealthCardDialog = false }
             )
         }
@@ -11797,6 +11838,8 @@ fun UserProfileScreen(viewModel: MainViewModel) {
         if (showBookingsDialog) {
             BookingsAndAppointmentsDialog(
                 language = language,
+                viewModel = viewModel,
+                userPhone = finalUser.phone,
                 onDismiss = { showBookingsDialog = false }
             )
         }
@@ -12339,6 +12382,7 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
     val messagesList by viewModel.messages.collectAsState()
     val ambulancesList by viewModel.allAmbulances.collectAsState()
     val ambulanceBookingsList by viewModel.allAmbulanceBookings.collectAsState()
+    val serviceBookingsList by viewModel.serviceBookings.collectAsState()
     val donorTeamsList by viewModel.donorTeams.collectAsState()
     val isConnected by viewModel.isFirebaseConnected.collectAsState()
 
@@ -13981,7 +14025,9 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                                 "AMBULANCE_BOOKINGS" -> {
                                     AdminBookingsTab(
                                         bookings = ambulanceBookingsList,
+                                        serviceBookings = serviceBookingsList,
                                         language = language,
+                                        viewModel = viewModel,
                                         onDelete = { id ->
                                             viewModel.adminDeleteAmbulanceBooking(id)
                                             Toast.makeText(context, "Booking Request Dismissed!", Toast.LENGTH_SHORT).show()
@@ -23495,7 +23541,27 @@ fun HospitalDirectoryScreen(viewModel: MainViewModel) {
                             Toast.makeText(context, "Please enter patient name and phone", Toast.LENGTH_SHORT).show()
                             return@Button
                         }
-                        Toast.makeText(context, "বুকিং অনুরোধ সফলভাবে জমা হয়েছে! হাসপাতাল থেকে যোগাযোগের ব্যবস্থা করা হবে।", Toast.LENGTH_LONG).show()
+                        val currentUsr = viewModel.currentUser.value
+                        viewModel.submitServiceBooking(
+                            com.example.data.ServiceBooking(
+                                id = "hosp_${System.currentTimeMillis()}",
+                                bookingType = "Hospital",
+                                userPhone = currentUsr?.phone ?: hospBookPhone,
+                                userName = currentUsr?.name ?: hospBookPatientName,
+                                providerName = hospital.name,
+                                providerPhone = hospital.phone,
+                                serviceName = hospBookService.ifBlank { "Hospital Bed / Emergency Care" },
+                                bookingDate = hospBookDate.ifBlank { "Immediate" },
+                                patientName = hospBookPatientName,
+                                patientPhone = hospBookPhone,
+                                district = hospital.district,
+                                upazila = hospital.upazila,
+                                status = "Pending",
+                                notes = "Service: $hospBookService, Hospital: ${hospital.name}",
+                                timestamp = System.currentTimeMillis()
+                            )
+                        )
+                        Toast.makeText(context, "বুকিং অনুরোধ সফলভাবে জমা হয়েছে! 'মাই বুকিং' অপশনে দেখতে পাবেন।", Toast.LENGTH_LONG).show()
                         hospBookPatientName = ""
                         hospBookPhone = ""
                         hospBookDate = ""
@@ -24232,7 +24298,28 @@ fun DoctorDirectoryScreen(viewModel: MainViewModel) {
                             Toast.makeText(context, "Please enter patient name and phone", Toast.LENGTH_SHORT).show()
                             return@Button
                         }
-                        Toast.makeText(context, if (language == AppLanguage.BAN) "ডাক্তারের অ্যাপয়েন্টমেন্ট বুকিং সফলভাবে সম্পন্ন হয়েছে!" else "Doctor appointment booking confirmed successfully!", Toast.LENGTH_LONG).show()
+                        val currentUsr = viewModel.currentUser.value
+                        viewModel.submitServiceBooking(
+                            com.example.data.ServiceBooking(
+                                id = "doc_${System.currentTimeMillis()}",
+                                bookingType = "Doctor",
+                                userPhone = currentUsr?.phone ?: docBookPhone,
+                                userName = currentUsr?.name ?: docBookPatientName,
+                                providerName = "${doc.name} (${doc.specialty})",
+                                providerPhone = doc.phone,
+                                serviceName = "Doctor Serial - ${doc.specialty}",
+                                bookingDate = docBookDate.ifBlank { "Immediate" },
+                                patientName = docBookPatientName,
+                                patientPhone = docBookPhone,
+                                patientAge = docBookAge,
+                                district = doc.district,
+                                upazila = doc.upazila,
+                                status = "Pending",
+                                notes = "Problem: $docBookProblem, Chamber: ${doc.chamberAddress}",
+                                timestamp = System.currentTimeMillis()
+                            )
+                        )
+                        Toast.makeText(context, if (language == AppLanguage.BAN) "ডাক্তারের অ্যাপয়েন্টমেন্ট বুকিং সফলভাবে সম্পন্ন হয়েছে! 'মাই বুকিং' এ দেখা যাবে।" else "Doctor appointment booking confirmed successfully!", Toast.LENGTH_LONG).show()
                         docBookPatientName = ""
                         docBookPhone = ""
                         docBookAge = ""

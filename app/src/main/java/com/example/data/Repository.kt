@@ -61,6 +61,9 @@ class BloodConnectRepository private constructor() {
     private val _ambulanceBookings = MutableStateFlow<List<AmbulanceBooking>>(emptyList())
     val ambulanceBookings: StateFlow<List<AmbulanceBooking>> = _ambulanceBookings.asStateFlow()
 
+    private val _serviceBookings = MutableStateFlow<List<ServiceBooking>>(emptyList())
+    val serviceBookings: StateFlow<List<ServiceBooking>> = _serviceBookings.asStateFlow()
+
     private val _appName = MutableStateFlow("Alif Blood Bank")
     val appName: StateFlow<String> = _appName.asStateFlow()
 
@@ -1729,6 +1732,39 @@ class BloodConnectRepository private constructor() {
             type = "URGENT_REQUEST",
             country = "Bangladesh"
         )
+    }
+
+    fun submitServiceBooking(booking: ServiceBooking) {
+        val safeId = if (booking.id.isBlank()) "sbook_${System.currentTimeMillis()}" else booking.id
+        val newBooking = booking.copy(id = safeId)
+        _serviceBookings.value = listOf(newBooking) + _serviceBookings.value
+        try {
+            com.google.firebase.database.FirebaseDatabase.getInstance().getReference("service_bookings").child(cleanKey(safeId)).setValue(newBooking)
+        } catch (e: Exception) {
+            Log.e("BloodConnectRepo", "Firebase service booking push error: ${e.message}")
+        }
+    }
+
+    fun updateServiceBookingStatus(bookingId: String, newStatus: String) {
+        _serviceBookings.value = _serviceBookings.value.map {
+            if (it.id == bookingId) it.copy(status = newStatus) else it
+        }
+        try {
+            val key = cleanKey(bookingId)
+            com.google.firebase.database.FirebaseDatabase.getInstance().getReference("service_bookings").child(key).child("status").setValue(newStatus)
+        } catch (e: Exception) {
+            Log.e("BloodConnectRepo", "Firebase service booking update error: ${e.message}")
+        }
+    }
+
+    fun deleteServiceBooking(bookingId: String) {
+        _serviceBookings.value = _serviceBookings.value.filter { it.id != bookingId }
+        try {
+            val key = cleanKey(bookingId)
+            com.google.firebase.database.FirebaseDatabase.getInstance().getReference("service_bookings").child(key).removeValue()
+        } catch (e: Exception) {
+            Log.e("BloodConnectRepo", "Firebase service booking delete error: ${e.message}")
+        }
     }
 
     fun updateBookingStatus(
@@ -3679,6 +3715,31 @@ class BloodConnectRepository private constructor() {
                     saveBookingsLocal()
                 } catch (e: Exception) {
                     Log.e("BloodConnectRepo", "Error listening to Firebase bookings: ${e.message}")
+                }
+            }
+            override fun onCancelled(error: com.google.firebase.database.DatabaseError) {}
+        })
+
+        // Listen to Service Bookings (Doctor & Hospital)
+        db.getReference("service_bookings").addValueEventListener(object : com.google.firebase.database.ValueEventListener {
+            override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
+                try {
+                    val list = mutableListOf<ServiceBooking>()
+                    if (snapshot.exists()) {
+                        for (child in snapshot.children) {
+                            val book = child.getValue(ServiceBooking::class.java)
+                            if (book != null) {
+                                val safeId = if (book.id.isBlank()) (child.key ?: "") else book.id
+                                val finalBook = book.copy(id = safeId)
+                                if (finalBook.id.isNotBlank()) {
+                                    list.add(finalBook)
+                                }
+                            }
+                        }
+                    }
+                    _serviceBookings.value = list
+                } catch (e: Exception) {
+                    Log.e("BloodConnectRepo", "Error listening to Firebase service_bookings: ${e.message}")
                 }
             }
             override fun onCancelled(error: com.google.firebase.database.DatabaseError) {}

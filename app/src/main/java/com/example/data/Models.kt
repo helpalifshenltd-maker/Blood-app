@@ -688,6 +688,26 @@ data class AmbulanceBooking(
 )
 
 @com.squareup.moshi.JsonClass(generateAdapter = true)
+data class ServiceBooking(
+    val id: String = "",
+    val bookingType: String = "", // "Doctor", "Hospital", "Ambulance"
+    val userPhone: String = "",
+    val userName: String = "",
+    val providerName: String = "",
+    val providerPhone: String = "",
+    val serviceName: String = "",
+    val bookingDate: String = "",
+    val patientName: String = "",
+    val patientPhone: String = "",
+    val patientAge: String = "",
+    val district: String = "",
+    val upazila: String = "",
+    val status: String = "Pending", // "Pending", "Confirmed", "Completed", "Cancelled"
+    val notes: String = "",
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+@com.squareup.moshi.JsonClass(generateAdapter = true)
 data class AppConfig(
     val id: String = "default",
     val app_name: String = "Alif Blood Bank",

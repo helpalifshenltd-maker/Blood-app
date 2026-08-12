@@ -4717,135 +4717,316 @@ fun AdminAmbulancesTab(
 
 @Composable
 fun AdminBookingsTab(
-    bookings: List<com.example.data.AmbulanceBooking>,
+    bookings: List<com.example.data.AmbulanceBooking> = emptyList(),
+    serviceBookings: List<com.example.data.ServiceBooking> = emptyList(),
     language: AppLanguage,
-    onDelete: (String) -> Unit
+    viewModel: MainViewModel? = null,
+    onDelete: ((String) -> Unit)? = null
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-        contentPadding = PaddingValues(bottom = 20.dp)
-    ) {
-        if (bookings.isEmpty()) {
-            item {
-                Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
-                    Text(
-                        if (language == AppLanguage.ENG) "No booking requests yet." else "এখনও কোনো বুকিং অনুরোধ আসেনি।",
-                        color = AdminTextMuted,
-                        fontSize = 14.sp
+    var selectedFilter by remember { mutableStateOf("ALL") }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Filter Chips Row
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp)
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf(
+                "ALL" to (if (language == AppLanguage.BAN) "সব বুকিং" else "All Bookings"),
+                "HOSPITAL" to (if (language == AppLanguage.BAN) "হাসপাতাল সার্ভিস" else "Hospital Bookings"),
+                "DOCTOR" to (if (language == AppLanguage.BAN) "ডাক্তার অ্যাপয়েন্টমেন্ট" else "Doctor Appointments"),
+                "AMBULANCE" to (if (language == AppLanguage.BAN) "অ্যাম্বুলেন্স ট্রিপ" else "Ambulance Trips")
+            ).forEach { (key, label) ->
+                val isSelected = selectedFilter == key
+                FilterChip(
+                    selected = isSelected,
+                    onClick = { selectedFilter = key },
+                    label = { Text(label, fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = AdminAccGreen,
+                        selectedLabelColor = Color.White,
+                        containerColor = AdminCardBg,
+                        labelColor = AdminTextMuted
                     )
-                }
+                )
             }
         }
-        
-        items(bookings) { book ->
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = AdminCardBg),
-                border = BorderStroke(1.dp, AdminBorder),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(book.pickupAddress, color = AdminTextWhite, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                            Text("${book.patientName} (${book.contactPhone})", color = AdminTextMuted, fontSize = 12.sp)
-                        }
-                        
-                        // Booking status badge
-                        Box(
-                            modifier = Modifier
-                                .background(
-                                    when (book.status.lowercase()) {
-                                        "confirmed" -> Color(0xFF1B5E20)
-                                        "cancelled" -> Color(0xFFB71C1C)
-                                        else -> Color(0xFFE65100)
-                                    },
-                                    RoundedCornerShape(6.dp)
-                                )
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = book.status,
-                                color = Color.White,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+
+        val showService = selectedFilter == "ALL" || selectedFilter == "HOSPITAL" || selectedFilter == "DOCTOR"
+        val showAmbulance = selectedFilter == "ALL" || selectedFilter == "AMBULANCE"
+
+        val filteredService = serviceBookings.filter {
+            when (selectedFilter) {
+                "HOSPITAL" -> it.bookingType.contains("Hospital", ignoreCase = true)
+                "DOCTOR" -> it.bookingType.contains("Doctor", ignoreCase = true)
+                else -> true
+            }
+        }
+
+        val hasAny = (showService && filteredService.isNotEmpty()) || (showAmbulance && bookings.isNotEmpty())
+
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(bottom = 20.dp)
+        ) {
+            if (!hasAny) {
+                item {
+                    Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            if (language == AppLanguage.ENG) "No booking requests found." else "এখনও কোনো বুকিং অনুরোধ আসেনি।",
+                            color = AdminTextMuted,
+                            fontSize = 14.sp
+                        )
                     }
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    HorizontalDivider(color = AdminBorder)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Row {
-                            Text(
-                                text = (if (language == AppLanguage.ENG) "Destination: " else "গন্তব্য: "),
-                                color = AdminTextMuted,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(book.destinationAddress, color = AdminTextWhite, fontSize = 11.sp)
-                        }
-                        Row {
-                            Text(
-                                text = (if (language == AppLanguage.ENG) "Urgency: " else "জরুরি অবস্থা: "),
-                                color = AdminTextMuted,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(book.urgencyLevel, color = AdminTextWhite, fontSize = 11.sp)
-                        }
-                        Row {
-                            Text(
-                                text = (if (language == AppLanguage.ENG) "Booking Date: " else "বুকিং তারিখ: "),
-                                color = AdminTextMuted,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(book.dateTime, color = AdminTextWhite, fontSize = 11.sp)
-                        }
-                    }
-                    
-                    Spacer(modifier = Modifier.height(12.dp))
-                    
-                    // Action Buttons
-                    Row(
+                }
+            }
+
+            // Display Service Bookings (Doctor / Hospital)
+            if (showService) {
+                items(filteredService) { book ->
+                    Card(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+                        border = BorderStroke(1.dp, AdminBorder),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Button(
-                            onClick = {
-                                try {
-                                    val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
-                                        data = android.net.Uri.parse("tel:${book.contactPhone}")
-                                    }
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    Toast.makeText(context, "Cannot launch dialer", Toast.LENGTH_SHORT).show()
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "[${book.bookingType}] ${book.providerName}",
+                                        color = AdminTextWhite,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp
+                                    )
+                                    Text(
+                                        text = "রোগী: ${book.patientName} (${book.patientPhone})",
+                                        color = AdminTextMuted,
+                                        fontSize = 12.sp
+                                    )
                                 }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = AdminAccGreen),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Default.Phone, null, modifier = Modifier.size(14.dp), tint = Color.White)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(if (language == AppLanguage.ENG) "Call Booker" else "বুককারীকে কল", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+
+                                Box(
+                                    modifier = Modifier
+                                        .background(
+                                            when (book.status.lowercase()) {
+                                                "confirmed" -> Color(0xFF1B5E20)
+                                                "completed" -> Color(0xFF0288D1)
+                                                "cancelled" -> Color(0xFFB71C1C)
+                                                else -> Color(0xFFE65100)
+                                            },
+                                            RoundedCornerShape(6.dp)
+                                        )
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        text = book.status,
+                                        color = Color.White,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+                            HorizontalDivider(color = AdminBorder)
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Row {
+                                    Text(text = "সার্ভিস/ডাক্তার: ", color = AdminTextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text(book.serviceName, color = AdminTextWhite, fontSize = 11.sp)
+                                }
+                                Row {
+                                    Text(text = "বুকিং তারিখ: ", color = AdminTextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text(book.bookingDate, color = AdminTextWhite, fontSize = 11.sp)
+                                }
+                                Row {
+                                    Text(text = "বুকিংকারী: ", color = AdminTextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text("${book.userName} (${book.userPhone})", color = AdminTextWhite, fontSize = 11.sp)
+                                }
+                                if (book.notes.isNotBlank()) {
+                                    Row {
+                                        Text(text = "নোট: ", color = AdminTextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Text(book.notes, color = AdminTextWhite, fontSize = 11.sp)
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = {
+                                        try {
+                                            val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
+                                                data = android.net.Uri.parse("tel:${book.patientPhone.ifBlank { book.userPhone }}")
+                                            }
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            Toast.makeText(context, "Cannot launch dialer", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = AdminAccGreen),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.weight(1f).height(36.dp),
+                                    contentPadding = PaddingValues(0.dp)
+                                ) {
+                                    Icon(Icons.Default.Phone, null, modifier = Modifier.size(14.dp), tint = Color.White)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("রোগীকে কল", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+
+                                if (book.status == "Pending") {
+                                    Button(
+                                        onClick = {
+                                            viewModel?.updateServiceBookingStatus(book.id, "Confirmed")
+                                            Toast.makeText(context, "Booking Confirmed!", Toast.LENGTH_SHORT).show()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0288D1)),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.weight(1f).height(36.dp),
+                                        contentPadding = PaddingValues(0.dp)
+                                    ) {
+                                        Text("কনফার্ম করুন", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+
+                                IconButton(
+                                    onClick = {
+                                        viewModel?.deleteServiceBooking(book.id)
+                                        Toast.makeText(context, "Booking Deleted!", Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier.background(Color(0xFFD32F2F), RoundedCornerShape(8.dp)).size(36.dp)
+                                ) {
+                                    Icon(Icons.Default.Delete, "Delete Booking", tint = Color.White, modifier = Modifier.size(16.dp))
+                                }
+                            }
                         }
-                        
-                        IconButton(
-                            onClick = { onDelete(book.id) },
-                            modifier = Modifier.background(Color(0xFFD32F2F), RoundedCornerShape(8.dp)).size(36.dp)
-                        ) {
-                            Icon(Icons.Default.Delete, "Delete Booking", tint = Color.White, modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
+
+            // Display Ambulance Bookings
+            if (showAmbulance) {
+                items(bookings) { book ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+                        border = BorderStroke(1.dp, AdminBorder),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("[Ambulance] " + book.pickupAddress, color = AdminTextWhite, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                    Text("${book.patientName} (${book.contactPhone})", color = AdminTextMuted, fontSize = 12.sp)
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .background(
+                                            when (book.status.lowercase()) {
+                                                "confirmed" -> Color(0xFF1B5E20)
+                                                "cancelled" -> Color(0xFFB71C1C)
+                                                else -> Color(0xFFE65100)
+                                            },
+                                            RoundedCornerShape(6.dp)
+                                        )
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        text = book.status,
+                                        color = Color.White,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+                            HorizontalDivider(color = AdminBorder)
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Row {
+                                    Text(
+                                        text = (if (language == AppLanguage.ENG) "Destination: " else "গন্তব্য: "),
+                                        color = AdminTextMuted,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(book.destinationAddress, color = AdminTextWhite, fontSize = 11.sp)
+                                }
+                                Row {
+                                    Text(
+                                        text = (if (language == AppLanguage.ENG) "Urgency: " else "জরুরি অবস্থা: "),
+                                        color = AdminTextMuted,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(book.urgencyLevel, color = AdminTextWhite, fontSize = 11.sp)
+                                }
+                                Row {
+                                    Text(
+                                        text = (if (language == AppLanguage.ENG) "Booking Date: " else "বুকিং তারিখ: "),
+                                        color = AdminTextMuted,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(book.dateTime, color = AdminTextWhite, fontSize = 11.sp)
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = {
+                                        try {
+                                            val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
+                                                data = android.net.Uri.parse("tel:${book.contactPhone}")
+                                            }
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            Toast.makeText(context, "Cannot launch dialer", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = AdminAccGreen),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(Icons.Default.Phone, null, modifier = Modifier.size(14.dp), tint = Color.White)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(if (language == AppLanguage.ENG) "Call Booker" else "বুককারীকে কল", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+
+                                IconButton(
+                                    onClick = { onDelete?.invoke(book.id) },
+                                    modifier = Modifier.background(Color(0xFFD32F2F), RoundedCornerShape(8.dp)).size(36.dp)
+                                ) {
+                                    Icon(Icons.Default.Delete, "Delete Booking", tint = Color.White, modifier = Modifier.size(16.dp))
+                                }
+                            }
                         }
                     }
                 }
