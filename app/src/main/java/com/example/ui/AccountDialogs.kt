@@ -434,12 +434,21 @@ fun BookingsAndAppointmentsDialog(
 
     val serviceBookings by viewModel.serviceBookings.collectAsState()
     val ambulanceBookings by viewModel.ambulanceBookings.collectAsState()
+    val userSession by viewModel.userSession.collectAsState()
+    val bookingAcceptanceFee by viewModel.bookingAcceptanceFee.collectAsState()
 
     val filteredServiceBookings = serviceBookings.filter {
-        userPhone.isBlank() || it.userPhone == userPhone || it.patientPhone == userPhone
+        userPhone.isBlank() ||
+        it.userPhone == userPhone ||
+        it.patientPhone == userPhone ||
+        it.providerPhone == userPhone ||
+        (userSession != null && userSession?.phone == it.providerPhone)
     }
     val filteredAmbulanceBookings = ambulanceBookings.filter {
-        userPhone.isBlank() || it.contactPhone == userPhone
+        userPhone.isBlank() ||
+        it.contactPhone == userPhone ||
+        it.assignedAmbulancePhone == userPhone ||
+        (userSession != null && userSession?.phone == it.assignedAmbulancePhone)
     }
 
     AlertDialog(
@@ -562,6 +571,30 @@ fun BookingsAndAppointmentsDialog(
                                     if (item.status == "Pending" || item.status == "Confirmed") {
                                         Spacer(modifier = Modifier.height(8.dp))
                                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            if (item.status == "Pending" && userSession != null && (userSession?.phone == item.providerPhone || userSession?.role in listOf("Doctor", "Hospital", "Admin") || userPhone.isBlank())) {
+                                                Button(
+                                                    onClick = {
+                                                        val currentBalance = userSession?.walletBalance ?: 0.0
+                                                        val requiredFee = bookingAcceptanceFee
+                                                        if (currentBalance >= requiredFee) {
+                                                            val success = viewModel.deductWalletBalance(requiredFee)
+                                                            if (success) {
+                                                                viewModel.updateServiceBookingStatus(item.id, "Confirmed")
+                                                                Toast.makeText(context, if (isBan) "বুকিং সফলভাবে গ্রহণ করা হয়েছে! ৳${requiredFee.toInt()} ওয়ালেট থেকে কাটা হয়েছে।" else "Booking accepted! ৳${requiredFee.toInt()} deducted from wallet.", Toast.LENGTH_LONG).show()
+                                                            } else {
+                                                                Toast.makeText(context, if (isBan) "ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই! প্রয়োজন ৳${requiredFee.toInt()}" else "Insufficient wallet balance! Required ৳${requiredFee.toInt()}", Toast.LENGTH_LONG).show()
+                                                            }
+                                                        } else {
+                                                            Toast.makeText(context, if (isBan) "ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই! প্রয়োজন ৳${requiredFee.toInt()}। অনুগ্রহ করে রিচার্জ করুন।" else "Insufficient balance! Required ৳${requiredFee.toInt()}. Please recharge wallet.", Toast.LENGTH_LONG).show()
+                                                        }
+                                                    },
+                                                    modifier = Modifier.weight(1f).height(32.dp),
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                                                    contentPadding = PaddingValues(0.dp)
+                                                ) {
+                                                    Text(if (isBan) "একসেপ্ট করুন" else "Accept", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
                                             OutlinedButton(
                                                 onClick = {
                                                     viewModel.updateServiceBookingStatus(item.id, "Cancelled")
@@ -627,6 +660,36 @@ fun BookingsAndAppointmentsDialog(
                                     if (item.status == "Pending" || item.status == "Confirmed") {
                                         Spacer(modifier = Modifier.height(8.dp))
                                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            if (item.status == "Pending" && userSession != null && (userSession?.phone == item.assignedAmbulancePhone || userSession?.role in listOf("Ambulance", "Admin") || userPhone.isBlank())) {
+                                                Button(
+                                                    onClick = {
+                                                        val currentBalance = userSession?.walletBalance ?: 0.0
+                                                        val requiredFee = bookingAcceptanceFee
+                                                        if (currentBalance >= requiredFee) {
+                                                            val success = viewModel.deductWalletBalance(requiredFee)
+                                                            if (success) {
+                                                                viewModel.triggerUpdateBookingStatus(
+                                                                    bookingId = item.id,
+                                                                    newStatus = "Confirmed",
+                                                                    assignedName = userSession?.name ?: "",
+                                                                    assignedPhone = userSession?.phone ?: "",
+                                                                    fare = item.fare
+                                                                )
+                                                                Toast.makeText(context, if (isBan) "অ্যাম্বুলেন্স ট্রিপ গ্রহণ করা হয়েছে! ৳${requiredFee.toInt()} ওয়ালেট থেকে কাটা হয়েছে।" else "Ambulance trip accepted! ৳${requiredFee.toInt()} deducted from wallet.", Toast.LENGTH_LONG).show()
+                                                            } else {
+                                                                Toast.makeText(context, if (isBan) "ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই! প্রয়োজন ৳${requiredFee.toInt()}" else "Insufficient wallet balance! Required ৳${requiredFee.toInt()}", Toast.LENGTH_LONG).show()
+                                                            }
+                                                        } else {
+                                                            Toast.makeText(context, if (isBan) "ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই! প্রয়োজন ৳${requiredFee.toInt()}। অনুগ্রহ করে রিচার্জ করুন।" else "Insufficient balance! Required ৳${requiredFee.toInt()}. Please recharge wallet.", Toast.LENGTH_LONG).show()
+                                                        }
+                                                    },
+                                                    modifier = Modifier.weight(1f).height(32.dp),
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                                                    contentPadding = PaddingValues(0.dp)
+                                                ) {
+                                                    Text(if (isBan) "একসেপ্ট করুন" else "Accept", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
                                             OutlinedButton(
                                                 onClick = {
                                                     viewModel.triggerUpdateBookingStatus(item.id, "Cancelled")

@@ -594,7 +594,6 @@ fun MainAppContainer(viewModel: MainViewModel) {
                     }
                 }
             }
-            }
         }
     }
 }
@@ -1648,7 +1647,17 @@ fun ScrollableDrawerItems(
     ) {
         val activeColor = LightPinkRed
         val activeContentColor = DarkBloodRed
+        val isBn = currentLanguage == AppLanguage.BAN
         
+        // Role Determination
+        val userRole = userSession?.role?.ifBlank { "Donor" } ?: "Guest"
+        val isDonor = userSession != null && (userRole.equals("Donor", ignoreCase = true) || userRole.equals("User", ignoreCase = true))
+        val isRequester = userSession != null && (userRole.equals("Requester", ignoreCase = true) || userRole.equals("Recipient", ignoreCase = true) || userRole.equals("Patient", ignoreCase = true))
+        val isHospital = userSession != null && userRole.equals("Hospital", ignoreCase = true)
+        val isDoctor = userSession != null && userRole.equals("Doctor", ignoreCase = true)
+        val isAmbulance = userSession != null && userRole.equals("Ambulance", ignoreCase = true)
+        val isGuest = userSession == null
+
         // Helper lambda for drawer item
         val drawerItem = @Composable { label: String, icon: ImageVector, screen: AppScreen, tag: String, badgeCount: Int ->
             val isSelected = currentScreen == screen
@@ -1693,7 +1702,7 @@ fun ScrollableDrawerItems(
             )
         }
 
-        // 1. Home
+        // 1. Home (All Roles)
         drawerItem(
             strings["btn_nav_home"] ?: "Home",
             Icons.Filled.Home,
@@ -1702,80 +1711,217 @@ fun ScrollableDrawerItems(
             0
         )
 
-        // 2. Search Donors
-        drawerItem(
-            strings["card_search_donor"] ?: "Search Donor",
-            Icons.Filled.Search,
-            AppScreen.SEARCH_DONOR,
-            "drawer_search",
-            0
-        )
-
-        // 3. Post Blood Request
-        drawerItem(
-            strings["card_request_blood"] ?: "Request Blood",
-            Icons.Filled.AddCircle,
-            AppScreen.REQUEST_BLOOD,
-            "drawer_request",
-            0
-        )
-
-        // 4. Emergency Requests
-        drawerItem(
-            strings["card_emergency_req"] ?: "Emergency Requests",
-            Icons.Filled.LocalHospital,
-            AppScreen.EMERGENCY_REQUESTS,
-            "drawer_emergency",
-            0
-        )
-
-        // 5. Notifications
-        drawerItem(
-            strings["notification_title"] ?: "Notifications",
-            Icons.Filled.Notifications,
-            AppScreen.NOTIFICATIONS,
-            "drawer_notifications",
-            0
-        )
-
-        // 6. Direct Chat & Messaging
-        drawerItem(
-            strings["chat_title"] ?: "Chat & Messaging",
-            Icons.Filled.Forum,
-            AppScreen.CHAT_INBOX,
-            "drawer_chat_inbox",
-            unreadChatCount
-        )
-
-        // 7. Ambulance Service
-        drawerItem(
-            strings["card_ambulance"] ?: "Ambulance Service",
-            Icons.Filled.AirportShuttle,
-            AppScreen.AMBULANCE_LIST,
-            "drawer_ambulance",
-            0
-        )
-
-        // 8. Donor Teams
-        drawerItem(
-            if (currentLanguage == AppLanguage.BAN) "রক্তদাতা স্বেচ্ছাসেবক টিম" else "Volunteer Donor Teams",
-            Icons.Filled.Groups,
-            AppScreen.DONOR_TEAMS,
-            "drawer_donor_teams",
-            0
-        )
-
-        if (userSession?.role == "Ambulance") {
+        // 2. DONOR ROLE SPECIFIC MENU
+        if (isDonor) {
             drawerItem(
-                if (currentLanguage == AppLanguage.ENG) "Ambulance Dashboard" else "অ্যাম্বুলেন্স ড্যাশবোর্ড",
+                if (isBn) "🚨 জরুরি রক্তের চাহিদা" else "Urgent Needs (To Donate)",
+                Icons.Filled.CrisisAlert,
+                AppScreen.EMERGENCY_REQUESTS,
+                "drawer_emergency",
+                0
+            )
+            drawerItem(
+                if (isBn) "🔍 ডোনার সহকর্মী খুঁজুন" else "Search Fellow Donors",
+                Icons.Filled.Search,
+                AppScreen.SEARCH_DONOR,
+                "drawer_search",
+                0
+            )
+            drawerItem(
+                if (isBn) "🚩 রক্তদাতা ভলান্টিয়ার টিম" else "Volunteer Donor Teams",
+                Icons.Filled.Groups,
+                AppScreen.DONOR_TEAMS,
+                "drawer_donor_teams",
+                0
+            )
+        }
+
+        // 3. REQUESTER / PATIENT ROLE SPECIFIC MENU
+        if (isRequester) {
+            drawerItem(
+                if (isBn) "➕ রক্তের আবেদন করুন" else "Post Blood Request",
+                Icons.Filled.AddCircle,
+                AppScreen.REQUEST_BLOOD,
+                "drawer_request",
+                0
+            )
+            drawerItem(
+                if (isBn) "🔍 রক্তদাতা অনুসন্ধান" else "Find Donors",
+                Icons.Filled.Search,
+                AppScreen.SEARCH_DONOR,
+                "drawer_search",
+                0
+            )
+            drawerItem(
+                if (isBn) "🚨 জরুরি রক্তের আবেদনসমূহ" else "Urgent Emergency Requests",
+                Icons.Filled.CrisisAlert,
+                AppScreen.EMERGENCY_REQUESTS,
+                "drawer_emergency",
+                0
+            )
+            drawerItem(
+                if (isBn) "🏥 হাসপাতাল ডিরেক্টরি" else "Hospital Directory",
+                Icons.Filled.Apartment,
+                AppScreen.HOSPITAL_DIRECTORY,
+                "drawer_hospital",
+                0
+            )
+            drawerItem(
+                if (isBn) "👨‍⚕️ ডাক্তার পয়েন্টমেন্ট" else "Doctor Directory",
+                Icons.Filled.Healing,
+                AppScreen.DOCTOR_DIRECTORY,
+                "drawer_doctor",
+                0
+            )
+            drawerItem(
+                if (isBn) "🚑 জরুরি অ্যাম্বুলেন্স" else "Ambulance Service",
+                Icons.Filled.AirportShuttle,
+                AppScreen.AMBULANCE_LIST,
+                "drawer_ambulance",
+                0
+            )
+        }
+
+        // 4. HOSPITAL ROLE SPECIFIC MENU
+        if (isHospital) {
+            drawerItem(
+                if (isBn) "🏥 হাসপাতাল ডিরেক্টরি ও কেয়ার" else "Hospital Care Directory",
+                Icons.Filled.Apartment,
+                AppScreen.HOSPITAL_DIRECTORY,
+                "drawer_hospital",
+                0
+            )
+            drawerItem(
+                if (isBn) "👨‍⚕️ নিয়োজিত ডাক্তারসমূহ" else "Hospital Doctors",
+                Icons.Filled.Healing,
+                AppScreen.DOCTOR_DIRECTORY,
+                "drawer_doctor",
+                0
+            )
+            drawerItem(
+                if (isBn) "🚑 জরুরি অ্যাম্বুলেন্স সার্ভিস" else "Ambulance Service",
+                Icons.Filled.AirportShuttle,
+                AppScreen.AMBULANCE_LIST,
+                "drawer_ambulance",
+                0
+            )
+            drawerItem(
+                if (isBn) "🚨 হাসপাতালে জরুরি রক্তের চাহিদা" else "Hospital Blood Needs",
+                Icons.Filled.CrisisAlert,
+                AppScreen.EMERGENCY_REQUESTS,
+                "drawer_emergency",
+                0
+            )
+        }
+
+        // 5. DOCTOR ROLE SPECIFIC MENU
+        if (isDoctor) {
+            drawerItem(
+                if (isBn) "👨‍⚕️ ডাক্তার ডিরেক্টরি ও সিরিয়াল" else "Doctor Appointments",
+                Icons.Filled.Healing,
+                AppScreen.DOCTOR_DIRECTORY,
+                "drawer_doctor",
+                0
+            )
+            drawerItem(
+                if (isBn) "🏥 সংযুক্ত হাসপাতাল" else "Associated Hospitals",
+                Icons.Filled.Apartment,
+                AppScreen.HOSPITAL_DIRECTORY,
+                "drawer_hospital",
+                0
+            )
+        }
+
+        // 6. AMBULANCE ROLE SPECIFIC MENU
+        if (isAmbulance) {
+            drawerItem(
+                if (isBn) "🚑 অ্যাম্বুলেন্স ড্রাইভার ড্যাশবোর্ড" else "Ambulance Dashboard",
                 Icons.Filled.Dashboard,
                 AppScreen.AMBULANCE_DASHBOARD,
                 "drawer_ambulance_dashboard",
                 0
             )
+            drawerItem(
+                if (isBn) "🚑 বুকিং তালিকা ও গাড়ি সার্ভিস" else "Ambulance List",
+                Icons.Filled.AirportShuttle,
+                AppScreen.AMBULANCE_LIST,
+                "drawer_ambulance",
+                0
+            )
         }
 
-        // 8. Live Support Chat
+        // 7. GUEST MENU
+        if (isGuest) {
+            drawerItem(
+                strings["card_search_donor"] ?: "Search Donor",
+                Icons.Filled.Search,
+                AppScreen.SEARCH_DONOR,
+                "drawer_search",
+                0
+            )
+            drawerItem(
+                strings["card_request_blood"] ?: "Request Blood",
+                Icons.Filled.AddCircle,
+                AppScreen.REQUEST_BLOOD,
+                "drawer_request",
+                0
+            )
+            drawerItem(
+                strings["card_emergency_req"] ?: "Emergency Requests",
+                Icons.Filled.LocalHospital,
+                AppScreen.EMERGENCY_REQUESTS,
+                "drawer_emergency",
+                0
+            )
+            drawerItem(
+                if (isBn) "🏥 হাসপাতালসমূহ" else "Hospitals",
+                Icons.Filled.Apartment,
+                AppScreen.HOSPITAL_DIRECTORY,
+                "drawer_hospital",
+                0
+            )
+            drawerItem(
+                if (isBn) "👨‍⚕️ ডাক্তারবৃন্দ" else "Doctors",
+                Icons.Filled.Healing,
+                AppScreen.DOCTOR_DIRECTORY,
+                "drawer_doctor",
+                0
+            )
+            drawerItem(
+                strings["card_ambulance"] ?: "Ambulance Service",
+                Icons.Filled.AirportShuttle,
+                AppScreen.AMBULANCE_LIST,
+                "drawer_ambulance",
+                0
+            )
+            drawerItem(
+                if (isBn) "রক্তদাতা স্বেচ্ছাসেবক টিম" else "Volunteer Donor Teams",
+                Icons.Filled.Groups,
+                AppScreen.DONOR_TEAMS,
+                "drawer_donor_teams",
+                0
+            )
+        }
+
+        // Common for all authenticated users
+        if (!isGuest) {
+            drawerItem(
+                strings["chat_title"] ?: "Chat & Messaging",
+                Icons.Filled.Forum,
+                AppScreen.CHAT_INBOX,
+                "drawer_chat_inbox",
+                unreadChatCount
+            )
+            drawerItem(
+                strings["notification_title"] ?: "Notifications",
+                Icons.Filled.Notifications,
+                AppScreen.NOTIFICATIONS,
+                "drawer_notifications",
+                0
+            )
+        }
+
+        // Support Chat
         drawerItem(
             strings["support_chat"] ?: "Live Support Chat",
             Icons.Filled.HeadsetMic,
@@ -1784,13 +1930,11 @@ fun ScrollableDrawerItems(
             0
         )
 
-
-
-        // Only show if Admin is authenticated
-        if (isAdmin) {
+        // Admin Panel (Only if Admin)
+        if (isAdmin || userRole.equals("Admin", ignoreCase = true)) {
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = LightBorder)
             Text(
-                text = if (currentLanguage == AppLanguage.ENG) "Admin Panel" else "এডমিন প্যানেল",
+                text = if (isBn) "এডমিন প্যানেল" else "Admin Panel",
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = SecondaryText),
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
             )
@@ -1805,7 +1949,7 @@ fun ScrollableDrawerItems(
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = LightBorder)
         Text(
-            text = if (currentLanguage == AppLanguage.ENG) "Settings" else "সেটিংস",
+            text = if (isBn) "সেটিংস" else "Settings",
             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = SecondaryText),
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
         )
@@ -1814,7 +1958,7 @@ fun ScrollableDrawerItems(
         NavigationDrawerItem(
             label = { 
                 Text(
-                    text = if (currentLanguage == AppLanguage.ENG) "Switch Language (বাংলা)" else "ভাষা পরিবর্তন (English)",
+                    text = if (isBn) "English (ভাষা পরিবর্তন)" else "বাংলা (Switch Language)",
                     fontWeight = FontWeight.Normal
                 ) 
             },
@@ -1834,8 +1978,16 @@ fun ScrollableDrawerItems(
 
         // Profile / Login / Logout
         if (userSession != null) {
+            val profileTitle = when {
+                isDonor -> if (isBn) "আমার ডোনার প্রোফাইল" else "My Donor Profile"
+                isRequester -> if (isBn) "আমার রক্তগ্রহীতা প্রোফাইল" else "My Patient Profile"
+                isHospital -> if (isBn) "আমার হাসপাতাল প্রোফাইল" else "My Hospital Profile"
+                isDoctor -> if (isBn) "আমার ডাক্তার প্রোফাইল" else "My Doctor Profile"
+                isAmbulance -> if (isBn) "আমার অ্যাম্বুলেন্স অ্যাকাউন্ট" else "My Ambulance Profile"
+                else -> strings["user_profile_title"] ?: "My Profile"
+            }
             drawerItem(
-                strings["user_profile_title"] ?: "My Profile",
+                profileTitle,
                 Icons.Filled.Person,
                 AppScreen.USER_PROFILE,
                 "drawer_profile",
@@ -5644,121 +5796,492 @@ fun HomeScreen(viewModel: MainViewModel) {
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // CORE SYSTEM NAVIGATION DIRECT LINKS (DONOR SERVICES)
+        // ROLE DETERMINATION FOR DASHBOARD
+        val activeRole = userSession?.role?.ifBlank { "Donor" } ?: "Guest"
+        val isDonorRole = userSession != null && (activeRole.equals("Donor", ignoreCase = true) || activeRole.equals("User", ignoreCase = true))
+        val isRequesterRole = userSession != null && (activeRole.equals("Requester", ignoreCase = true) || activeRole.equals("Recipient", ignoreCase = true) || activeRole.equals("Patient", ignoreCase = true))
+        val isHospitalRole = userSession != null && activeRole.equals("Hospital", ignoreCase = true)
+        val isDoctorRole = userSession != null && activeRole.equals("Doctor", ignoreCase = true)
+        val isAmbulanceRole = userSession != null && activeRole.equals("Ambulance", ignoreCase = true)
+
+        // ROLE BANNER
+        if (userSession != null) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = when {
+                        isDonorRole -> Color(0xFFFFF3E0)
+                        isRequesterRole -> Color(0xFFFFEBEE)
+                        isHospitalRole -> Color(0xFFE1F5FE)
+                        isDoctorRole -> Color(0xFFF3E5F5)
+                        isAmbulanceRole -> Color(0xFFE0F2F1)
+                        else -> Color(0xFFFAFAFA)
+                    }
+                ),
+                border = BorderStroke(
+                    1.dp,
+                    when {
+                        isDonorRole -> Color(0xFFFFB74D)
+                        isRequesterRole -> Color(0xFFEF9A9A)
+                        isHospitalRole -> Color(0xFF81D4FA)
+                        isDoctorRole -> Color(0xFFCE93D8)
+                        isAmbulanceRole -> Color(0xFF80CBC4)
+                        else -> Color(0xFFE0E0E0)
+                    }
+                ),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = when {
+                                isDonorRole -> Icons.Filled.VolunteerActivism
+                                isRequesterRole -> Icons.Filled.Queue
+                                isHospitalRole -> Icons.Filled.Apartment
+                                isDoctorRole -> Icons.Filled.Healing
+                                isAmbulanceRole -> Icons.Filled.AirportShuttle
+                                else -> Icons.Filled.Person
+                            },
+                            contentDescription = null,
+                            tint = when {
+                                isDonorRole -> Color(0xFFE65100)
+                                isRequesterRole -> BloodRed
+                                isHospitalRole -> Color(0xFF0288D1)
+                                isDoctorRole -> Color(0xFF8E24AA)
+                                isAmbulanceRole -> Color(0xFF00897B)
+                                else -> DarkText
+                            },
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = when {
+                                    isDonorRole -> if (language == AppLanguage.BAN) "🩸 ডোনার অ্যাকাউন্ট: ${userSession?.name}" else "🩸 Donor Account: ${userSession?.name}"
+                                    isRequesterRole -> if (language == AppLanguage.BAN) "🩺 রক্তগ্রহীতা/পেশেন্ট অ্যাকাউন্ট: ${userSession?.name}" else "🩺 Patient Request Account: ${userSession?.name}"
+                                    isHospitalRole -> if (language == AppLanguage.BAN) "🏥 হাসপাতাল অ্যাকাউন্ট: ${userSession?.name}" else "🏥 Hospital Care Account: ${userSession?.name}"
+                                    isDoctorRole -> if (language == AppLanguage.BAN) "👨‍⚕️ ডাক্তার অ্যাকাউন্ট: ${userSession?.name}" else "👨‍⚕️ Doctor Account: ${userSession?.name}"
+                                    isAmbulanceRole -> if (language == AppLanguage.BAN) "🚑 অ্যাম্বুলেন্স ড্রাইভার অ্যাকাউন্ট: ${userSession?.name}" else "🚑 Ambulance Account: ${userSession?.name}"
+                                    else -> "👤 ${userSession?.name}"
+                                },
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                color = DarkText
+                            )
+                            Text(
+                                text = when {
+                                    isDonorRole -> if (language == AppLanguage.BAN) "রক্ত গ্রুপ: ${userSession?.bloodGroup} | শুধুমাত্র রক্তদান ও ডোনার সুবিধাসমূহ দৃশ্যমান।" else "Blood Group: ${userSession?.bloodGroup} | Donor account mode active."
+                                    isRequesterRole -> if (language == AppLanguage.BAN) "রক্তের আবেদন প্রকাশ, ডোনার সন্ধান ও ডিরেক্টরি সুবিধা সক্রিয়।" else "Blood request and donor search mode active."
+                                    isHospitalRole -> if (language == AppLanguage.BAN) "হাসপাতাল বেড, আইসিইউ ও মেডিকেল তথ্য পরিচালনা সক্রিয়।" else "Hospital care directory mode active."
+                                    isDoctorRole -> if (language == AppLanguage.BAN) "ডাক্তার প্রোফাইল ও রোগী দেখার তথ্য পরিচালনা সক্রিয়।" else "Doctor appointments mode active."
+                                    isAmbulanceRole -> if (language == AppLanguage.BAN) "অ্যাম্বুলেন্স সার্ভিস ও ড্রাইভার ওয়ালেট সক্রিয়।" else "Ambulance driver mode active."
+                                    else -> ""
+                                },
+                                fontSize = 12.sp,
+                                color = SecondaryText
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // CORE SYSTEM NAVIGATION DIRECT LINKS
+        val serviceHeaderTitle = when {
+            isDonorRole -> if (language == AppLanguage.BAN) "ডোনার একাউন্ট ফিচারসমূহ" else "Donor Account Features"
+            isRequesterRole -> if (language == AppLanguage.BAN) "রক্তগ্রহীতা/পেশেন্ট ফিচারসমূহ" else "Patient & Request Features"
+            isHospitalRole -> if (language == AppLanguage.BAN) "হাসপাতাল সার্ভিস ফিচারসমূহ" else "Hospital Care Features"
+            isDoctorRole -> if (language == AppLanguage.BAN) "ডাক্তার পোর্টাল ফিচারসমূহ" else "Doctor Portal Features"
+            isAmbulanceRole -> if (language == AppLanguage.BAN) "অ্যাম্বুলেন্স ফিচারসমূহ" else "Ambulance Features"
+            else -> if (language == AppLanguage.BAN) "প্রধান সেবাসমূহ" else "Main Services"
+        }
+
         Text(
-            text = if (language == AppLanguage.BAN) "ডোনার সার্ভিসসমূহ" else "Donor Services",
+            text = serviceHeaderTitle,
             fontWeight = FontWeight.Bold,
             fontSize = 16.sp,
             color = DarkText,
             modifier = Modifier.padding(bottom = 12.dp)
         )
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            ServiceIconLink(
-                title = strings["card_search_donor"] ?: "Find Donors",
-                icon = Icons.Filled.PersonSearch,
-                tag = "home_search_service",
-                onClick = { viewModel.navigateTo(AppScreen.SEARCH_DONOR) },
-                color = CoralRed,
-                modifier = Modifier.weight(1f)
-            )
+        if (isDonorRole) {
+            // DONOR SPECIFIC DASHBOARD CARDS
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ServiceIconLink(
+                    title = if (language == AppLanguage.BAN) "জরুরি রক্ত দিন" else "Urgent Needs",
+                    icon = Icons.Filled.CrisisAlert,
+                    tag = "home_emergency_service",
+                    onClick = { viewModel.navigateTo(AppScreen.EMERGENCY_REQUESTS) },
+                    color = DarkBloodRed,
+                    modifier = Modifier.weight(1f)
+                )
 
-            ServiceIconLink(
-                title = strings["card_request_blood"] ?: "Request Blood",
-                icon = Icons.Filled.Queue,
-                tag = "home_request_service",
-                onClick = { viewModel.navigateTo(AppScreen.REQUEST_BLOOD) },
-                color = BloodRed,
-                modifier = Modifier.weight(1f)
-            )
+                ServiceIconLink(
+                    title = strings["card_search_donor"] ?: "Find Donors",
+                    icon = Icons.Filled.PersonSearch,
+                    tag = "home_search_service",
+                    onClick = { viewModel.navigateTo(AppScreen.SEARCH_DONOR) },
+                    color = CoralRed,
+                    modifier = Modifier.weight(1f)
+                )
 
-            ServiceIconLink(
-                title = strings["card_emergency_req"] ?: "Urgent Needs",
-                icon = Icons.Filled.CrisisAlert,
-                tag = "home_emergency_service",
-                onClick = { viewModel.navigateTo(AppScreen.EMERGENCY_REQUESTS) },
-                color = DarkBloodRed,
-                modifier = Modifier.weight(1f)
-            )
-        }
+                ServiceIconLink(
+                    title = if (language == AppLanguage.BAN) "রক্তদাতা টিম" else "Donor Teams",
+                    icon = Icons.Filled.Groups,
+                    tag = "home_teams_service",
+                    onClick = { viewModel.navigateTo(AppScreen.DONOR_TEAMS) },
+                    color = Color(0xFF3F51B5),
+                    modifier = Modifier.weight(1f)
+                )
+            }
 
-        Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            ServiceIconLink(
-                title = if (language == AppLanguage.BAN) "রক্তদাতা টিম" else "Donor Teams",
-                icon = Icons.Filled.Groups,
-                tag = "home_teams_service",
-                onClick = { viewModel.navigateTo(AppScreen.DONOR_TEAMS) },
-                color = Color(0xFF3F51B5),
-                modifier = Modifier.weight(1f)
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ServiceIconLink(
+                    title = if (language == AppLanguage.BAN) "মেসেজ/চ্যাট" else "Chat Inbox",
+                    icon = Icons.Filled.Forum,
+                    tag = "home_chat_service",
+                    onClick = { viewModel.navigateTo(AppScreen.CHAT_INBOX) },
+                    color = Color(0xFF00897B),
+                    modifier = Modifier.weight(1f)
+                )
 
-            ServiceIconLink(
-                title = strings["card_ambulance"] ?: "Ambulance",
-                icon = Icons.Filled.AirportShuttle,
-                tag = "home_ambulance_service",
-                onClick = { viewModel.navigateTo(AppScreen.AMBULANCE_LIST) },
-                color = Color(0xFF00897B),
-                modifier = Modifier.weight(1f)
-            )
+                ServiceIconLink(
+                    title = if (language == AppLanguage.BAN) "ডোনার প্রোফাইল" else "Donor Profile",
+                    icon = Icons.Filled.Person,
+                    tag = "home_profile_service",
+                    onClick = { viewModel.navigateTo(AppScreen.USER_PROFILE) },
+                    color = Color(0xFFE65100),
+                    modifier = Modifier.weight(1f)
+                )
 
-            ServiceIconLink(
-                title = if (language == AppLanguage.BAN) "ডোনার চেক" else "Donor Check",
-                icon = Icons.Filled.PersonSearch,
-                tag = "home_donor_check_service",
-                onClick = {
-                    showDonorCheckDialog = true
-                },
-                color = Color(0xFFE65100),
-                modifier = Modifier.weight(1f)
-            )
-        }
+                ServiceIconLink(
+                    title = if (language == AppLanguage.BAN) "লাইভ সাপোর্ট" else "Support",
+                    icon = Icons.Filled.HeadsetMic,
+                    tag = "home_support_service",
+                    onClick = { showSupportDialog = true },
+                    color = BloodRed,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        } else if (isRequesterRole) {
+            // REQUESTER / PATIENT SPECIFIC DASHBOARD CARDS
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ServiceIconLink(
+                    title = strings["card_request_blood"] ?: "Request Blood",
+                    icon = Icons.Filled.Queue,
+                    tag = "home_request_service",
+                    onClick = { viewModel.navigateTo(AppScreen.REQUEST_BLOOD) },
+                    color = BloodRed,
+                    modifier = Modifier.weight(1f)
+                )
 
-        Spacer(modifier = Modifier.height(8.dp))
+                ServiceIconLink(
+                    title = strings["card_search_donor"] ?: "Find Donors",
+                    icon = Icons.Filled.PersonSearch,
+                    tag = "home_search_service",
+                    onClick = { viewModel.navigateTo(AppScreen.SEARCH_DONOR) },
+                    color = CoralRed,
+                    modifier = Modifier.weight(1f)
+                )
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            ServiceIconLink(
-                title = if (language == AppLanguage.BAN) "হাসপাতাল" else "Hospitals",
-                icon = Icons.Filled.Apartment,
-                tag = "home_hospital_service",
-                onClick = {
-                    viewModel.navigateTo(AppScreen.HOSPITAL_DIRECTORY)
-                },
-                color = Color(0xFF0288D1),
-                modifier = Modifier.weight(1f)
-            )
+                ServiceIconLink(
+                    title = strings["card_emergency_req"] ?: "Urgent Needs",
+                    icon = Icons.Filled.CrisisAlert,
+                    tag = "home_emergency_service",
+                    onClick = { viewModel.navigateTo(AppScreen.EMERGENCY_REQUESTS) },
+                    color = DarkBloodRed,
+                    modifier = Modifier.weight(1f)
+                )
+            }
 
-            ServiceIconLink(
-                title = if (language == AppLanguage.BAN) "ডাক্তার" else "Doctors",
-                icon = Icons.Filled.Healing,
-                tag = "home_doctor_service",
-                onClick = {
-                    viewModel.navigateTo(AppScreen.DOCTOR_DIRECTORY)
-                },
-                color = Color(0xFF8E24AA),
-                modifier = Modifier.weight(1f)
-            )
+            Spacer(modifier = Modifier.height(8.dp))
 
-            ServiceIconLink(
-                title = if (language == AppLanguage.BAN) "অভিযোগ / রিপোর্ট" else "Report Scam",
-                icon = Icons.Filled.Report,
-                tag = "home_report_scam_service",
-                onClick = {
-                    showHomeScamReportDialog = true
-                },
-                color = BloodRed,
-                modifier = Modifier.weight(1f)
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ServiceIconLink(
+                    title = if (language == AppLanguage.BAN) "হাসপাতাল" else "Hospitals",
+                    icon = Icons.Filled.Apartment,
+                    tag = "home_hospital_service",
+                    onClick = { viewModel.navigateTo(AppScreen.HOSPITAL_DIRECTORY) },
+                    color = Color(0xFF0288D1),
+                    modifier = Modifier.weight(1f)
+                )
+
+                ServiceIconLink(
+                    title = if (language == AppLanguage.BAN) "ডাক্তার" else "Doctors",
+                    icon = Icons.Filled.Healing,
+                    tag = "home_doctor_service",
+                    onClick = { viewModel.navigateTo(AppScreen.DOCTOR_DIRECTORY) },
+                    color = Color(0xFF8E24AA),
+                    modifier = Modifier.weight(1f)
+                )
+
+                ServiceIconLink(
+                    title = strings["card_ambulance"] ?: "Ambulance",
+                    icon = Icons.Filled.AirportShuttle,
+                    tag = "home_ambulance_service",
+                    onClick = { viewModel.navigateTo(AppScreen.AMBULANCE_LIST) },
+                    color = Color(0xFF00897B),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        } else if (isHospitalRole) {
+            // HOSPITAL SPECIFIC DASHBOARD CARDS
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ServiceIconLink(
+                    title = if (language == AppLanguage.BAN) "হাসপাতাল তথ্য" else "Hospitals",
+                    icon = Icons.Filled.Apartment,
+                    tag = "home_hospital_service",
+                    onClick = { viewModel.navigateTo(AppScreen.HOSPITAL_DIRECTORY) },
+                    color = Color(0xFF0288D1),
+                    modifier = Modifier.weight(1f)
+                )
+
+                ServiceIconLink(
+                    title = if (language == AppLanguage.BAN) "ডাক্তারসমূহ" else "Doctors",
+                    icon = Icons.Filled.Healing,
+                    tag = "home_doctor_service",
+                    onClick = { viewModel.navigateTo(AppScreen.DOCTOR_DIRECTORY) },
+                    color = Color(0xFF8E24AA),
+                    modifier = Modifier.weight(1f)
+                )
+
+                ServiceIconLink(
+                    title = strings["card_ambulance"] ?: "Ambulance",
+                    icon = Icons.Filled.AirportShuttle,
+                    tag = "home_ambulance_service",
+                    onClick = { viewModel.navigateTo(AppScreen.AMBULANCE_LIST) },
+                    color = Color(0xFF00897B),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ServiceIconLink(
+                    title = if (language == AppLanguage.BAN) "জরুরি রক্ত চাহিদা" else "Emergency Needs",
+                    icon = Icons.Filled.CrisisAlert,
+                    tag = "home_emergency_service",
+                    onClick = { viewModel.navigateTo(AppScreen.EMERGENCY_REQUESTS) },
+                    color = DarkBloodRed,
+                    modifier = Modifier.weight(1f)
+                )
+
+                ServiceIconLink(
+                    title = if (language == AppLanguage.BAN) "মেসেজ/ইনবক্স" else "Chat Inbox",
+                    icon = Icons.Filled.Forum,
+                    tag = "home_chat_service",
+                    onClick = { viewModel.navigateTo(AppScreen.CHAT_INBOX) },
+                    color = Color(0xFF3F51B5),
+                    modifier = Modifier.weight(1f)
+                )
+
+                ServiceIconLink(
+                    title = if (language == AppLanguage.BAN) "হাসপাতাল প্রোফাইল" else "Hospital Profile",
+                    icon = Icons.Filled.Person,
+                    tag = "home_profile_service",
+                    onClick = { viewModel.navigateTo(AppScreen.USER_PROFILE) },
+                    color = Color(0xFFE65100),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        } else if (isDoctorRole) {
+            // DOCTOR SPECIFIC DASHBOARD CARDS
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ServiceIconLink(
+                    title = if (language == AppLanguage.BAN) "ডাক্তার ডিরেক্টরি" else "Doctors",
+                    icon = Icons.Filled.Healing,
+                    tag = "home_doctor_service",
+                    onClick = { viewModel.navigateTo(AppScreen.DOCTOR_DIRECTORY) },
+                    color = Color(0xFF8E24AA),
+                    modifier = Modifier.weight(1f)
+                )
+
+                ServiceIconLink(
+                    title = if (language == AppLanguage.BAN) "হাসপাতালসমূহ" else "Hospitals",
+                    icon = Icons.Filled.Apartment,
+                    tag = "home_hospital_service",
+                    onClick = { viewModel.navigateTo(AppScreen.HOSPITAL_DIRECTORY) },
+                    color = Color(0xFF0288D1),
+                    modifier = Modifier.weight(1f)
+                )
+
+                ServiceIconLink(
+                    title = if (language == AppLanguage.BAN) "ডাক্তার প্রোফাইল" else "Doctor Profile",
+                    icon = Icons.Filled.Person,
+                    tag = "home_profile_service",
+                    onClick = { viewModel.navigateTo(AppScreen.USER_PROFILE) },
+                    color = Color(0xFFE65100),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        } else if (isAmbulanceRole) {
+            // AMBULANCE SPECIFIC DASHBOARD CARDS
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ServiceIconLink(
+                    title = if (language == AppLanguage.BAN) "ড্রাইভার ড্যাশবোর্ড" else "Ambulance Dashboard",
+                    icon = Icons.Filled.Dashboard,
+                    tag = "home_ambulance_dash_service",
+                    onClick = { viewModel.navigateTo(AppScreen.AMBULANCE_DASHBOARD) },
+                    color = Color(0xFF00897B),
+                    modifier = Modifier.weight(1f)
+                )
+
+                ServiceIconLink(
+                    title = strings["card_ambulance"] ?: "Ambulance List",
+                    icon = Icons.Filled.AirportShuttle,
+                    tag = "home_ambulance_service",
+                    onClick = { viewModel.navigateTo(AppScreen.AMBULANCE_LIST) },
+                    color = Color(0xFF0288D1),
+                    modifier = Modifier.weight(1f)
+                )
+
+                ServiceIconLink(
+                    title = if (language == AppLanguage.BAN) "অ্যাম্বুলেন্স প্রোফাইল" else "Ambulance Profile",
+                    icon = Icons.Filled.Person,
+                    tag = "home_profile_service",
+                    onClick = { viewModel.navigateTo(AppScreen.USER_PROFILE) },
+                    color = Color(0xFFE65100),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        } else {
+            // DEFAULT GUEST DASHBOARD CARDS
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ServiceIconLink(
+                    title = strings["card_search_donor"] ?: "Find Donors",
+                    icon = Icons.Filled.PersonSearch,
+                    tag = "home_search_service",
+                    onClick = { viewModel.navigateTo(AppScreen.SEARCH_DONOR) },
+                    color = CoralRed,
+                    modifier = Modifier.weight(1f)
+                )
+
+                ServiceIconLink(
+                    title = strings["card_request_blood"] ?: "Request Blood",
+                    icon = Icons.Filled.Queue,
+                    tag = "home_request_service",
+                    onClick = { viewModel.navigateTo(AppScreen.REQUEST_BLOOD) },
+                    color = BloodRed,
+                    modifier = Modifier.weight(1f)
+                )
+
+                ServiceIconLink(
+                    title = strings["card_emergency_req"] ?: "Urgent Needs",
+                    icon = Icons.Filled.CrisisAlert,
+                    tag = "home_emergency_service",
+                    onClick = { viewModel.navigateTo(AppScreen.EMERGENCY_REQUESTS) },
+                    color = DarkBloodRed,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ServiceIconLink(
+                    title = if (language == AppLanguage.BAN) "রক্তদাতা টিম" else "Donor Teams",
+                    icon = Icons.Filled.Groups,
+                    tag = "home_teams_service",
+                    onClick = { viewModel.navigateTo(AppScreen.DONOR_TEAMS) },
+                    color = Color(0xFF3F51B5),
+                    modifier = Modifier.weight(1f)
+                )
+
+                ServiceIconLink(
+                    title = strings["card_ambulance"] ?: "Ambulance",
+                    icon = Icons.Filled.AirportShuttle,
+                    tag = "home_ambulance_service",
+                    onClick = { viewModel.navigateTo(AppScreen.AMBULANCE_LIST) },
+                    color = Color(0xFF00897B),
+                    modifier = Modifier.weight(1f)
+                )
+
+                ServiceIconLink(
+                    title = if (language == AppLanguage.BAN) "ডোনার চেক" else "Donor Check",
+                    icon = Icons.Filled.PersonSearch,
+                    tag = "home_donor_check_service",
+                    onClick = {
+                        showDonorCheckDialog = true
+                    },
+                    color = Color(0xFFE65100),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ServiceIconLink(
+                    title = if (language == AppLanguage.BAN) "হাসপাতাল" else "Hospitals",
+                    icon = Icons.Filled.Apartment,
+                    tag = "home_hospital_service",
+                    onClick = {
+                        viewModel.navigateTo(AppScreen.HOSPITAL_DIRECTORY)
+                    },
+                    color = Color(0xFF0288D1),
+                    modifier = Modifier.weight(1f)
+                )
+
+                ServiceIconLink(
+                    title = if (language == AppLanguage.BAN) "ডাক্তার" else "Doctors",
+                    icon = Icons.Filled.Healing,
+                    tag = "home_doctor_service",
+                    onClick = {
+                        viewModel.navigateTo(AppScreen.DOCTOR_DIRECTORY)
+                    },
+                    color = Color(0xFF8E24AA),
+                    modifier = Modifier.weight(1f)
+                )
+
+                ServiceIconLink(
+                    title = if (language == AppLanguage.BAN) "অভিযোগ / রিপোর্ট" else "Report Scam",
+                    icon = Icons.Filled.Report,
+                    tag = "home_report_scam_service",
+                    onClick = {
+                        showHomeScamReportDialog = true
+                    },
+                    color = BloodRed,
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))

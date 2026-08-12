@@ -7740,5 +7740,143 @@ fun AdminPaymentPortalTab(
     }
 }
 
+@Composable
+fun AdminTeamsTab(viewModel: MainViewModel? = null) {
+    val context = LocalContext.current
+    val teams by (viewModel?.donorTeams?.collectAsState() ?: remember { mutableStateOf(emptyList()) })
+    val language by (viewModel?.language?.collectAsState() ?: remember { mutableStateOf(AppLanguage.BAN) })
+    val isBn = language == AppLanguage.BAN
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            text = if (isBn) "🚩 ডোনার ও ভলান্টিয়ার টিমসমূহ" else "🚩 Donor & Volunteer Teams",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
+
+        if (teams.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (isBn) "কোনো টিম নিবন্ধিত হয়নি" else "No teams registered yet",
+                    color = AdminTextMuted
+                )
+            }
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(teams, key = { it.id }) { team ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+                        border = BorderStroke(1.dp, AdminBorder),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(team.teamName, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                                    Text("${team.district} • ${team.members.size} ${if (isBn) "জন সদস্য" else "Members"}", fontSize = 12.sp, color = AdminTextMuted)
+                                }
+                                IconButton(
+                                    onClick = {
+                                        viewModel?.deleteDonorTeam(team.id)
+                                        Toast.makeText(context, if (isBn) "টিম মুছে ফেলা হয়েছে" else "Team deleted", Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier.background(Color(0xFFD32F2F), RoundedCornerShape(8.dp)).size(36.dp)
+                                ) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.White, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AdminSubscriptionsTab(viewModel: MainViewModel? = null, language: AppLanguage = AppLanguage.BAN) {
+    val context = LocalContext.current
+    val isBn = language == AppLanguage.BAN
+    val allPayments by (viewModel?.allPayments?.collectAsState() ?: remember { mutableStateOf(emptyList()) })
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            text = if (isBn) "👑 অ্যাডভান্স ও সাবস্ক্রিপশন ব্যবস্থাপনা" else "👑 Advance & Subscriptions Management",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
+
+        if (allPayments.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    text = if (isBn) "কোনো সাবস্ক্রিপশন বা পেমেন্ট রিকোয়েস্ট নেই" else "No subscription or payment requests found",
+                    color = AdminTextMuted
+                )
+            }
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(allPayments, key = { it.id }) { item ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = AdminCardBg),
+                        border = BorderStroke(1.dp, AdminBorder),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(item.userNameOrCompany, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.White)
+                                    Text("${item.paymentType} • ৳${item.amount.toInt()}", fontSize = 12.sp, color = AdminAccOrange)
+                                }
+                                Surface(
+                                    color = when (item.status) {
+                                        "Approved" -> Color(0xFF1B5E20)
+                                        "Rejected" -> Color(0xFFB71C1C)
+                                        else -> Color(0xFFE65100)
+                                    },
+                                    shape = RoundedCornerShape(6.dp)
+                                ) {
+                                    Text(
+                                        text = item.status.uppercase(),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
 
 
