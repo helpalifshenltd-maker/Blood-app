@@ -1734,21 +1734,95 @@ class BloodConnectRepository private constructor() {
         )
     }
 
+    fun serializeServiceBookings(list: List<ServiceBooking>): String {
+        return list.joinToString("||SBOOK_SEP||") { item ->
+            listOf(
+                item.id,
+                item.bookingType,
+                item.userPhone,
+                item.userName,
+                item.providerName,
+                item.providerPhone,
+                item.serviceName,
+                item.bookingDate,
+                item.patientName,
+                item.patientPhone,
+                item.patientAge,
+                item.district,
+                item.upazila,
+                item.status,
+                item.notes,
+                item.timestamp.toString()
+            ).joinToString("||SFIELD_SEP||")
+        }
+    }
+
+    fun deserializeServiceBookings(serialized: String): List<ServiceBooking> {
+        if (serialized.isBlank()) return emptyList()
+        val list = mutableListOf<ServiceBooking>()
+        val items = serialized.split("||SBOOK_SEP||")
+        for (item in items) {
+            val parts = item.split("||SFIELD_SEP||")
+            if (parts.size >= 10) {
+                list.add(
+                    ServiceBooking(
+                        id = parts[0],
+                        bookingType = parts[1],
+                        userPhone = parts[2],
+                        userName = parts[3],
+                        providerName = parts[4],
+                        providerPhone = parts[5],
+                        serviceName = parts[6],
+                        bookingDate = parts[7],
+                        patientName = parts[8],
+                        patientPhone = parts[9],
+                        patientAge = parts.getOrNull(10) ?: "",
+                        district = parts.getOrNull(11) ?: "",
+                        upazila = parts.getOrNull(12) ?: "",
+                        status = parts.getOrNull(13) ?: "Pending",
+                        notes = parts.getOrNull(14) ?: "",
+                        timestamp = parts.getOrNull(15)?.toLongOrNull() ?: System.currentTimeMillis()
+                    )
+                )
+            }
+        }
+        return list
+    }
+
+    fun saveServiceBookingsLocal() {
+        appContext?.let { ctx ->
+            val prefs = ctx.getSharedPreferences("blood_connect_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putString("service_bookings_list", serializeServiceBookings(_serviceBookings.value)).apply()
+        }
+    }
+
     fun submitServiceBooking(booking: ServiceBooking) {
         val safeId = if (booking.id.isBlank()) "sbook_${System.currentTimeMillis()}" else booking.id
         val newBooking = booking.copy(id = safeId)
-        _serviceBookings.value = listOf(newBooking) + _serviceBookings.value
+        _serviceBookings.value = listOf(newBooking) + _serviceBookings.value.filter { it.id != safeId }
+        saveServiceBookingsLocal()
         try {
             com.google.firebase.database.FirebaseDatabase.getInstance().getReference("service_bookings").child(cleanKey(safeId)).setValue(newBooking)
         } catch (e: Exception) {
             Log.e("BloodConnectRepo", "Firebase service booking push error: ${e.message}")
         }
+        
+        // Push in-app alert notification
+        addNotification(
+            titleEn = "New ${newBooking.bookingType} Booking Request",
+            titleBn = "নতুন ${if (newBooking.bookingType == "Doctor") "ডাক্তার অ্যাপয়েন্টমেন্ট" else "হাসপাতাল"} বুকিং অনুরোধ",
+            messageEn = "Booking request received for ${newBooking.patientName} (${newBooking.serviceName}). Phone: ${newBooking.patientPhone}",
+            messageBn = "${newBooking.patientName} এর জন্য ${newBooking.serviceName} এর বুকিং অনুরোধ এসেছে। ফোন: ${newBooking.patientPhone}",
+            type = "SERVICE_BOOKING",
+            country = "Bangladesh"
+        )
     }
 
     fun updateServiceBookingStatus(bookingId: String, newStatus: String) {
         _serviceBookings.value = _serviceBookings.value.map {
             if (it.id == bookingId) it.copy(status = newStatus) else it
         }
+        saveServiceBookingsLocal()
         try {
             val key = cleanKey(bookingId)
             com.google.firebase.database.FirebaseDatabase.getInstance().getReference("service_bookings").child(key).child("status").setValue(newStatus)
@@ -1759,6 +1833,7 @@ class BloodConnectRepository private constructor() {
 
     fun deleteServiceBooking(bookingId: String) {
         _serviceBookings.value = _serviceBookings.value.filter { it.id != bookingId }
+        saveServiceBookingsLocal()
         try {
             val key = cleanKey(bookingId)
             com.google.firebase.database.FirebaseDatabase.getInstance().getReference("service_bookings").child(key).removeValue()
@@ -2753,6 +2828,12 @@ class BloodConnectRepository private constructor() {
         val bookingsStr = prefs.getString("ambulance_bookings_list", "") ?: ""
         _ambulanceBookings.value = deserializeBookings(bookingsStr)
 
+        val serviceBookingsStr = prefs.getString("service_bookings_list", "") ?: ""
+        val loadedServiceBookings = deserializeServiceBookings(serviceBookingsStr)
+        if (loadedServiceBookings.isNotEmpty()) {
+            _serviceBookings.value = loadedServiceBookings
+        }
+
         // Load Subscriptions & Plans
         val subscriptionPlansStr = prefs.getString("v9_subscription_plans_list", "") ?: ""
         var loadedPlans = deserializeSubscriptionPlans(subscriptionPlansStr)
@@ -3737,7 +3818,10 @@ class BloodConnectRepository private constructor() {
                             }
                         }
                     }
-                    _serviceBookings.value = list
+                    if (list.isNotEmpty()) {
+                        _serviceBookings.value = list
+                        saveServiceBookingsLocal()
+                    }
                 } catch (e: Exception) {
                     Log.e("BloodConnectRepo", "Error listening to Firebase service_bookings: ${e.message}")
                 }

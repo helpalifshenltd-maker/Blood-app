@@ -258,7 +258,9 @@ fun MainAppContainer(viewModel: MainViewModel) {
                                         scope.launch { drawerState.close() }
                                         viewModel.triggerLogout()
                                     },
-                                    isAdmin = currentUserSession?.email?.equals("Alifsheenshopping@gmail.com", ignoreCase = true) == true || currentUserSession?.email?.equals("help.alifshen.ltd@gmail.com", ignoreCase = true) == true || currentUserSession?.email?.contains("admin") == true || currentUserSession?.name?.contains("Alif") == true
+                                    isAdmin = currentUserSession?.role?.equals("Admin", ignoreCase = true) == true ||
+                                            currentUserSession?.email?.equals("Alifsheenshopping@gmail.com", ignoreCase = true) == true ||
+                                            currentUserSession?.email?.equals("help.alifshen.ltd@gmail.com", ignoreCase = true) == true
                                 )
                             }
                         }
@@ -1817,7 +1819,7 @@ fun ScrollableDrawerItems(
         // 5. DOCTOR ROLE SPECIFIC MENU
         if (isDoctor) {
             drawerItem(
-                if (isBn) "👨‍⚕️ ডাক্তার ডিরেক্টরি ও সিরিয়াল" else "Doctor Appointments",
+                if (isBn) "👨‍⚕️ ডাক্তার ডিরেক্টরি ও বুকিং" else "Doctor Appointments",
                 Icons.Filled.Healing,
                 AppScreen.DOCTOR_DIRECTORY,
                 "drawer_doctor",
@@ -7917,7 +7919,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                     ) {
                         Text(
                             text = if (isBn)
-                                "রক্তদান, হেমাটোলজি, ট্রান্সফিউশন ও জরুরী সেবায় অভিজ্ঞ ডাক্তারদের তালিকা এবং সিরিয়াল তথ্য।"
+                                "রক্তদান, হেমাটোলজি, ট্রান্সফিউশন ও জরুরী সেবায় অভিজ্ঞ ডাক্তারদের তালিকা এবং বুকিং সুবিধা।"
                             else "Directory of experienced hematologists, transfusion experts, and doctors.",
                             style = MaterialTheme.typography.bodySmall,
                             color = SecondaryText
@@ -11663,78 +11665,11 @@ fun UserProfileScreen(viewModel: MainViewModel) {
         }
 
         if (showHospitalKeeperDialog) {
-            val registeredHospitals by viewModel.registeredHospitals.collectAsState()
-            val myHospital = registeredHospitals.find { it.phone == finalUser.phone || it.email.equals(finalUser.email, ignoreCase = true) }
-
-            var hkName by remember(myHospital) { mutableStateOf(myHospital?.name ?: finalUser.name) }
-            var hkType by remember(myHospital) { mutableStateOf(myHospital?.type ?: "Hospital") }
-            var hkPhone by remember(myHospital) { mutableStateOf(myHospital?.phone ?: finalUser.phone) }
-            var hkAddress by remember(myHospital) { mutableStateOf(myHospital?.address ?: "") }
-            var hkServices by remember(myHospital) { mutableStateOf(myHospital?.services ?: "Emergency, ICU, Pathology, Blood Bank") }
-            var hkBloodAvail by remember(myHospital) { mutableStateOf(myHospital?.bloodAvailability ?: "A+, B+, O+, AB+ Available") }
-            var hkEmergencyNotice by remember(myHospital) { mutableStateOf(myHospital?.urgentNotice ?: "২৪ ঘণ্টা জরুরি সেবা ও আইসিইউ চালু রয়েছে।") }
-
-            AlertDialog(
-                onDismissRequest = { showHospitalKeeperDialog = false },
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.LocalHospital, contentDescription = null, tint = Color(0xFF1565C0))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(if (language == AppLanguage.BAN) "🏥 হাসপাতাল ইনফরমেশন প্যানেল" else "🏥 Hospital Details Entry", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    }
-                },
-                text = {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Text(if (language == AppLanguage.BAN) "হাসপাতালের সমস্ত তথ্য পূরণ করে সংরক্ষন করুন:" else "Fill in hospital information below:", fontSize = 12.sp, color = SecondaryText)
-                        OutlinedTextField(value = hkName, onValueChange = { hkName = it }, label = { Text(if (language == AppLanguage.BAN) "হাসপাতালের নাম *" else "Hospital Name *") }, modifier = Modifier.fillMaxWidth())
-                        OutlinedTextField(value = hkType, onValueChange = { hkType = it }, label = { Text(if (language == AppLanguage.BAN) "ধরন (হাসপাতাল / ডায়াগনস্টিক)" else "Hospital Type") }, modifier = Modifier.fillMaxWidth())
-                        OutlinedTextField(value = hkPhone, onValueChange = { hkPhone = it }, label = { Text(if (language == AppLanguage.BAN) "জরুরি হটলাইন / ফোন *" else "Emergency Phone *") }, modifier = Modifier.fillMaxWidth())
-                        OutlinedTextField(value = hkAddress, onValueChange = { hkAddress = it }, label = { Text(if (language == AppLanguage.BAN) "হাসপাতালের ঠিকানা *" else "Hospital Address *") }, modifier = Modifier.fillMaxWidth())
-                        OutlinedTextField(value = hkServices, onValueChange = { hkServices = it }, label = { Text(if (language == AppLanguage.BAN) "উপলব্ধ সেবাসমূহ (Services)" else "Services Provided") }, modifier = Modifier.fillMaxWidth())
-                        OutlinedTextField(value = hkBloodAvail, onValueChange = { hkBloodAvail = it }, label = { Text(if (language == AppLanguage.BAN) "রক্তের প্রাপ্যতা তথ্য (Blood Bank)" else "Blood Bank Availability") }, modifier = Modifier.fillMaxWidth())
-                        OutlinedTextField(value = hkEmergencyNotice, onValueChange = { hkEmergencyNotice = it }, label = { Text(if (language == AppLanguage.BAN) "জরুরি ঘোষণা / নোটিশ (Notice)" else "Urgent Notice") }, modifier = Modifier.fillMaxWidth())
-                    }
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            if (hkName.isBlank() || hkPhone.isBlank()) {
-                                Toast.makeText(context, if (language == AppLanguage.BAN) "হাসপাতালের নাম ও ফোন নম্বর আবশ্যক" else "Hospital name & phone are required", Toast.LENGTH_SHORT).show()
-                            } else {
-                                if (myHospital != null) {
-                                    viewModel.updateHospitalDetails(myHospital.id, hkName, hkPhone, hkAddress, hkBloodAvail, hkEmergencyNotice)
-                                } else {
-                                    viewModel.triggerHospitalSignup(
-                                        name = hkName,
-                                        type = hkType,
-                                        address = hkAddress,
-                                        district = editDistrict.ifBlank { "Dhaka" },
-                                        upazila = editUpazila.ifBlank { "Dhanmondi" },
-                                        phone = hkPhone,
-                                        email = finalUser.email,
-                                        password = "123456",
-                                        services = hkServices,
-                                        bloodAvailability = hkBloodAvail,
-                                        country = editCountry
-                                    )
-                                }
-                                Toast.makeText(context, if (language == AppLanguage.BAN) "হাসপাতাল তথ্য সফলভাবে সংরক্ষিত হয়েছে!" else "Hospital info saved successfully!", Toast.LENGTH_SHORT).show()
-                                showHospitalKeeperDialog = false
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1565C0))
-                    ) {
-                        Text(if (language == AppLanguage.BAN) "ইনফরমেশন সেভ করুন" else "Save Details")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showHospitalKeeperDialog = false }) {
-                        Text(if (language == AppLanguage.BAN) "বাতিল" else "Cancel")
-                    }
-                }
+            HospitalMyAccountDialog(
+                user = finalUser,
+                viewModel = viewModel,
+                language = language,
+                onDismiss = { showHospitalKeeperDialog = false }
             )
         }
 
@@ -12876,6 +12811,7 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
     val isSyncing by viewModel.isSyncing.collectAsState()
     val messagesList by viewModel.messages.collectAsState()
     val ambulancesList by viewModel.allAmbulances.collectAsState()
+    val hospitalsList by viewModel.allRegisteredHospitals.collectAsState()
     val ambulanceBookingsList by viewModel.allAmbulanceBookings.collectAsState()
     val serviceBookingsList by viewModel.serviceBookings.collectAsState()
     val donorTeamsList by viewModel.donorTeams.collectAsState()
@@ -13022,7 +12958,7 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
         Triple("DONORS", if (language == AppLanguage.ENG) "Donors List" else "রক্তদাতা তালিকা", Icons.Default.Person),
         Triple("REQUESTS", if (language == AppLanguage.ENG) "Blood Requests" else "রক্তের অনুরোধসমূহ", Icons.Default.Favorite),
         Triple("AMBULANCES", if (language == AppLanguage.ENG) "Ambulance Service" else "অ্যাম্বুলেন্স সার্ভিস", Icons.Default.LocalHospital),
-        Triple("AMBULANCE_BOOKINGS", if (language == AppLanguage.ENG) "Ambulance Bookings" else "অ্যাম্বুলেন্স বুকিং সমূহ", Icons.Default.Book),
+        Triple("AMBULANCE_BOOKINGS", if (language == AppLanguage.ENG) "All Bookings & Appointments" else "সকল বুকিং ও অ্যাপয়েন্টমেন্ট", Icons.Default.CalendarMonth),
         Triple("TEAMS", if (language == AppLanguage.ENG) "Donor Teams" else "রক্তদাতা স্বেচ্ছাসেবক টিম", Icons.Default.Groups),
         Triple("SUPPORT", if (language == AppLanguage.ENG) "Live Support" else "লাইভ সাপোর্ট", Icons.Default.Chat),
         Triple("POLICIES", if (language == AppLanguage.ENG) "Policy, Terms & Conditions" else "পলিসি, টার্মস এন্ড কন্ডিশন", Icons.Default.Gavel),
@@ -13094,6 +13030,8 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                                 ) {
                                     Text(label, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                     val badgeValue = when (tag) {
+                                        "AMBULANCE_BOOKINGS" -> "${ambulanceBookingsList.size + serviceBookingsList.size}"
+                                        "HOSPITALS" -> "${hospitalsList.size}"
                                         "DONORS" -> "${donorsList.size}"
                                         "REQUESTS" -> "${requestsList.count { it.status == "Active" }}"
                                         "TEAMS" -> "${donorTeamsList.count { !it.isApproved }}"
@@ -13365,46 +13303,88 @@ fun AdminDashboardScreen(viewModel: MainViewModel) {
                                         modifier = Modifier.weight(1f),
                                         title = if (language == AppLanguage.ENG) "Ambulance Services" else "অ্যাম্বুলেন্স সার্ভিস",
                                         value = "${ambulancesList.size}",
-                                        subtitle = if (language == AppLanguage.ENG) "${ambulanceBookingsList.size} Bookings Total" else "${ambulanceBookingsList.size}টি বুকিং সম্পন্ন",
+                                        subtitle = if (language == AppLanguage.ENG) "${ambulanceBookingsList.size} Bookings Total" else "${ambulanceBookingsList.size}টি অ্যাম্বুলেন্স ট্রিপ",
                                         backgroundColor = Color(0xFF4CAF50),
                                         icon = Icons.Default.AirportShuttle
                                     )
                                 }
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    val totalAllBookings = ambulanceBookingsList.size + serviceBookingsList.size
+                                    val pendingAllBookings = serviceBookingsList.count { it.status.equals("Pending", true) } + ambulanceBookingsList.count { it.status.equals("Pending", true) }
+                                    AdminStatCard(
+                                        modifier = Modifier.weight(1f),
+                                        title = if (language == AppLanguage.ENG) "Total Bookings" else "বুকিং ও অ্যাপয়েন্টমেন্ট",
+                                        value = "$totalAllBookings",
+                                        subtitle = if (language == AppLanguage.ENG) "$pendingAllBookings Pending Requests" else "${pendingAllBookings}টি অপেক্ষমান অনুরোধ",
+                                        backgroundColor = Color(0xFF673AB7),
+                                        icon = Icons.Default.CalendarMonth
+                                    )
+                                    AdminStatCard(
+                                        modifier = Modifier.weight(1f),
+                                        title = if (language == AppLanguage.ENG) "Hospitals & Diagnostics" else "হাসপাতাল ও ডায়াগনস্টিক",
+                                        value = "${hospitalsList.size}",
+                                        subtitle = if (language == AppLanguage.ENG) "${serviceBookingsList.size} Service Bookings" else "${serviceBookingsList.size}টি সার্ভিস বুকিং",
+                                        backgroundColor = Color(0xFF00897B),
+                                        icon = Icons.Default.Domain
+                                    )
+                                }
                             }
                         } else {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                AdminStatCard(
-                                    modifier = Modifier.weight(1f).testTag("total_users_stat_card_wide"),
-                                    title = if (language == AppLanguage.ENG) "Total App Users" else "সর্বমোট ব্যবহারকারী",
-                                    value = "${donorsList.size}",
-                                    subtitle = if (language == AppLanguage.ENG) "${donorsList.filter { it.isApproved }.size} Approved Accounts" else "${donorsList.filter { it.isApproved }.size} জন ভেরিফাইড",
-                                    backgroundColor = Color(0xFFD32F2F),
-                                    icon = Icons.Default.Person
-                                )
-                                AdminStatCard(
-                                    modifier = Modifier.weight(1f),
-                                    title = if (language == AppLanguage.ENG) "Support & Chats" else "মন্তব্য ও চ্যাট",
-                                    value = "${messagesList.size}",
-                                    subtitle = if (language == AppLanguage.ENG) "${messagesList.size} Chat Messages" else "${messagesList.size}টি সাপোর্ট মেসেজ",
-                                    backgroundColor = Color(0xFFFF9800),
-                                    icon = Icons.Default.Chat
-                                )
-                                AdminStatCard(
-                                    modifier = Modifier.weight(1f),
-                                    title = if (language == AppLanguage.ENG) "Blood Requests" else "রক্তের অনুরোধ",
-                                    value = "${requestsList.size}",
-                                    subtitle = if (language == AppLanguage.ENG) "${requestsList.filter { it.status == "Active" }.size} Active Requests" else "${requestsList.filter { it.status == "Active" }.size}টি সক্রিয় অনুরোধ",
-                                    backgroundColor = Color(0xFF00ACEE),
-                                    icon = Icons.Default.LocalHospital
-                                )
-                                AdminStatCard(
-                                    modifier = Modifier.weight(1f),
-                                    title = if (language == AppLanguage.ENG) "Ambulance Services" else "অ্যাম্বুলেন্স সার্ভিস",
-                                    value = "${ambulancesList.size}",
-                                    subtitle = if (language == AppLanguage.ENG) "${ambulanceBookingsList.size} Bookings Registered" else "${ambulanceBookingsList.size}টি বুকিং সম্পন্ন",
-                                    backgroundColor = Color(0xFF4CAF50),
-                                    icon = Icons.Default.AirportShuttle
-                                )
+                            val totalAllBookings = ambulanceBookingsList.size + serviceBookingsList.size
+                            val pendingAllBookings = serviceBookingsList.count { it.status.equals("Pending", true) } + ambulanceBookingsList.count { it.status.equals("Pending", true) }
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    AdminStatCard(
+                                        modifier = Modifier.weight(1f).testTag("total_users_stat_card_wide"),
+                                        title = if (language == AppLanguage.ENG) "Total App Users" else "সর্বমোট ব্যবহারকারী",
+                                        value = "${donorsList.size}",
+                                        subtitle = if (language == AppLanguage.ENG) "${donorsList.filter { it.isApproved }.size} Approved Accounts" else "${donorsList.filter { it.isApproved }.size} জন ভেরিফাইড",
+                                        backgroundColor = Color(0xFFD32F2F),
+                                        icon = Icons.Default.Person
+                                    )
+                                    AdminStatCard(
+                                        modifier = Modifier.weight(1f),
+                                        title = if (language == AppLanguage.ENG) "Support & Chats" else "মন্তব্য ও চ্যাট",
+                                        value = "${messagesList.size}",
+                                        subtitle = if (language == AppLanguage.ENG) "${messagesList.size} Chat Messages" else "${messagesList.size}টি সাপোর্ট মেসেজ",
+                                        backgroundColor = Color(0xFFFF9800),
+                                        icon = Icons.Default.Chat
+                                    )
+                                    AdminStatCard(
+                                        modifier = Modifier.weight(1f),
+                                        title = if (language == AppLanguage.ENG) "Blood Requests" else "রক্তের অনুরোধ",
+                                        value = "${requestsList.size}",
+                                        subtitle = if (language == AppLanguage.ENG) "${requestsList.filter { it.status == "Active" }.size} Active Requests" else "${requestsList.filter { it.status == "Active" }.size}টি সক্রিয় অনুরোধ",
+                                        backgroundColor = Color(0xFF00ACEE),
+                                        icon = Icons.Default.LocalHospital
+                                    )
+                                }
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    AdminStatCard(
+                                        modifier = Modifier.weight(1f),
+                                        title = if (language == AppLanguage.ENG) "Ambulance Services" else "অ্যাম্বুলেন্স সার্ভিস",
+                                        value = "${ambulancesList.size}",
+                                        subtitle = if (language == AppLanguage.ENG) "${ambulanceBookingsList.size} Bookings Registered" else "${ambulanceBookingsList.size}টি বুকিং সম্পন্ন",
+                                        backgroundColor = Color(0xFF4CAF50),
+                                        icon = Icons.Default.AirportShuttle
+                                    )
+                                    AdminStatCard(
+                                        modifier = Modifier.weight(1f),
+                                        title = if (language == AppLanguage.ENG) "Total Bookings" else "বুকিং ও অ্যাপয়েন্টমেন্ট",
+                                        value = "$totalAllBookings",
+                                        subtitle = if (language == AppLanguage.ENG) "$pendingAllBookings Pending Requests" else "${pendingAllBookings}টি অপেক্ষমান অনুরোধ",
+                                        backgroundColor = Color(0xFF673AB7),
+                                        icon = Icons.Default.CalendarMonth
+                                    )
+                                    AdminStatCard(
+                                        modifier = Modifier.weight(1f),
+                                        title = if (language == AppLanguage.ENG) "Hospitals & Diagnostics" else "হাসপাতাল ও ডায়াগনস্টিক",
+                                        value = "${hospitalsList.size}",
+                                        subtitle = if (language == AppLanguage.ENG) "${serviceBookingsList.size} Service Bookings" else "${serviceBookingsList.size}টি সার্ভিস বুকিং",
+                                        backgroundColor = Color(0xFF00897B),
+                                        icon = Icons.Default.Domain
+                                    )
+                                }
                             }
                         }
 
@@ -15129,7 +15109,7 @@ fun DonorRegistrationPolicyDialog(
         "Doctor" -> if (isBn) listOf(
             "১. বিএমডিসি (BMDC) রেজিস্ট্রেশন নম্বর এবং ডিগ্রি/স্পেশাল্টি তথ্য শতভাগ সঠিক প্রদান করা বাধ্যতামূলক।",
             "২. চেম্বারের ঠিকানা, যোগাযোগের মোবাইল নম্বর এবং দেখার সময়সূচি নির্ভুল রাখতে হবে।",
-            "৩. ফ্রি প্ল্যানে আপনার চেম্বার লিস্টিং স্থায়ীভাবে বিনামূল্যে প্রদর্শিত হবে এবং অনলাইন সিরিয়াল সুবিধা চালু থাকবে।",
+            "৩. ফ্রি প্ল্যানে আপনার চেম্বার লিস্টিং স্থায়ীভাবে বিনামূল্যে প্রদর্শিত হবে এবং অনলাইন বুকিং সুবিধা চালু থাকবে।",
             "৪. অ্যাডভান্স প্রিমিয়াম প্ল্যানে আপনার প্রোফাইলে সরাসরি কল বাটন চালু হবে এবং গোল্ডেন প্রিমিয়াম স্পেশালিস্ট ব্যাজ যুক্ত হবে।",
             "৫. রোগীদের সাথে পেশাদার আচরণ এবং অ্যাপয়েন্টমেন্ট সময়সূচি বজায় রাখা আবশ্যক।"
         ) else listOf(
@@ -16825,8 +16805,8 @@ fun AmbulanceListScreen(viewModel: MainViewModel) {
     val strings by viewModel.strings.collectAsState()
     val language by viewModel.language.collectAsState()
     val filteredAmbulances by viewModel.filteredAmbulances.collectAsState()
-    val searchDist by viewModel.searchDistrict.collectAsState()
-    val searchUpz by viewModel.searchUpazila.collectAsState()
+    val searchDist by viewModel.searchAmbDistrict.collectAsState()
+    val searchUpz by viewModel.searchAmbUpazila.collectAsState()
     val searchType by viewModel.searchAmbulanceType.collectAsState()
     val context = LocalContext.current
     val userSession by viewModel.currentUser.collectAsState()
@@ -17234,12 +17214,53 @@ fun AmbulanceListScreen(viewModel: MainViewModel) {
             }
 
             if (filteredAmbulances.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = if (language == AppLanguage.ENG) "No ambulances found in this area." else "এই এলাকায় কোনো অ্যাম্বুলেন্স পাওয়া যায়নি।",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = SecondaryText
-                    )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, Color(0xFFFFB74D))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(Icons.Filled.AirportShuttle, contentDescription = null, tint = Color(0xFFF57C00), modifier = Modifier.size(48.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                text = if (language == AppLanguage.ENG) "No ambulances matching filter ($searchDist, $searchUpz)" else "এই ফিল্টারে কোনো অ্যাম্বুলেন্স নেই ($searchDist, $searchUpz)",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFE65100),
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = if (language == AppLanguage.ENG) "Clear filters to view all available ambulances in your country." else "সব জেলার সার্বিক অ্যাম্বুলেন্স দেখতে নিচের বাটনে চাপ দিন।",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = DarkText.copy(alpha = 0.8f),
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Button(
+                                onClick = { viewModel.updateAmbulanceFilters("All", "All", "All") },
+                                colors = ButtonDefaults.buttonColors(containerColor = BloodRed),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(if (language == AppLanguage.ENG) "Show All Ambulances" else "সব অ্যাম্বুলেন্স দেখুন", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
                 }
             } else {
                 LazyColumn(
@@ -24081,7 +24102,7 @@ fun DoctorDirectoryScreen(viewModel: MainViewModel) {
                     Spacer(modifier = Modifier.width(8.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (language == AppLanguage.BAN) "ডাক্তার ডিরেক্টরি ও সিরিয়াল" else "Doctor Directory & Serials",
+                            text = if (language == AppLanguage.BAN) "ডাক্তার ডিরেক্টরি ও বুকিং" else "Doctor Directory & Booking",
                             color = Color.White,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold
@@ -24380,7 +24401,7 @@ fun DoctorDirectoryScreen(viewModel: MainViewModel) {
                             ) {
                                 Icon(Icons.Filled.CalendarMonth, contentDescription = "Book", modifier = Modifier.size(15.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text(if (language == AppLanguage.BAN) "সিরিয়াল" else "Book Serial", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text(if (language == AppLanguage.BAN) "বুকিং" else "Book Appointment", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -24446,7 +24467,7 @@ fun DoctorDirectoryScreen(viewModel: MainViewModel) {
                             }
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(if (language == AppLanguage.BAN) "✓ বিনামূল্যে চেম্বার লিস্টিং (স্থায়ী / নো এক্সপায়ারি)" else "✓ Free doctor chamber listing (Permanent / Lifetime)", fontSize = 11.sp, color = DarkText)
-                            Text(if (language == AppLanguage.BAN) "✓ অনলাইন সিরিয়াল বুকিং ও হেল্পডেস্ক চ্যাট সেবা" else "✓ Online serial booking & helpdesk chat service", fontSize = 11.sp, color = DarkText)
+                            Text(if (language == AppLanguage.BAN) "✓ অনলাইন বুকিং ও হেল্পডেস্ক চ্যাট সেবা" else "✓ Online booking & helpdesk chat service", fontSize = 11.sp, color = DarkText)
                             Text(if (language == AppLanguage.BAN) "✖ সরাসরি ফোন নম্বর ও ডাইরেক্ট কল ফিচার বন্ধ" else "✖ Direct mobile call feature disabled", fontSize = 11.sp, color = Color.Gray)
                             Spacer(modifier = Modifier.height(10.dp))
                             Button(
@@ -24639,7 +24660,7 @@ fun DoctorDirectoryScreen(viewModel: MainViewModel) {
                     Icon(Icons.Filled.CalendarMonth, contentDescription = "Book", tint = Color(0xFF00897B))
                     Spacer(modifier = Modifier.width(8.dp))
                     Column {
-                        Text(if (language == AppLanguage.BAN) "ডাক্তার অ্যাপয়েন্টমেন্ট বুকিং" else "Doctor Serial Booking", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Text(if (language == AppLanguage.BAN) "ডাক্তার অ্যাপয়েন্টমেন্ট বুকিং" else "Doctor Appointment Booking", fontSize = 15.sp, fontWeight = FontWeight.Bold)
                         Text("${doc.name} (${doc.specialty})", fontSize = 11.sp, color = SecondaryText)
                     }
                 }
@@ -24721,7 +24742,7 @@ fun DoctorDirectoryScreen(viewModel: MainViewModel) {
                                 userName = currentUsr?.name ?: docBookPatientName,
                                 providerName = "${doc.name} (${doc.specialty})",
                                 providerPhone = doc.phone,
-                                serviceName = "Doctor Serial - ${doc.specialty}",
+                                serviceName = "Doctor Booking - ${doc.specialty}",
                                 bookingDate = docBookDate.ifBlank { "Immediate" },
                                 patientName = docBookPatientName,
                                 patientPhone = docBookPhone,
@@ -24743,7 +24764,7 @@ fun DoctorDirectoryScreen(viewModel: MainViewModel) {
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00897B))
                 ) {
-                    Text(if (language == AppLanguage.BAN) "সিরিয়াল নিশ্চিত করুন" else "Confirm Serial")
+                    Text(if (language == AppLanguage.BAN) "বুকিং নিশ্চিত করুন" else "Confirm Booking")
                 }
             },
             dismissButton = {

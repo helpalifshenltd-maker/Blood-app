@@ -985,6 +985,12 @@ class MainViewModel(
     private val _searchHospital = MutableStateFlow("All")
     val searchHospital: StateFlow<String> = _searchHospital.asStateFlow()
 
+    private val _searchAmbDistrict = MutableStateFlow("All")
+    val searchAmbDistrict: StateFlow<String> = _searchAmbDistrict.asStateFlow()
+
+    private val _searchAmbUpazila = MutableStateFlow("All")
+    val searchAmbUpazila: StateFlow<String> = _searchAmbUpazila.asStateFlow()
+
     private val _searchAmbulanceType = MutableStateFlow("All")
     val searchAmbulanceType: StateFlow<String> = _searchAmbulanceType.asStateFlow()
 
@@ -996,8 +1002,8 @@ class MainViewModel(
     }
 
     fun updateAmbulanceFilters(district: String, upazila: String, type: String) {
-        _searchDistrict.value = district
-        _searchUpazila.value = upazila
+        _searchAmbDistrict.value = district
+        _searchAmbUpazila.value = upazila
         _searchAmbulanceType.value = type
     }
 
@@ -1067,15 +1073,18 @@ class MainViewModel(
 
     val filteredAmbulances: StateFlow<List<Ambulance>> = combine(
         ambulances,
-        _searchDistrict,
-        _searchUpazila,
+        _searchAmbDistrict,
+        _searchAmbUpazila,
         _searchAmbulanceType,
         detectedCountry
     ) { list, dist, upz, type, countryName ->
         list.filter { amb ->
-            val matchCountry = amb.country.equals(countryName, ignoreCase = true)
-            val matchDist = (dist == "All" || amb.district.equals(dist, ignoreCase = true))
-            val matchUpz = (upz == "All" || amb.upazila.equals(upz, ignoreCase = true))
+            val matchCountry = amb.country.isBlank() ||
+                    amb.country.equals(countryName, ignoreCase = true) ||
+                    countryName.isBlank() ||
+                    (countryName.equals("Bangladesh", ignoreCase = true) && (amb.country.equals("Bangladesh", ignoreCase = true) || amb.country.isBlank()))
+            val matchDist = (dist == "All" || amb.district.isBlank() || amb.district.equals(dist, ignoreCase = true))
+            val matchUpz = (upz == "All" || amb.upazila.isBlank() || amb.upazila.equals(upz, ignoreCase = true))
             val matchType = (type == "All" || amb.ambulanceType.equals(type, ignoreCase = true))
             matchCountry && matchDist && matchUpz && matchType
         }
@@ -1303,9 +1312,8 @@ class MainViewModel(
                 seedProfileForm(user)
                 if (user.email.equals("alifsheenshopping@gmail.com", ignoreCase = true) || 
                     user.email.equals("help.alifshen.ltd@gmail.com", ignoreCase = true) ||
-                    user.role == "Admin" ||
-                    user.email.contains("admin", ignoreCase = true) ||
-                    user.name.contains("Alif", ignoreCase = true)) {
+                    user.role.equals("Admin", ignoreCase = true) ||
+                    user.phone == "admin") {
                     setAdminMode(true)
                 }
             }
@@ -1743,11 +1751,14 @@ class MainViewModel(
             email = userEmail,
             password = userPass
         )
-        // Reset form
+        // Reset form and filters
         ambOwnerName = ""
         ambServiceName = ""
         ambPhone = ""
         ambDescription = ""
+        _searchAmbDistrict.value = "All"
+        _searchAmbUpazila.value = "All"
+        _searchAmbulanceType.value = "All"
         autoShowPlanForRole.value = "Ambulance"
         navigateTo(AppScreen.AMBULANCE_LIST)
         return true

@@ -4728,6 +4728,11 @@ fun AdminBookingsTab(
 
     Column(modifier = Modifier.fillMaxSize()) {
         // Filter Chips Row
+        val totalCount = serviceBookings.size + bookings.size
+        val hospCount = serviceBookings.count { it.bookingType.contains("Hospital", ignoreCase = true) }
+        val docCount = serviceBookings.count { it.bookingType.contains("Doctor", ignoreCase = true) }
+        val ambCount = bookings.size
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -4736,10 +4741,10 @@ fun AdminBookingsTab(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             listOf(
-                "ALL" to (if (language == AppLanguage.BAN) "সব বুকিং" else "All Bookings"),
-                "HOSPITAL" to (if (language == AppLanguage.BAN) "হাসপাতাল সার্ভিস" else "Hospital Bookings"),
-                "DOCTOR" to (if (language == AppLanguage.BAN) "ডাক্তার অ্যাপয়েন্টমেন্ট" else "Doctor Appointments"),
-                "AMBULANCE" to (if (language == AppLanguage.BAN) "অ্যাম্বুলেন্স ট্রিপ" else "Ambulance Trips")
+                "ALL" to (if (language == AppLanguage.BAN) "সব বুকিং ($totalCount)" else "All Bookings ($totalCount)"),
+                "HOSPITAL" to (if (language == AppLanguage.BAN) "হাসপাতাল সার্ভিস ($hospCount)" else "Hospital ($hospCount)"),
+                "DOCTOR" to (if (language == AppLanguage.BAN) "ডাক্তার অ্যাপয়েন্টমেন্ট ($docCount)" else "Doctor Appointments ($docCount)"),
+                "AMBULANCE" to (if (language == AppLanguage.BAN) "অ্যাম্বুলেন্স ট্রিপ ($ambCount)" else "Ambulance Trips ($ambCount)")
             ).forEach { (key, label) ->
                 val isSelected = selectedFilter == key
                 FilterChip(
