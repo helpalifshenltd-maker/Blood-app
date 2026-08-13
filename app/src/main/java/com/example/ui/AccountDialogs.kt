@@ -434,7 +434,7 @@ fun BookingsAndAppointmentsDialog(
 
     val serviceBookings by viewModel.serviceBookings.collectAsState()
     val ambulanceBookings by viewModel.ambulanceBookings.collectAsState()
-    val userSession by viewModel.userSession.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsState()
     val bookingAcceptanceFee by viewModel.bookingAcceptanceFee.collectAsState()
 
     val filteredServiceBookings = serviceBookings.filter {
@@ -442,13 +442,13 @@ fun BookingsAndAppointmentsDialog(
         it.userPhone == userPhone ||
         it.patientPhone == userPhone ||
         it.providerPhone == userPhone ||
-        (userSession != null && userSession?.phone == it.providerPhone)
+        (currentUser != null && currentUser?.phone == it.providerPhone)
     }
     val filteredAmbulanceBookings = ambulanceBookings.filter {
         userPhone.isBlank() ||
         it.contactPhone == userPhone ||
         it.assignedAmbulancePhone == userPhone ||
-        (userSession != null && userSession?.phone == it.assignedAmbulancePhone)
+        (currentUser != null && currentUser?.phone == it.assignedAmbulancePhone)
     }
 
     AlertDialog(
@@ -571,10 +571,10 @@ fun BookingsAndAppointmentsDialog(
                                     if (item.status == "Pending" || item.status == "Confirmed") {
                                         Spacer(modifier = Modifier.height(8.dp))
                                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            if (item.status == "Pending" && userSession != null && (userSession?.phone == item.providerPhone || userSession?.role in listOf("Doctor", "Hospital", "Admin") || userPhone.isBlank())) {
+                                            if (item.status == "Pending" && currentUser != null && (currentUser?.phone == item.providerPhone || currentUser?.role in listOf("Doctor", "Hospital", "Admin") || userPhone.isBlank())) {
                                                 Button(
                                                     onClick = {
-                                                        val currentBalance = userSession?.walletBalance ?: 0.0
+                                                        val currentBalance = currentUser?.walletBalance ?: 0.0
                                                         val requiredFee = bookingAcceptanceFee
                                                         if (currentBalance >= requiredFee) {
                                                             val success = viewModel.deductWalletBalance(requiredFee)
@@ -660,10 +660,10 @@ fun BookingsAndAppointmentsDialog(
                                     if (item.status == "Pending" || item.status == "Confirmed") {
                                         Spacer(modifier = Modifier.height(8.dp))
                                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            if (item.status == "Pending" && userSession != null && (userSession?.phone == item.assignedAmbulancePhone || userSession?.role in listOf("Ambulance", "Admin") || userPhone.isBlank())) {
+                                            if (item.status == "Pending" && currentUser != null && (currentUser?.phone == item.assignedAmbulancePhone || currentUser?.role in listOf("Ambulance", "Admin") || userPhone.isBlank())) {
                                                 Button(
                                                     onClick = {
-                                                        val currentBalance = userSession?.walletBalance ?: 0.0
+                                                        val currentBalance = currentUser?.walletBalance ?: 0.0
                                                         val requiredFee = bookingAcceptanceFee
                                                         if (currentBalance >= requiredFee) {
                                                             val success = viewModel.deductWalletBalance(requiredFee)
@@ -671,8 +671,8 @@ fun BookingsAndAppointmentsDialog(
                                                                 viewModel.triggerUpdateBookingStatus(
                                                                     bookingId = item.id,
                                                                     newStatus = "Confirmed",
-                                                                    assignedName = userSession?.name ?: "",
-                                                                    assignedPhone = userSession?.phone ?: "",
+                                                                    assignedName = currentUser?.name ?: "",
+                                                                    assignedPhone = currentUser?.phone ?: "",
                                                                     fare = item.fare
                                                                 )
                                                                 Toast.makeText(context, if (isBan) "অ্যাম্বুলেন্স ট্রিপ গ্রহণ করা হয়েছে! ৳${requiredFee.toInt()} ওয়ালেট থেকে কাটা হয়েছে।" else "Ambulance trip accepted! ৳${requiredFee.toInt()} deducted from wallet.", Toast.LENGTH_LONG).show()

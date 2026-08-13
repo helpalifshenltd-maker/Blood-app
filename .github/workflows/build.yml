@@ -33,7 +33,7 @@ jobs:
     - name: Restore Clean Gradle Wrapper JAR
       run: |
         mkdir -p gradle/wrapper
-        curl -L -o gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v9.3.1/gradle/wrapper/gradle-wrapper.jar
+        curl -L -o gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.11.1/gradle/wrapper/gradle-wrapper.jar
 
     - name: Ensure google-services.json exists
       run: |
@@ -101,9 +101,9 @@ jobs:
       if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
       run: |
         mkdir -p site
-        cp -r web/* site/
-        cp app/build/outputs/apk/release/*.apk site/app-release.apk
-        cp app/build/outputs/apk/debug/*.apk site/app-debug.apk
+        if [ -d "web" ]; then cp -r web/* site/; fi
+        cp app/build/outputs/apk/release/*.apk site/app-release.apk || true
+        cp app/build/outputs/apk/debug/*.apk site/app-debug.apk || true
 
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v4

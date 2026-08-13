@@ -68,10 +68,10 @@ object AdManager {
     }
 
     fun loadRewarded(context: Context) {
-        iiff (rewardedAd != null || isRewardedLoading) return
+        if (rewardedAd != null || isRewardedLoading) return
         isRewardedLoading = true
-val
-        valval adRequest = AdRequest.Builder().build()
+
+        val adRequest = AdRequest.Builder().build()
         RewardedAd.load(
             context,
             REWARDED_TEST_ID,
