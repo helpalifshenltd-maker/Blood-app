@@ -447,29 +447,57 @@ fun BookingsAndAppointmentsDialog(
         return clean.isNotEmpty() && (clean == normalizedTarget || clean.endsWith(normalizedTarget) || normalizedTarget.endsWith(clean))
     }
 
-    val isProviderOrAdmin = currentUser?.role in listOf("Doctor", "Hospital", "Ambulance", "Admin") || userPhone.isBlank()
+    val userRole = currentUser?.role ?: ""
+    val isAmbulanceUser = userRole.equals("Ambulance", ignoreCase = true)
+    val isDoctorUser = userRole.equals("Doctor", ignoreCase = true)
+    val isHospitalUser = userRole.equals("Hospital", ignoreCase = true)
+    val isAdminUser = userRole.equals("Admin", ignoreCase = true)
 
-    val userMatchedServiceBookings = if (isProviderOrAdmin && normalizedTarget.isBlank()) {
-        serviceBookings
-    } else {
-        val matches = serviceBookings.filter {
-            matchesPhone(it.userPhone) ||
-            matchesPhone(it.patientPhone) ||
-            matchesPhone(it.providerPhone) ||
-            (currentUser?.name?.isNotBlank() == true && (it.providerName.contains(currentUser?.name ?: "", ignoreCase = true) || it.patientName.contains(currentUser?.name ?: "", ignoreCase = true)))
+    val userMatchedServiceBookings = when {
+        isAmbulanceUser -> emptyList()
+        isDoctorUser -> {
+            serviceBookings.filter {
+                it.bookingType.contains("Doctor", ignoreCase = true) &&
+                (matchesPhone(it.providerPhone) || matchesPhone(it.patientPhone) || matchesPhone(it.userPhone) ||
+                 (currentUser?.name?.isNotBlank() == true && (it.providerName.contains(currentUser?.name ?: "", ignoreCase = true) || it.patientName.contains(currentUser?.name ?: "", ignoreCase = true))))
+            }
         }
-        if (matches.isEmpty() && isProviderOrAdmin) serviceBookings else matches
+        isHospitalUser -> {
+            serviceBookings.filter {
+                it.bookingType.contains("Hospital", ignoreCase = true) &&
+                (matchesPhone(it.providerPhone) || matchesPhone(it.patientPhone) || matchesPhone(it.userPhone) ||
+                 (currentUser?.name?.isNotBlank() == true && (it.providerName.contains(currentUser?.name ?: "", ignoreCase = true) || it.patientName.contains(currentUser?.name ?: "", ignoreCase = true))))
+            }
+        }
+        isAdminUser -> serviceBookings
+        else -> {
+            serviceBookings.filter {
+                matchesPhone(it.userPhone) ||
+                matchesPhone(it.patientPhone) ||
+                matchesPhone(it.providerPhone) ||
+                (currentUser?.name?.isNotBlank() == true && (it.providerName.contains(currentUser?.name ?: "", ignoreCase = true) || it.patientName.contains(currentUser?.name ?: "", ignoreCase = true)))
+            }
+        }
     }
 
-    val userMatchedAmbulanceBookings = if (isProviderOrAdmin && normalizedTarget.isBlank()) {
-        ambulanceBookings
-    } else {
-        val matches = ambulanceBookings.filter {
-            matchesPhone(it.contactPhone) ||
-            matchesPhone(it.assignedAmbulancePhone ?: "") ||
-            (currentUser?.name?.isNotBlank() == true && it.patientName.contains(currentUser?.name ?: "", ignoreCase = true))
+    val userMatchedAmbulanceBookings = when {
+        isDoctorUser || isHospitalUser -> emptyList()
+        isAmbulanceUser -> {
+            val matches = ambulanceBookings.filter {
+                matchesPhone(it.contactPhone) ||
+                matchesPhone(it.assignedAmbulancePhone ?: "") ||
+                (currentUser?.name?.isNotBlank() == true && it.patientName.contains(currentUser?.name ?: "", ignoreCase = true))
+            }
+            if (matches.isEmpty()) ambulanceBookings else matches
         }
-        if (matches.isEmpty() && isProviderOrAdmin) ambulanceBookings else matches
+        isAdminUser -> ambulanceBookings
+        else -> {
+            ambulanceBookings.filter {
+                matchesPhone(it.contactPhone) ||
+                matchesPhone(it.assignedAmbulancePhone ?: "") ||
+                (currentUser?.name?.isNotBlank() == true && it.patientName.contains(currentUser?.name ?: "", ignoreCase = true))
+            }
+        }
     }
 
     val filteredServiceBookings = userMatchedServiceBookings.filter {
@@ -506,30 +534,40 @@ fun BookingsAndAppointmentsDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Category Chips (All, Doctor, Hospital, Ambulance)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    val totalCount = userMatchedServiceBookings.size + userMatchedAmbulanceBookings.size
-                    val docCount = userMatchedServiceBookings.count { it.bookingType.contains("Doctor", ignoreCase = true) }
-                    val hospCount = userMatchedServiceBookings.count { it.bookingType.contains("Hospital", ignoreCase = true) }
-                    val ambCount = userMatchedAmbulanceBookings.size
-
-                    listOf(
-                        "ALL" to (if (isBan) "সব ($totalCount)" else "All ($totalCount)"),
-                        "DOCTOR" to (if (isBan) "ডাক্তার ($docCount)" else "Doctor ($docCount)"),
-                        "HOSPITAL" to (if (isBan) "হাসপাতাল ($hospCount)" else "Hospital ($hospCount)"),
-                        "AMBULANCE" to (if (isBan) "অ্যাম্বুলেন্স ($ambCount)" else "Ambulance ($ambCount)")
-                    ).forEach { (catKey, catLabel) ->
-                        val isSelected = selectedCategory == catKey
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = { selectedCategory = catKey },
-                            label = { Text(catLabel, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) }
+                // Category Chips based on role
+                val availableCategories = when {
+                    isAmbulanceUser -> listOf("AMBULANCE" to (if (isBan) "অ্যাম্বুলেন্স (${userMatchedAmbulanceBookings.size})" else "Ambulance (${userMatchedAmbulanceBookings.size})"))
+                    isDoctorUser -> listOf("DOCTOR" to (if (isBan) "ডাক্তার (${userMatchedServiceBookings.size})" else "Doctor (${userMatchedServiceBookings.size})"))
+                    isHospitalUser -> listOf("HOSPITAL" to (if (isBan) "হাসপাতাল (${userMatchedServiceBookings.size})" else "Hospital (${userMatchedServiceBookings.size})"))
+                    else -> {
+                        val totalCount = userMatchedServiceBookings.size + userMatchedAmbulanceBookings.size
+                        val docCount = userMatchedServiceBookings.count { it.bookingType.contains("Doctor", ignoreCase = true) }
+                        val hospCount = userMatchedServiceBookings.count { it.bookingType.contains("Hospital", ignoreCase = true) }
+                        val ambCount = userMatchedAmbulanceBookings.size
+                        listOf(
+                            "ALL" to (if (isBan) "সব ($totalCount)" else "All ($totalCount)"),
+                            "DOCTOR" to (if (isBan) "ডাক্তার ($docCount)" else "Doctor ($docCount)"),
+                            "HOSPITAL" to (if (isBan) "হাসপাতাল ($hospCount)" else "Hospital ($hospCount)"),
+                            "AMBULANCE" to (if (isBan) "অ্যাম্বুলেন্স ($ambCount)" else "Ambulance ($ambCount)")
                         )
+                    }
+                }
+
+                if (availableCategories.size > 1) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        availableCategories.forEach { (catKey, catLabel) ->
+                            val isSelected = selectedCategory == catKey
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { selectedCategory = catKey },
+                                label = { Text(catLabel, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) }
+                            )
+                        }
                     }
                 }
 
@@ -657,8 +695,25 @@ fun BookingsAndAppointmentsDialog(
                                     if (item.status == "Pending" && (matchesPhone(item.providerPhone) || currentUser?.role in listOf("Doctor", "Hospital", "Admin") || userPhone.isBlank())) {
                                         Button(
                                             onClick = {
-                                                viewModel.updateServiceBookingStatus(item.id, "Confirmed")
-                                                Toast.makeText(context, if (isBan) "বুকিং সফলভাবে একসেপ্ট ও কনফার্ম করা হয়েছে!" else "Booking accepted and confirmed!", Toast.LENGTH_SHORT).show()
+                                                val isProvider = currentUser?.role in listOf("Doctor", "Hospital") || matchesPhone(item.providerPhone)
+                                                val currentBalance = currentUser?.walletBalance ?: 0.0
+                                                val requiredFee = bookingAcceptanceFee
+                                                if (isProvider && currentUser?.role != "Admin") {
+                                                    if (currentBalance >= requiredFee) {
+                                                        val success = viewModel.deductWalletBalance(requiredFee)
+                                                        if (success) {
+                                                            viewModel.updateServiceBookingStatus(item.id, "Confirmed")
+                                                            Toast.makeText(context, if (isBan) "বুকিং সফলভাবে কনফার্ম করা হয়েছে! ৳${requiredFee.toInt()} ওয়ালেট থেকে কাটা হয়েছে।" else "Booking accepted and confirmed! ৳${requiredFee.toInt()} deducted from wallet.", Toast.LENGTH_SHORT).show()
+                                                        } else {
+                                                            Toast.makeText(context, if (isBan) "ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই! প্রয়োজন ৳${requiredFee.toInt()}" else "Insufficient wallet balance! Required ৳${requiredFee.toInt()}", Toast.LENGTH_LONG).show()
+                                                        }
+                                                    } else {
+                                                        Toast.makeText(context, if (isBan) "ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই! বুকিং একসেপ্ট করতে অন্তত ৳${requiredFee.toInt()} থাকতে হবে। বর্তমান ব্যালেন্স: ৳${currentBalance.toInt()}। অনুগ্রহ করে ওয়ালেট রিচার্জ করুন।" else "Insufficient balance! Required ৳${requiredFee.toInt()}. Current balance: ৳${currentBalance.toInt()}. Please recharge wallet.", Toast.LENGTH_LONG).show()
+                                                    }
+                                                } else {
+                                                    viewModel.updateServiceBookingStatus(item.id, "Confirmed")
+                                                    Toast.makeText(context, if (isBan) "বুকিং সফলভাবে একসেপ্ট ও কনফার্ম করা হয়েছে!" else "Booking accepted and confirmed!", Toast.LENGTH_SHORT).show()
+                                                }
                                             },
                                             modifier = Modifier.weight(1f).height(32.dp),
                                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
@@ -2047,6 +2102,8 @@ fun DoctorMyAccountDialog(
     // Live Bookings Data
     val allServiceBookings by viewModel.serviceBookings.collectAsState()
     val registeredDoctors by viewModel.registeredDoctors.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsState()
+    val bookingAcceptanceFee by viewModel.bookingAcceptanceFee.collectAsState()
     val myDoc = registeredDoctors.find { 
         it.phone == user.phone || it.name.equals(user.name, ignoreCase = true) 
     }
@@ -2381,8 +2438,19 @@ fun DoctorMyAccountDialog(
                                                 if (req.status.equals("Pending", true)) {
                                                     Button(
                                                         onClick = {
-                                                            viewModel.updateServiceBookingStatus(req.id, "Confirmed")
-                                                            Toast.makeText(context, if (isBan) "অ্যাপয়েন্টমেন্ট গ্রহণ ও কনফার্ম করা হয়েছে!" else "Appointment Accepted & Confirmed!", Toast.LENGTH_SHORT).show()
+                                                            val currentBalance = currentUser?.walletBalance ?: user.walletBalance
+                                                            val requiredFee = bookingAcceptanceFee
+                                                            if (currentBalance >= requiredFee) {
+                                                                val success = viewModel.deductWalletBalance(requiredFee)
+                                                                if (success) {
+                                                                    viewModel.updateServiceBookingStatus(req.id, "Confirmed")
+                                                                    Toast.makeText(context, if (isBan) "অ্যাপয়েন্টমেন্ট গ্রহণ ও কনফার্ম করা হয়েছে! ৳${requiredFee.toInt()} ওয়ালেট থেকে কাটা হয়েছে।" else "Appointment Accepted & Confirmed! ৳${requiredFee.toInt()} deducted from wallet.", Toast.LENGTH_SHORT).show()
+                                                                } else {
+                                                                    Toast.makeText(context, if (isBan) "ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই! প্রয়োজন ৳${requiredFee.toInt()}" else "Insufficient wallet balance! Required ৳${requiredFee.toInt()}", Toast.LENGTH_LONG).show()
+                                                                }
+                                                            } else {
+                                                                Toast.makeText(context, if (isBan) "ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই! অ্যাপয়েন্টমেন্ট একসেপ্ট করতে অন্তত ৳${requiredFee.toInt()} থাকতে হবে। বর্তমান ব্যালেন্স: ৳${currentBalance.toInt()}। অনুগ্রহ করে ওয়ালেট রিচার্জ করুন।" else "Insufficient balance! Required ৳${requiredFee.toInt()}. Current balance: ৳${currentBalance.toInt()}. Please recharge wallet.", Toast.LENGTH_LONG).show()
+                                                            }
                                                         },
                                                         modifier = Modifier.weight(1f).height(34.dp),
                                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
@@ -2837,6 +2905,8 @@ fun HospitalMyAccountDialog(
 
     val registeredHospitals by viewModel.registeredHospitals.collectAsState()
     val allServiceBookings by viewModel.serviceBookings.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsState()
+    val bookingAcceptanceFee by viewModel.bookingAcceptanceFee.collectAsState()
 
     val myHospital = registeredHospitals.find {
         it.phone == user.phone || it.email.equals(user.email, ignoreCase = true) || it.name.equals(user.name, ignoreCase = true)
@@ -3093,8 +3163,19 @@ fun HospitalMyAccountDialog(
                                                 if (req.status.equals("Pending", true)) {
                                                     Button(
                                                         onClick = {
-                                                            viewModel.updateServiceBookingStatus(req.id, "Confirmed")
-                                                            Toast.makeText(context, if (isBan) "বুকিং সফলভাবে কনফার্ম করা হয়েছে!" else "Booking Accepted & Confirmed!", Toast.LENGTH_SHORT).show()
+                                                            val currentBalance = currentUser?.walletBalance ?: user.walletBalance
+                                                            val requiredFee = bookingAcceptanceFee
+                                                            if (currentBalance >= requiredFee) {
+                                                                val success = viewModel.deductWalletBalance(requiredFee)
+                                                                if (success) {
+                                                                    viewModel.updateServiceBookingStatus(req.id, "Confirmed")
+                                                                    Toast.makeText(context, if (isBan) "বুকিং সফলভাবে কনফার্ম করা হয়েছে! ৳${requiredFee.toInt()} ওয়ালেট থেকে কাটা হয়েছে।" else "Booking Accepted & Confirmed! ৳${requiredFee.toInt()} deducted from wallet.", Toast.LENGTH_SHORT).show()
+                                                                } else {
+                                                                    Toast.makeText(context, if (isBan) "ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই! প্রয়োজন ৳${requiredFee.toInt()}" else "Insufficient wallet balance! Required ৳${requiredFee.toInt()}", Toast.LENGTH_LONG).show()
+                                                                }
+                                                            } else {
+                                                                Toast.makeText(context, if (isBan) "ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই! বুকিং একসেপ্ট করতে অন্তত ৳${requiredFee.toInt()} থাকতে হবে। বর্তমান ব্যালেন্স: ৳${currentBalance.toInt()}। অনুগ্রহ করে ওয়ালেট রিচার্জ করুন।" else "Insufficient balance! Required ৳${requiredFee.toInt()}. Current balance: ৳${currentBalance.toInt()}. Please recharge wallet.", Toast.LENGTH_LONG).show()
+                                                            }
                                                         },
                                                         modifier = Modifier.weight(1f).height(34.dp),
                                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),

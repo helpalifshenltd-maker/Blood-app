@@ -123,10 +123,13 @@ class BloodConnectRepository private constructor() {
 
     fun registerHospital(hospital: RegisteredHospital) {
         val current = _registeredHospitals.value.toMutableList()
-        val existingIndex = current.indexOfFirst {
-            it.id == hospital.id ||
-            (hospital.phone.isNotBlank() && it.phone == hospital.phone) ||
-            (hospital.email.isNotBlank() && it.email.equals(hospital.email, ignoreCase = true))
+        val existingIndex = if (hospital.id.isNotBlank()) {
+            current.indexOfFirst { it.id == hospital.id }
+        } else {
+            current.indexOfFirst {
+                (hospital.phone.isNotBlank() && it.phone == hospital.phone) ||
+                (hospital.email.isNotBlank() && it.email.equals(hospital.email, ignoreCase = true))
+            }
         }
         val targetHospital: RegisteredHospital
         if (existingIndex >= 0) {
@@ -134,7 +137,8 @@ class BloodConnectRepository private constructor() {
             targetHospital = hospital.copy(id = existing.id)
             current[existingIndex] = targetHospital
         } else {
-            targetHospital = hospital
+            val safeId = if (hospital.id.isNotBlank()) hospital.id else "hosp_${System.currentTimeMillis()}"
+            targetHospital = hospital.copy(id = safeId)
             current.add(0, targetHospital)
         }
         _registeredHospitals.value = current

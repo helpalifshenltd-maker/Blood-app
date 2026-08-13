@@ -802,7 +802,10 @@ data class RegisteredHospital(
     val paymentMethod: String = "", // "bKash", "Nagad", "Rocket", "Google Pay"
     val paymentTxnId: String = "",
     val registrationDate: String = "",
-    val password: String = ""
+    val password: String = "",
+    val ownerPhone: String = "",
+    val ownerEmail: String = "",
+    val branchName: String = ""
 )
 
 @com.squareup.moshi.JsonClass(generateAdapter = true)
