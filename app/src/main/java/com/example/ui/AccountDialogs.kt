@@ -2566,31 +2566,26 @@ fun DoctorMyAccountDialog(
             title = { Text(if (isBan) "কমিশন পরিশোধ করুন (bKash/Nagad)" else "Pay Commission Due") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    var selectedCommissionMethod by remember { mutableStateOf("bKash") }
                     Text("বকেয়া পরিমাণ: ৳$commissionDueAmount", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     Text("পেমেন্ট পদ্ধতি নির্বাচন করুন:", fontSize = 12.sp)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
-                            onClick = {
-                                commissionStatus = "Active"
-                                commissionDueAmount = 0
-                                showPayCommissionModal = false
-                                Toast.makeText(context, if (isBan) "কমিশন পেমেন্ট সফল! অ্যাকাউন্ট এক্টিভ করা হয়েছে।" else "Commission Payment Successful! Account Activated.", Toast.LENGTH_LONG).show()
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE91E63))
-                        ) {
-                            Text("bKash ৳$commissionDueAmount")
-                        }
-                        Button(
-                            onClick = {
-                                commissionStatus = "Active"
-                                commissionDueAmount = 0
-                                showPayCommissionModal = false
-                                Toast.makeText(context, if (isBan) "কমিশন পেমেন্ট সফল! অ্যাকাউন্ট এক্টিভ করা হয়েছে।" else "Commission Payment Successful! Account Activated.", Toast.LENGTH_LONG).show()
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF4511E))
-                        ) {
-                            Text("Nagad ৳$commissionDueAmount")
-                        }
+                    UnifiedPaymentMethodSelector(
+                        selectedMethod = selectedCommissionMethod,
+                        onMethodSelected = { selectedCommissionMethod = it },
+                        availableMethods = listOf("bKash", "Google Pay", "Nagad", "Others")
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            commissionStatus = "Active"
+                            commissionDueAmount = 0
+                            showPayCommissionModal = false
+                            Toast.makeText(context, if (isBan) "কমিশন পেমেন্ট সফল! অ্যাকাউন্ট এক্টিভ করা হয়েছে।" else "Commission Payment Successful! Account Activated.", Toast.LENGTH_LONG).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(if (isBan) "$selectedCommissionMethod দিয়ে ৳$commissionDueAmount পরিশোধ করুন" else "Pay ৳$commissionDueAmount via $selectedCommissionMethod")
                     }
                 }
             },

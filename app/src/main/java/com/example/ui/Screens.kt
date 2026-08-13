@@ -12195,37 +12195,11 @@ fun UserProfileScreen(viewModel: MainViewModel) {
                             color = SecondaryText
                         )
                         Spacer(modifier = Modifier.height(6.dp))
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            listOf("bKash", "Nagad", "Rocket", "Google Pay", "Wise").forEach { method ->
-                                val isSelected = selectedPaymentMethod == method
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .background(
-                                            color = if (isSelected) Color(0xFFE8F5E9) else Color(0xFFF5F5F5),
-                                            shape = RoundedCornerShape(8.dp)
-                                        )
-                                        .border(
-                                            width = 1.dp,
-                                            color = if (isSelected) Color(0xFF2E7D32) else Color.Transparent,
-                                            shape = RoundedCornerShape(8.dp)
-                                        )
-                                        .clickable { selectedPaymentMethod = method }
-                                        .padding(vertical = 8.dp)
-                                ) {
-                                    Text(
-                                        text = method,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isSelected) Color(0xFF2E7D32) else Color.DarkGray
-                                    )
-                                }
-                            }
-                        }
+                        UnifiedPaymentMethodSelector(
+                            selectedMethod = selectedPaymentMethod,
+                            onMethodSelected = { selectedPaymentMethod = it },
+                            availableMethods = listOf("bKash", "Google Pay", "Nagad", "Others")
+                        )
                         
                         Spacer(modifier = Modifier.height(12.dp))
                         val merchantNumber = when (selectedPaymentMethod) {
@@ -19015,46 +18989,18 @@ fun BookingCard(
                             Spacer(modifier = Modifier.height(16.dp))
 
                             // Method Tabs
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                listOf("bKash", "Nagad", "Rocket", "Wise", "Google Play").forEach { m ->
-                                    val isMSelected = selectedMethod == m
-                                    val mColor = when (m) {
-                                        "bKash" -> Color(0xFFD12053)
-                                        "Nagad" -> Color(0xFFF04A23)
-                                        "Rocket" -> Color(0xFF8C3494)
-                                        "Wise" -> Color(0xFF00B4D8)
-                                        "Google Play" -> Color(0xFF01875F)
-                                        else -> Color.Gray
+                            UnifiedPaymentMethodSelector(
+                                selectedMethod = selectedMethod,
+                                onMethodSelected = { m ->
+                                    selectedMethod = m
+                                    if (m == "Google Play" || m == "Google Pay") {
+                                        walletNumber = "help.alifshen.ltd@gmail.com"
+                                    } else {
+                                        walletNumber = ""
                                     }
-                                    Surface(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .clickable { 
-                                                selectedMethod = m
-                                                if (m == "Google Play") {
-                                                    walletNumber = "help.alifshen.ltd@gmail.com"
-                                                } else {
-                                                    walletNumber = ""
-                                                }
-                                            },
-                                        color = if (isMSelected) mColor.copy(alpha = 0.12f) else Color.White,
-                                        shape = RoundedCornerShape(8.dp),
-                                        border = BorderStroke(1.5.dp, if (isMSelected) mColor else LightBorder)
-                                    ) {
-                                        Text(
-                                            text = m,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (isMSelected) mColor else DarkText,
-                                            fontSize = 9.sp,
-                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                            modifier = Modifier.padding(vertical = 8.dp)
-                                        )
-                                    }
-                                }
-                            }
+                                },
+                                availableMethods = listOf("bKash", "Google Pay", "Nagad", "Others")
+                            )
 
                             Spacer(modifier = Modifier.height(16.dp))
 
@@ -20015,38 +19961,11 @@ fun AmbulanceDashboardContent(
                             Spacer(modifier = Modifier.height(16.dp))
 
                             // Methods List
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                listOf("bKash", "Nagad", "Rocket", "Wise").forEach { m ->
-                                    val isMSelected = selectedMethod == m
-                                    val mColor = when (m) {
-                                        "bKash" -> Color(0xFFD12053)
-                                        "Nagad" -> Color(0xFFF04A23)
-                                        "Rocket" -> Color(0xFF8C3494)
-                                        "Wise" -> Color(0xFF00B4D8)
-                                        else -> Color.Gray
-                                    }
-                                    Surface(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .clickable { selectedMethod = m },
-                                        color = if (isMSelected) mColor.copy(alpha = 0.12f) else Color.White,
-                                        shape = RoundedCornerShape(8.dp),
-                                        border = BorderStroke(1.5.dp, if (isMSelected) mColor else LightBorder)
-                                    ) {
-                                        Text(
-                                            text = m,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (isMSelected) mColor else DarkText,
-                                            fontSize = 11.sp,
-                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                            modifier = Modifier.padding(vertical = 8.dp)
-                                        )
-                                    }
-                                }
-                            }
+                            UnifiedPaymentMethodSelector(
+                                selectedMethod = selectedMethod,
+                                onMethodSelected = { selectedMethod = it },
+                                availableMethods = listOf("bKash", "Google Pay", "Nagad", "Others")
+                            )
 
                             Spacer(modifier = Modifier.height(16.dp))
 
@@ -21404,37 +21323,11 @@ fun PlanPaymentModalDialog(
                             color = DarkText
                         )
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            listOf(
-                                "bKash" to (if (language == AppLanguage.BAN) "বিকাশ" else "bKash") to Color(0xFFE91E63),
-                                "Nagad" to (if (language == AppLanguage.BAN) "নগদ" else "Nagad") to Color(0xFFFF9800),
-                                "Rocket" to (if (language == AppLanguage.BAN) "রকেট" else "Rocket") to Color(0xFF673AB7),
-                                "Upay" to (if (language == AppLanguage.BAN) "উপায়" else "Upay") to Color(0xFF00897B)
-                            ).forEach { (pair, color) ->
-                                val (key, label) = pair
-                                val isSelected = selectedBdtOption == key
-                                Surface(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable { selectedBdtOption = key },
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = if (isSelected) color.copy(alpha = 0.15f) else Color(0xFFFAFAFA),
-                                    border = BorderStroke(1.dp, if (isSelected) color else Color.LightGray)
-                                ) {
-                                    Text(
-                                        text = label,
-                                        fontSize = 11.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (isSelected) color else DarkText,
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 2.dp)
-                                    )
-                                }
-                            }
-                        }
+                        UnifiedPaymentMethodSelector(
+                            selectedMethod = selectedBdtOption,
+                            onMethodSelected = { selectedBdtOption = it },
+                            availableMethods = listOf("bKash", "Google Pay", "Nagad", "Others")
+                        )
 
                         val targetNum = when (selectedBdtOption) {
                             "bKash" -> bkashNum
@@ -25587,20 +25480,11 @@ fun AdvertiserPortalScreen(viewModel: MainViewModel) {
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        listOf("bKash", "Nagad", "Rocket", "Card / Google Pay").forEach { method ->
-                            FilterChip(
-                                selected = paymentMethodInput == method,
-                                onClick = { paymentMethodInput = method },
-                                label = { Text(method, fontSize = 11.sp) }
-                            )
-                        }
-                    }
+                    UnifiedPaymentMethodSelector(
+                        selectedMethod = paymentMethodInput,
+                        onMethodSelected = { paymentMethodInput = it },
+                        availableMethods = listOf("bKash", "Google Pay", "Nagad", "Others")
+                    )
 
                     Surface(
                         color = Color(0xFFFFF8E1),
