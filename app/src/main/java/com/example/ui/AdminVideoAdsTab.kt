@@ -507,17 +507,24 @@ fun AdminVideoAdCard(
     onDelete: () -> Unit,
     onExtend: () -> Unit
 ) {
+    val uriHandler = LocalUriHandler.current
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A3C)),
         border = BorderStroke(1.dp, Color(0xFF424242))
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(ad.title, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
                     Text("🏢 $advertiserName • Package: ${ad.packageName}", fontSize = 11.sp, color = Color.Gray)
                 }
+                Spacer(modifier = Modifier.width(8.dp))
                 Surface(
                     color = when (ad.status) {
                         "Active" -> Color(0xFF2E7D32)
@@ -532,7 +539,59 @@ fun AdminVideoAdCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Video Preview & Link Verification Box
+            Surface(
+                color = Color(0xFF1E1E2E),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(8.dp)) {
+                    Text(
+                        text = if (isBn) "📹 ভিডিও লিঙ্ক ও মিডিয়া প্রিভিউ:" else "📹 Video Media & Target Preview:",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF80D8FF)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        if (ad.videoUrl.isNotBlank()) {
+                            Button(
+                                onClick = {
+                                    try { uriHandler.openUri(ad.videoUrl) } catch (e: Exception) {}
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1565C0)),
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(if (isBn) "▶️ প্লে / ভিডিও রিভিউ" else "▶️ Play & Review", fontSize = 10.sp)
+                            }
+                        }
+                        if (ad.ctaUrl.isNotBlank()) {
+                            OutlinedButton(
+                                onClick = {
+                                    try { uriHandler.openUri(ad.ctaUrl) } catch (e: Exception) {}
+                                },
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Icon(Icons.Default.OpenInNew, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(if (isBn) "🌐 টার্গেট পেজ" else "🌐 Target Link", fontSize = 10.sp, color = Color.White)
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Analytics progress
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -545,10 +604,16 @@ fun AdminVideoAdCard(
             // Action Buttons Row
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (ad.status == "Pending Review" || ad.status == "Pending Payment" || ad.status == "Rejected") {
-                    Button(onClick = onApprove, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))) {
-                        Text(if (isBn) "অনুমোদন" else "Approve", fontSize = 10.sp)
+                    Button(
+                        onClick = onApprove,
+                        modifier = Modifier.weight(1.5f),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
+                    ) {
+                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(if (isBn) "⚡ এপ্রুভ করুন & CPA ফিডে লাইভ করুন" else "⚡ Approve & Publish to CPA Feed", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
-                    Button(onClick = onReject, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Color.Red)) {
+                    Button(onClick = onReject, modifier = Modifier.weight(0.8f), colors = ButtonDefaults.buttonColors(containerColor = Color.Red)) {
                         Text(if (isBn) "প্রত্যাখ্যান" else "Reject", fontSize = 10.sp)
                     }
                 } else if (ad.status == "Active" || ad.status == "Paused") {

@@ -1498,11 +1498,11 @@ class BloodConnectRepository private constructor() {
             ) else it
         }
 
-        // Update advertisement status
+        // Update advertisement status to Active instantly when payment is verified
         _videoAdvertisements.value = _videoAdvertisements.value.map { ad ->
             if (ad.id == targetPay.advertisementId) {
                 if (isVerified) {
-                    ad.copy(status = "Pending Review")
+                    ad.copy(status = "Active", rejectionReason = "")
                 } else {
                     ad.copy(status = "Rejected", rejectionReason = "Payment Verification Failed")
                 }
